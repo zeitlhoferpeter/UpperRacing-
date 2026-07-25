@@ -1,4 +1,4 @@
-// app.js - UpperRacing Logic
+// app.js - UpperRacing Logic (Universal-Version)
 
 const tracksData = {
     pannoniaring: { name: "Pannoniaring", curves: 18 },
@@ -14,6 +14,7 @@ function initApp() {
         loadCupUrl();
         switchPage('app');
         setupBaselineButtons();
+        setupUniversalActionButtons();
     } catch (e) {
         console.error("Init Error:", e);
     }
@@ -26,7 +27,7 @@ function getLocalTimestamp() {
     return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
 }
 
-// Erzwingt, dass die HTML-Buttons für Basis-Setup garantiert die richtigen Funktionen nutzen
+// Fängt HTML-Buttons ab und zwingt sie zu den richtigen Aktionen
 function setupBaselineButtons() {
     try {
         document.querySelectorAll('button').forEach(btn => {
@@ -48,10 +49,38 @@ function setupBaselineButtons() {
     }
 }
 
-// --- ABSOLUT SICHERE SEITEN-NAVIGATION ---
+// Fängt universell Buttons wie "+ Neu" ab, falls im HTML ein anderer Funktionsname steht
+function setupUniversalActionButtons() {
+    try {
+        document.querySelectorAll('button').forEach(btn => {
+            const text = btn.textContent.toLowerCase();
+            const onclick = (btn.getAttribute('onclick') || '').toLowerCase();
+            
+            if (text.includes('neu') || text.includes('+') || onclick.includes('new') || onclick.includes('session')) {
+                btn.removeAttribute('onclick');
+                btn.onclick = startNewSessionForm;
+            }
+        });
+    } catch(e) {
+        console.error("Universal buttons error:", e);
+    }
+}
+
+// --- ABSOLUT SICHERE SEITEN-NAVIGATION (Universal für alle IDs) ---
 function switchPage(pageKey) {
     try {
-        ['pageApp', 'pageCurves', 'pageLaps', 'pageCup', 'pagePack'].forEach(id => {
+        if (pageKey === 'setup') pageKey = 'app';
+
+        // Alle möglichen Container-IDs verstecken
+        const allPossiblePageIds = [
+            'pageApp', 'pageSetup', 'setup', 'app', 
+            'pageCurves', 'curves', 
+            'pageLaps', 'laps', 
+            'pageCup', 'cup', 
+            'pagePack', 'pack'
+        ];
+
+        allPossiblePageIds.forEach(id => {
             const el = document.getElementById(id);
             if (el) {
                 el.style.display = 'none';
@@ -64,17 +93,23 @@ function switchPage(pageKey) {
             el.classList.remove('active');
         });
 
+        // Zielseite flexibel finden
         let target = document.getElementById('page' + pageKey.charAt(0).toUpperCase() + pageKey.slice(1)) ||
-                     document.getElementById(pageKey);
+                     document.getElementById(pageKey) ||
+                     document.getElementById('page' + pageKey) ||
+                     (pageKey === 'app' ? document.getElementById('setup') : null) ||
+                     (pageKey === 'app' ? document.getElementById('pageSetup') : null);
         
         if (target) {
             target.style.display = 'block';
             target.classList.add('active');
         }
 
+        // Aktiven Tab markieren
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.remove('active');
-            if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(pageKey)) {
+            const onclick = (btn.getAttribute('onclick') || '').toLowerCase();
+            if (onclick.includes(pageKey.toLowerCase())) {
                 btn.classList.add('active');
             }
         });
@@ -82,6 +117,12 @@ function switchPage(pageKey) {
         console.error("Navigation Error:", e);
     }
 }
+
+// Aliase, damit HTML-Aufrufe mit alten Funktionsnamen nicht fehlschlagen
+function showPage(key) { switchPage(key); }
+function changePage(key) { switchPage(key); }
+function newSession() { startNewSessionForm(); }
+function addNewSession() { startNewSessionForm(); }
 
 function onTrackChange() {
     try {
@@ -107,7 +148,6 @@ function loadSessionsForTrack(track) {
     
     let sessions = JSON.parse(localStorage.getItem(getSessionsKey(track))) || {};
     
-    // Sichere Sortierung, die plattformunabhängig funktioniert (verhindert 'Invalid Date' Abstürze)
     let keys = Object.keys(sessions).sort((a, b) => {
         const dateA = new Date(a.replace(' ', 'T'));
         const dateB = new Date(b.replace(' ', 'T'));
@@ -132,7 +172,6 @@ function loadSessionsForTrack(track) {
     loadSessionData(keys[0]);
 }
 
-// Holt bei neuen Einträgen automatisch das Basis-Setup der Strecke
 function getEmptySessionData(track) {
     const baseline = JSON.parse(localStorage.getItem(`baseline_${track}`));
     if (baseline) {
@@ -174,12 +213,10 @@ function loadSessionData(sessionKey) {
     setFieldValue('gripNotes', data.gripNotes);
     setFieldValue('gearing', data.gearing);
     
-    // Gabel (Front)
     setFieldValue('forkRebound', data.forkRebound);
     setFieldValue('forkCompression', data.forkCompression);
     setFieldValue('forkPreload', data.forkPreload);
 
-    // Federbein (Rear)
     setFieldValue('shockRebound', data.shockRebound);
     setFieldValue('shockCompression', data.shockCompression);
     setFieldValue('shockPreload', data.shockPreload);
