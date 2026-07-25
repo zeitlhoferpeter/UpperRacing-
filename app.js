@@ -370,7 +370,7 @@ function loadBaseline() {
     showNotice('saveNotice', 'Basis-Setup geladen!');
 }
 
-// --- CURVES (Manuelles Speichern wie Basis-Setup) ---
+// --- CURVES (Mit Sicherheitsabfrage beim Speichern) ---
 function renderCurves(track) {
     const container = document.getElementById('curvesContainer');
     if (!container) return;
@@ -424,6 +424,11 @@ function setCurveStatus(num, status) {
 
 function saveCurvesData() {
     const track = document.getElementById('trackSelect').value;
+    
+    if (!confirm("Möchtest du die Kurven-Daten für " + (tracksData[track]?.name || track) + " wirklich speichern und bestehende Notizen überschreiben?")) {
+        return;
+    }
+
     const container = document.getElementById('curvesContainer');
     if (!container) return;
 
@@ -446,7 +451,11 @@ function saveCurvesData() {
     });
 
     localStorage.setItem(`curves_${track}`, JSON.stringify(savedCurves));
-    showNotice('saveNoticeCurves', 'Kurven für ' + (tracksData[track]?.name || track) + ' erfolgreich gespeichert!');
+    showNotice('saveNoticeCurves', 'Kurven für ' + (tracksTestTrackName(track)) + ' erfolgreich gespeichert!');
+}
+
+function tracksTestTrackName(track) {
+    return tracksData[track]?.name || track;
 }
 
 // --- ALL TIME BEST ---
