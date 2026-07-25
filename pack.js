@@ -1,7 +1,7 @@
 // pack.js - Packliste für UpperRacing
 
 const DEFAULT_PACK_DATA = {
-    "Bike & Technik": [
+    "Bike": [
         { id: 1, text: "Motorrad & Reifenwärmer", checked: false },
         { id: 2, text: "Ersatzteile (Hebel, Rasten etc.)", checked: false },
         { id: 3, text: "Werkzeugkasten & Drehmomentschlüssel", checked: false },
@@ -47,7 +47,7 @@ function savePackData(data) {
     localStorage.setItem('upper_pack_data', JSON.stringify(data));
 }
 
-// Rendert die gesamte Packlisten-Ansicht
+// Rendert die gesamte Packlisten-Ansicht in das HTML-Element mit der ID 'packContainer'
 function renderPack() {
     const container = document.getElementById('packContainer');
     if (!container) return;
@@ -93,7 +93,7 @@ function renderPack() {
                     style="flex-grow:1; padding:6px; font-size:0.8rem; background:#222; border:1px solid #444; color:#fff; border-radius:4px;"
                     onkeydown="if(event.key === 'Enter') addPackItem('${categoryName}')">
                 <button type="button" onclick="addPackItem('${categoryName}')" 
-                    style="background:#4CAF50; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:0.8rem; cursor:pointer;">+ Hinzufügen</button>
+                    style="background:#4CAF50; color:#fff; border-name:none; border:none; padding:6px 12px; border-radius:4px; font-size:0.8rem; cursor:pointer;">+ Hinzufügen</button>
             </div>
         `;
 
@@ -135,7 +135,6 @@ function addPackItem(categoryName) {
     let packData = getStoredPackData();
     if (!packData[categoryName]) packData[categoryName] = [];
 
-    // Eindeutige ID generieren
     const newId = Date.now() + Math.floor(Math.random() * 1000);
 
     packData[categoryName].push({
