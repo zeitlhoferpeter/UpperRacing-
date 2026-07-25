@@ -127,6 +127,7 @@ function onTrackChange() {
         const track = trackEl.value;
         loadSessionsForTrack(track);
         renderCurves(track);
+        loadLapSessionsForTrack(track);
         loadAllTimeBest();
     } catch (e) {
         console.error("TrackChange Error:", e);
@@ -370,7 +371,7 @@ function loadBaseline() {
     showNotice('saveNotice', 'Basis-Setup geladen!');
 }
 
-// --- CURVES (Mit Teilen-Funktion) ---
+// --- CURVES ---
 function renderCurves(track) {
     const container = document.getElementById('curvesContainer');
     if (!container) return;
@@ -451,7 +452,7 @@ function saveCurvesData() {
     });
 
     localStorage.setItem(`curves_${track}`, JSON.stringify(savedCurves));
-    showNotice('saveNoticeCurves', 'Kurven für ' + (tracksData[track]?.name || track) + ' erfolgreich gespeichert!');
+    showNotice('saveNoticeCurves', 'Kurven erfolgreich gespeichert!');
 }
 
 function shareCurves() {
@@ -497,6 +498,191 @@ function shareCurves() {
         }).catch(() => {
             alert('Teilen wird von diesem Browser leider nicht unterstützt.');
         });
+    }
+}
+
+// --- RUNDENZEITEN & STINTS ---
+function getLapSessionsKey(track) {
+    return 'upper_laps_' + track;
+}
+
+function loadLapSessionsForTrack(track) {
+    const lapSelect = document.getElementById('lapSessionSelect');
+    if (!lapSelect) return;
+    lapSelect.innerHTML = '';
+
+    let lapSessions = JSON.parse(localStorage.getItem(getLapSessionsKey(track))) || {};
+    let keys = Object.keys(lapSessions).sort((a, b) => {
+        const dateA = new Date(a.replace(' ', 'T'));
+        const dateB = new Date(b.replace(' ', 'T'));
+        return dateB - dateA;
+    });
+
+    if (keys.length === 0) {
+        const defaultKey = getLocalTimestamp();
+        lapSessions[defaultKey] = [];
+        localStorage.setItem(getLapSessionsKey(track), JSON.stringify(lapSessions));
+        keys = [defaultKey];
+    }
+
+    keys.forEach(k => {
+        let opt = document.createElement('option');
+        opt.value = k;
+        opt.textContent = k;
+        lapSelect.appendChild(opt);
+    });
+
+    lapSelect.value = keys[0];
+    renderLapList(lapSessions[keys[0]]);
+}
+
+function onLapSessionChange() {
+    const track = document.getElementById('trackSelect').value;
+    const lapSelect = document.getElementById('lapSessionSelect');
+    if (!lapSelect) return;
+    const lapSessions = JSON.parse(localStorage.getItem(getLapSessionsKey(track))) || {};
+    renderLapList(lapSessions[lapSelect.value] || []);
+}
+
+function startNewLapSession() {
+    const track = document.getElementById('trackSelect').value;
+    const newKey = getLocalTimestamp();
+    
+    let lapSessions = JSON.parse(localStorage.getItem(getLapSessionsKey(track))) || {};
+    lapSessions[newKey] = [];
+    localStorage.setItem(getLapSessionsKey(track), JSON.stringify(lapSessions));
+
+    loadLapSessionsForTrack(track);
+    document.getElementById('lapSessionSelect').value = newKey;
+    renderLapList([]);
+}
+
+function deleteCurrentLapSession() {
+    const track = document.getElementById('trackSelect').value;
+    const lapSelect = document.getElementById('lapSessionSelect');
+    if (!lapSelect) return;
+    const sessionKey = lapSelect.value;
+
+    let lapSessions = JSON.parse(localStorage.getItem(getLapSessionsKey(track))) || {};
+    if (Object.keys(lapSessions).length <= 1) {
+        alert("Der letzte Runden-Stint kann nicht gelöscht werden.");
+        return;
+    }
+
+    if (confirm(`Runden-Stint "${sessionKey}" wirklich löschen?`)) {
+        delete lapSessions[sessionKey];
+        localStorage.setItem(getLapSessionsKey(track), JSON.stringify(lapSessions));
+        loadLapSessionsForTrack(track);
+    }
+}
+
+function addManualLap() {
+    const track = document.getElementById('trackSelect').value;
+    const lapSelect = document.getElementById('lapSessionSelect');
+    if (!lapSelect) return;
+    const sessionKey = lapSelect.value;
+
+    const min = document.getElementById('manualMin').value.trim();
+    const sec = document.getElementById('manualSec').value.trim();
+    const ms = document.getElementById('manualMs').value.trim();
+    const lapNumInput = document.getElementById('manualLapNum').value.trim();
+
+    if (!sec && !min) {
+        alert("Bitte zumindest Sekunden oder Minuten eingeben!");
+        return;
+    }
+
+    const sVal = sec ? String(sec).padStart(2, '0') : '00';
+    const mVal = min ? min + ':' : '';
+    const msVal = ms ? String(ms).padEnd(3, '0').slice(0, 3) : '000';
+    const timeStr = `${mVal}${sVal}.${msVal}`;
+
+    const totalMs = (parseInt(min || 0) * 60 * 1000) + (parseInt(sec || 0) * 1000) + parseInt(ms || 0);
+
+    let lapSessions = JSON.parse(localStorage.getItem(getLapSessionsKey(track))) || {};
+    if (!lapSessions[sessionKey]) lapSessions[sessionKey] = [];
+
+    const lapNum = lapNumInput ? parseInt(lapNumInput) : (lapSessions[sessionKey].length + 1);
+
+    const newLap = { lapNum, timeStr, totalMs };
+    lapSessions[sessionKey].push(newLap);
+    
+    // Sortiere Runden nach Runden-Nummer aufsteigend
+    lapSessions[sessionKey].sort((a, b) => a.lapNum - b.lapNum);
+
+    localStorage.setItem(getLapSessionsKey(track), JSON.stringify(lapSessions));
+    renderLapList(lapSessions[sessionKey]);
+
+    // All-Time-Best prüfen und aktualisieren
+    checkAndUpdateAllTimeBest(timeStr, totalMs, track);
+
+    // Eingabefelder zurücksetzen
+    document.getElementById('manualMin').value = '';
+    document.getElementById('manualSec').value = '';
+    document.getElementById('manualMs').value = '';
+    document.getElementById('manualLapNum').value = '';
+}
+
+function renderLapList(lapsArray) {
+    const container = document.getElementById('lapsContainer');
+    if (!container) return;
+
+    if (!lapsArray || lapsArray.length === 0) {
+        container.innerHTML = `<p style="font-size:0.75rem; color:#888;">Noch keine Runden in diesem Stint.</p>`;
+        return;
+    }
+
+    let html = `<table style="width:100%; border-collapse:collapse; text-align:left;">
+        <tr style="border-bottom:1px solid #444; font-size:0.75rem; color:#aaa;">
+            <th style="padding:4px;">Runde</th>
+            <th style="padding:4px;">Zeit</th>
+        </tr>`;
+
+    lapsArray.forEach(lap => {
+        html += `<tr style="border-bottom:1px solid #222;">
+            <td style="padding:4px;">Runde ${lap.lapNum}</td>
+            <td style="padding:4px; font-weight:bold; color:#4CAF50;">${lap.timeStr}</td>
+        </tr>`;
+    });
+
+    html += `</table>`;
+    container.innerHTML = html;
+}
+
+function confirmClearLaps() {
+    const track = document.getElementById('trackSelect').value;
+    const lapSelect = document.getElementById('lapSessionSelect');
+    if (!lapSelect) return;
+    const sessionKey = lapSelect.value;
+
+    if (confirm("Alle Runden in diesem Stint löschen?")) {
+        let lapSessions = JSON.parse(localStorage.getItem(getLapSessionsKey(track))) || {};
+        lapSessions[sessionKey] = [];
+        localStorage.setItem(getLapSessionsKey(track), JSON.stringify(lapSessions));
+        renderLapList([]);
+    }
+}
+
+function handleLapPhotoScan(event) {
+    const statusEl = document.getElementById('scanStatus');
+    if (statusEl) {
+        statusEl.style.display = 'block';
+        statusEl.textContent = "Foto-Scan Funktion ist vorbereitet (wird in einem späteren Update mit Leben gefüllt).";
+        setTimeout(() => { statusEl.style.display = 'none'; }, 4000);
+    }
+}
+
+function checkAndUpdateAllTimeBest(timeStr, totalMs, track) {
+    const bestKey = `allTimeBest_${track}`;
+    const currentBest = JSON.parse(localStorage.getItem(bestKey));
+    if (!currentBest || totalMs < currentBest.totalMs) {
+        const newBest = {
+            timeStr: timeStr,
+            totalMs: totalMs,
+            date: getLocalTimestamp()
+        };
+        localStorage.setItem(bestKey, JSON.stringify(newBest));
+        loadAllTimeBest();
     }
 }
 
