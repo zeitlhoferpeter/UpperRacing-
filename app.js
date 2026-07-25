@@ -19,7 +19,7 @@ function initApp() {
     }
 }
 
-// Präzise lokale Zeit deines Geräts (ohne UTC-Versatz)
+// Lokale Zeit im sauberen Format
 function getLocalTimestamp() {
     const now = new Date();
     const pad = (n) => String(n).padStart(2, '0');
@@ -74,7 +74,6 @@ function switchPage(pageKey) {
 
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.remove('active');
-            // Hier war der Tippfehler korrigiert:
             if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(pageKey)) {
                 btn.classList.add('active');
             }
@@ -107,7 +106,13 @@ function loadSessionsForTrack(track) {
     sessionSelect.innerHTML = '';
     
     let sessions = JSON.parse(localStorage.getItem(getSessionsKey(track))) || {};
-    let keys = Object.keys(sessions).sort((a, b) => new Date(b) - new Date(a));
+    
+    // Sichere Sortierung, die plattformunabhängig funktioniert (verhindert 'Invalid Date' Abstürze)
+    let keys = Object.keys(sessions).sort((a, b) => {
+        const dateA = new Date(a.replace(' ', 'T'));
+        const dateB = new Date(b.replace(' ', 'T'));
+        return dateB - dateA;
+    });
     
     if (keys.length === 0) {
         const defaultKey = getLocalTimestamp();
