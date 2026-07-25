@@ -111,7 +111,12 @@
                 <h3>Strecken-Kurven-Guide</h3>
                 <p style="font-size:0.75rem; color:#aaa; margin-bottom:10px;">Markiere den Gang, die Linie und den Status für jede Kurve.</p>
                 <div id="curvesContainer"></div>
-                <button class="btn-main" onclick="saveCurvesData()" style="margin-top:10px;">💾 Kurven Speichern</button>
+                
+                <div style="display:flex; gap:10px; margin-top:10px;">
+                    <button class="btn-main" onclick="saveCurvesData()" style="flex:2;">💾 Kurven Speichern</button>
+                    <button class="btn-main" onclick="shareCurves()" style="background:#336699; flex:1;">📤 Teilen</button>
+                </div>
+                
                 <div id="saveNoticeCurves" class="notice-msg">Kurven erfolgreich gespeichert!</div>
             </div>
         </div>
