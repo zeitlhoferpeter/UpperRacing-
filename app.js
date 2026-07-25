@@ -27,7 +27,7 @@ function getLocalTimestamp() {
     return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
 }
 
-// Fängt HTML-Buttons ab und zwingt sie zu den richtigen Aktionen
+// Fängt HTML-Buttons ab und zwingt sie to den richtigen Aktionen
 function setupBaselineButtons() {
     try {
         document.querySelectorAll('button').forEach(btn => {
@@ -178,22 +178,26 @@ function getEmptySessionData(track) {
         return {
             tireFront: baseline.tireFront || '',
             tireRear: baseline.tireRear || '',
-            outsideTemp: '',
-            gripNotes: '',
+            outsideTemp: baseline.outsideTemp || '',
             gearing: baseline.gearing || '',
             forkRebound: baseline.forkRebound || '',
             forkCompression: baseline.forkCompression || '',
             forkPreload: baseline.forkPreload || '',
+            forkSag: baseline.forkSag || '',
+            forkRemaining: baseline.forkRemaining || '',
             shockRebound: baseline.shockRebound || '',
             shockCompression: baseline.shockCompression || '',
             shockPreload: baseline.shockPreload || '',
+            shockSag: baseline.shockSag || '',
+            shockRemaining: baseline.shockRemaining || '',
             tireImage: ''
         };
     }
     return {
-        tireFront: '', tireRear: '', outsideTemp: '', gripNotes: '',
-        gearing: '', forkRebound: '', forkCompression: '', forkPreload: '',
-        shockRebound: '', shockCompression: '', shockPreload: '', tireImage: ''
+        tireFront: '', tireRear: '', outsideTemp: '', gearing: '',
+        forkRebound: '', forkCompression: '', forkPreload: '', forkSag: '', forkRemaining: '',
+        shockRebound: '', shockCompression: '', shockPreload: '', shockSag: '', shockRemaining: '',
+        tireImage: ''
     };
 }
 
@@ -210,16 +214,19 @@ function loadSessionData(sessionKey) {
     setFieldValue('tireFront', data.tireFront);
     setFieldValue('tireRear', data.tireRear);
     setFieldValue('outsideTemp', data.outsideTemp);
-    setFieldValue('gripNotes', data.gripNotes);
     setFieldValue('gearing', data.gearing);
     
     setFieldValue('forkRebound', data.forkRebound);
     setFieldValue('forkCompression', data.forkCompression);
     setFieldValue('forkPreload', data.forkPreload);
+    setFieldValue('forkSag', data.forkSag);
+    setFieldValue('forkRemaining', data.forkRemaining);
 
     setFieldValue('shockRebound', data.shockRebound);
     setFieldValue('shockCompression', data.shockCompression);
     setFieldValue('shockPreload', data.shockPreload);
+    setFieldValue('shockSag', data.shockSag);
+    setFieldValue('shockRemaining', data.shockRemaining);
 
     const imgPrev = document.getElementById('tireImagePreview');
     const imgCont = document.getElementById('tireImageContainer');
@@ -270,14 +277,17 @@ function saveData() {
         tireFront: document.getElementById('tireFront')?.value || '',
         tireRear: document.getElementById('tireRear')?.value || '',
         outsideTemp: document.getElementById('outsideTemp')?.value || '',
-        gripNotes: document.getElementById('gripNotes')?.value || '',
         gearing: document.getElementById('gearing')?.value || '',
         forkRebound: document.getElementById('forkRebound')?.value || '',
         forkCompression: document.getElementById('forkCompression')?.value || '',
         forkPreload: document.getElementById('forkPreload')?.value || '',
+        forkSag: document.getElementById('forkSag')?.value || '',
+        forkRemaining: document.getElementById('forkRemaining')?.value || '',
         shockRebound: document.getElementById('shockRebound')?.value || '',
         shockCompression: document.getElementById('shockCompression')?.value || '',
         shockPreload: document.getElementById('shockPreload')?.value || '',
+        shockSag: document.getElementById('shockSag')?.value || '',
+        shockRemaining: document.getElementById('shockRemaining')?.value || '',
         tireImage: imgSrc
     };
 
@@ -324,13 +334,18 @@ function executeSaveBaseline() {
     const baseline = {
         tireFront: document.getElementById('tireFront')?.value || '',
         tireRear: document.getElementById('tireRear')?.value || '',
+        outsideTemp: document.getElementById('outsideTemp')?.value || '',
         gearing: document.getElementById('gearing')?.value || '',
         forkRebound: document.getElementById('forkRebound')?.value || '',
         forkCompression: document.getElementById('forkCompression')?.value || '',
         forkPreload: document.getElementById('forkPreload')?.value || '',
+        forkSag: document.getElementById('forkSag')?.value || '',
+        forkRemaining: document.getElementById('forkRemaining')?.value || '',
         shockRebound: document.getElementById('shockRebound')?.value || '',
         shockCompression: document.getElementById('shockCompression')?.value || '',
-        shockPreload: document.getElementById('shockPreload')?.value || ''
+        shockPreload: document.getElementById('shockPreload')?.value || '',
+        shockSag: document.getElementById('shockSag')?.value || '',
+        shockRemaining: document.getElementById('shockRemaining')?.value || ''
     };
     
     localStorage.setItem(`baseline_${track}`, JSON.stringify(baseline));
@@ -346,13 +361,18 @@ function loadBaseline() {
     }
     setFieldValue('tireFront', baseline.tireFront);
     setFieldValue('tireRear', baseline.tireRear);
+    setFieldValue('outsideTemp', baseline.outsideTemp);
     setFieldValue('gearing', baseline.gearing);
     setFieldValue('forkRebound', baseline.forkRebound);
     setFieldValue('forkCompression', baseline.forkCompression);
     setFieldValue('forkPreload', baseline.forkPreload);
+    setFieldValue('forkSag', baseline.forkSag);
+    setFieldValue('forkRemaining', baseline.forkRemaining);
     setFieldValue('shockRebound', baseline.shockRebound);
     setFieldValue('shockCompression', baseline.shockCompression);
     setFieldValue('shockPreload', baseline.shockPreload);
+    setFieldValue('shockSag', baseline.shockSag);
+    setFieldValue('shockRemaining', baseline.shockRemaining);
     
     showNotice('saveNotice', 'Basis-Setup geladen!');
 }
