@@ -59,10 +59,6 @@
                     <label>Außentemperatur / Strecke (°C)</label>
                     <input type="text" id="outsideTemp" placeholder="z.B. 28°C Asphalttemperatur">
                 </div>
-                <div style="margin-top: 10px;">
-                    <label>Grip-Notizen</label>
-                    <textarea id="gripNotes" rows="2" placeholder="Reifenbild, Rutscher am Kurvenausgang..."></textarea>
-                </div>
                 
                 <!-- Reifenbild Upload -->
                 <div style="margin-top: 10px;">
@@ -77,23 +73,28 @@
 
             <div class="setup-box">
                 <h3>Fahrwerk & Übersetzung</h3>
-                <div class="grid-2">
-                    <div><label>Übersetzung (Ritzel/Kettenrad)</label><input type="text" id="gearing" placeholder="z.B. 15/43"></div>
-                    <div><label>Federbein Stufe (Preload)</label><input type="text" id="preload" placeholder="z.B. 5 Umdrehungen"></div>
-                    <div><label>Zugstufe (Rebound)</label><input type="text" id="rebound" placeholder="z.B. 12 Klicks offen"></div>
-                    <div><label>Druckstufe (Compression)</label><input type="text" id="compression" placeholder="z.B. 10 Klicks offen"></div>
+                <div style="margin-bottom: 10px;">
+                    <label>Übersetzung (Ritzel/Kettenrad)</label>
+                    <input type="text" id="gearing" placeholder="z.B. 15/43">
                 </div>
-            </div>
 
-            <div class="setup-box">
-                <h3>Fahrer-Feedback & Runden im Stint</h3>
-                <textarea id="quickFeedback" rows="3" placeholder="Wie lief der Stint? Wo verlierst du Zeit?"></textarea>
-                
-                <div style="margin-top: 10px;">
-                    <label>Rundenzeiten (Format: mm:ss.ms oder Runden untereinander)</label>
-                    <textarea id="lapTimes" rows="4" placeholder="2:14.520&#10;2:13.890" oninput="analyzeLaps()"></textarea>
+                <h4 style="font-size: 0.85rem; color: #ffaa00; margin: 10px 0 6px 0;">Gabel (Front)</h4>
+                <div class="grid-2">
+                    <div><label>Zugstufe (Rebound)</label><input type="text" id="forkRebound" placeholder="z.B. 12 Klicks offen"></div>
+                    <div><label>Druckstufe (Compression)</label><input type="text" id="forkCompression" placeholder="z.B. 10 Klicks offen"></div>
+                    <div><label>Federvorspannung (Preload)</label><input type="text" id="forkPreload" placeholder="z.B. 5 Umdrehungen"></div>
+                    <div><label>Negativfederweg (Sag)</label><input type="text" id="forkSag" placeholder="z.B. 35 mm"></div>
+                    <div style="grid-column: span 2;"><label>Restfederweg</label><input type="text" id="forkRemaining" placeholder="z.B. 15 mm"></div>
                 </div>
-                <div id="lapAnalysis" style="margin-top:8px; background: #222; padding:8px; border-radius:4px; font-size:0.85rem; display:none;"></div>
+
+                <h4 style="font-size: 0.85rem; color: #ffaa00; margin: 14px 0 6px 0;">Federbein (Rear)</h4>
+                <div class="grid-2">
+                    <div><label>Zugstufe (Rebound)</label><input type="text" id="shockRebound" placeholder="z.B. 12 Klicks offen"></div>
+                    <div><label>Druckstufe (Compression)</label><input type="text" id="shockCompression" placeholder="z.B. 10 Klicks offen"></div>
+                    <div><label>Federvorspannung (Preload)</label><input type="text" id="shockPreload" placeholder="z.B. 5 Umdrehungen"></div>
+                    <div><label>Negativfederweg (Sag)</label><input type="text" id="shockSag" placeholder="z.B. 30 mm"></div>
+                    <div style="grid-column: span 2;"><label>Restfederweg</label><input type="text" id="shockRemaining" placeholder="z.B. 10 mm"></div>
+                </div>
             </div>
 
             <div style="display:flex; gap:10px; margin-bottom: 20px;">
