@@ -370,7 +370,7 @@ function loadBaseline() {
     showNotice('saveNotice', 'Basis-Setup geladen!');
 }
 
-// --- CURVES (Mit Sicherheitsabfrage beim Speichern) ---
+// --- CURVES (Mit Teilen-Funktion) ---
 function renderCurves(track) {
     const container = document.getElementById('curvesContainer');
     if (!container) return;
@@ -451,11 +451,53 @@ function saveCurvesData() {
     });
 
     localStorage.setItem(`curves_${track}`, JSON.stringify(savedCurves));
-    showNotice('saveNoticeCurves', 'Kurven für ' + (tracksTestTrackName(track)) + ' erfolgreich gespeichert!');
+    showNotice('saveNoticeCurves', 'Kurven für ' + (tracksData[track]?.name || track) + ' erfolgreich gespeichert!');
 }
 
-function tracksTestTrackName(track) {
-    return tracksData[track]?.name || track;
+function shareCurves() {
+    const track = document.getElementById('trackSelect').value;
+    const trackName = tracksData[track]?.name || track;
+    const container = document.getElementById('curvesContainer');
+    
+    let text = `🏍️ Kurven-Guide: ${trackName}\n------------------\n`;
+    const count = tracksData[track].curves;
+
+    if (container) {
+        const cards = container.querySelectorAll('.curve-card');
+        cards.forEach(card => {
+            const i = card.dataset.curveNum;
+            const status = card.dataset.status || 'green';
+            const gear = document.getElementById(`curve_gear_${i}`)?.value || '';
+            const line = document.getElementById(`curve_line_${i}`)?.value || '';
+            const notes = document.getElementById(`curve_notes_${i}`)?.value || '';
+
+            if (gear || line || notes) {
+                let statusEmoji = status === 'red' ? '🔴' : (status === 'yellow' ? '🟡' : '🟢');
+                text += `Kurve ${i} ${statusEmoji}\n`;
+                if (gear) text += ` Gang: ${gear}\n`;
+                if (line) text += ` Linie: ${line}\n`;
+                if (notes) text += ` Notiz: ${notes}\n`;
+                text += `------------------\n`;
+            }
+        });
+    }
+
+    if (text === `🏍️ Kurven-Guide: ${trackName}\n------------------\n`) {
+        text += `Noch keine Notizen ausgefüllt.`;
+    }
+
+    if (navigator.share) {
+        navigator.share({
+            title: `Kurven-Guide ${trackName}`,
+            text: text
+        }).catch(() => {});
+    } else {
+        navigator.clipboard.writeText(text).then(() => {
+            showNotice('saveNoticeCurves', 'Kurven-Notizen in die Zwischenablage kopiert!');
+        }).catch(() => {
+            alert('Teilen wird von diesem Browser leider nicht unterstützt.');
+        });
+    }
 }
 
 // --- ALL TIME BEST ---
