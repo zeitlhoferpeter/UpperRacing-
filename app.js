@@ -19,18 +19,11 @@ function initApp() {
     }
 }
 
-// Robuste und präzise lokale Zeit (verhindert den UTC-Versatz komplett)
+// Präzise lokale Zeit deines Geräts (ohne UTC-Versatz)
 function getLocalTimestamp() {
     const now = new Date();
-    const formatter = new Intl.DateTimeFormat('sv-SE', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-    });
-    return formatter.format(now);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
 }
 
 // Erzwingt, dass die HTML-Buttons für Basis-Setup garantiert die richtigen Funktionen nutzen
@@ -81,7 +74,8 @@ function switchPage(pageKey) {
 
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.remove('active');
-            if (btn.getAttribute('onclick') && btn.getAttribute('onclick'].includes(pageKey)) {
+            // Hier war der Tippfehler korrigiert:
+            if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(pageKey)) {
                 btn.classList.add('active');
             }
         });
@@ -143,9 +137,9 @@ function getEmptySessionData(track) {
             outsideTemp: '',
             gripNotes: '',
             gearing: baseline.gearing || '',
-            forkRebound: baseline.forkRebound || baseline.rebound || '',
-            forkCompression: baseline.forkCompression || baseline.compression || '',
-            forkPreload: baseline.forkPreload || baseline.preload || '',
+            forkRebound: baseline.forkRebound || '',
+            forkCompression: baseline.forkCompression || '',
+            forkPreload: baseline.forkPreload || '',
             shockRebound: baseline.shockRebound || '',
             shockCompression: baseline.shockCompression || '',
             shockPreload: baseline.shockPreload || '',
@@ -175,10 +169,10 @@ function loadSessionData(sessionKey) {
     setFieldValue('gripNotes', data.gripNotes);
     setFieldValue('gearing', data.gearing);
     
-    // Gabel (Front) & Fallbacks für ältere IDs
-    setFieldValue('forkRebound', data.forkRebound || data.rebound);
-    setFieldValue('forkCompression', data.forkCompression || data.compression);
-    setFieldValue('forkPreload', data.forkPreload || data.preload);
+    // Gabel (Front)
+    setFieldValue('forkRebound', data.forkRebound);
+    setFieldValue('forkCompression', data.forkCompression);
+    setFieldValue('forkPreload', data.forkPreload);
 
     // Federbein (Rear)
     setFieldValue('shockRebound', data.shockRebound);
@@ -214,7 +208,7 @@ function startNewSessionForm() {
     loadSessionsForTrack(track);
     document.getElementById('sessionSelect').value = newKey;
     loadSessionData(newKey);
-    showNotice('saveNotice', 'Neuer Eintrag angelegt (Basis-Setup automatisch übernommen)!');
+    showNotice('saveNotice', 'Neuer Eintrag angelegt (Basis-Setup übernommen)!');
 }
 
 function saveData() {
@@ -236,9 +230,9 @@ function saveData() {
         outsideTemp: document.getElementById('outsideTemp')?.value || '',
         gripNotes: document.getElementById('gripNotes')?.value || '',
         gearing: document.getElementById('gearing')?.value || '',
-        forkRebound: document.getElementById('forkRebound')?.value || document.getElementById('rebound')?.value || '',
-        forkCompression: document.getElementById('forkCompression')?.value || document.getElementById('compression')?.value || '',
-        forkPreload: document.getElementById('forkPreload')?.value || document.getElementById('preload')?.value || '',
+        forkRebound: document.getElementById('forkRebound')?.value || '',
+        forkCompression: document.getElementById('forkCompression')?.value || '',
+        forkPreload: document.getElementById('forkPreload')?.value || '',
         shockRebound: document.getElementById('shockRebound')?.value || '',
         shockCompression: document.getElementById('shockCompression')?.value || '',
         shockPreload: document.getElementById('shockPreload')?.value || '',
@@ -289,9 +283,9 @@ function executeSaveBaseline() {
         tireFront: document.getElementById('tireFront')?.value || '',
         tireRear: document.getElementById('tireRear')?.value || '',
         gearing: document.getElementById('gearing')?.value || '',
-        forkRebound: document.getElementById('forkRebound')?.value || document.getElementById('rebound')?.value || '',
-        forkCompression: document.getElementById('forkCompression')?.value || document.getElementById('compression')?.value || '',
-        forkPreload: document.getElementById('forkPreload')?.value || document.getElementById('preload')?.value || '',
+        forkRebound: document.getElementById('forkRebound')?.value || '',
+        forkCompression: document.getElementById('forkCompression')?.value || '',
+        forkPreload: document.getElementById('forkPreload')?.value || '',
         shockRebound: document.getElementById('shockRebound')?.value || '',
         shockCompression: document.getElementById('shockCompression')?.value || '',
         shockPreload: document.getElementById('shockPreload')?.value || ''
@@ -311,9 +305,9 @@ function loadBaseline() {
     setFieldValue('tireFront', baseline.tireFront);
     setFieldValue('tireRear', baseline.tireRear);
     setFieldValue('gearing', baseline.gearing);
-    setFieldValue('forkRebound', baseline.forkRebound || baseline.rebound);
-    setFieldValue('forkCompression', baseline.forkCompression || baseline.compression);
-    setFieldValue('forkPreload', baseline.forkPreload || baseline.preload);
+    setFieldValue('forkRebound', baseline.forkRebound);
+    setFieldValue('forkCompression', baseline.forkCompression);
+    setFieldValue('forkPreload', baseline.forkPreload);
     setFieldValue('shockRebound', baseline.shockRebound);
     setFieldValue('shockCompression', baseline.shockCompression);
     setFieldValue('shockPreload', baseline.shockPreload);
