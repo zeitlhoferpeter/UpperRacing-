@@ -13,8 +13,6 @@ function initApp() {
         onTrackChange();
         loadCupUrl();
         switchPage('app');
-        setupBaselineButtons();
-        setupUniversalActionButtons();
     } catch (e) {
         console.error("Init Error:", e);
     }
@@ -25,45 +23,6 @@ function getLocalTimestamp() {
     const now = new Date();
     const pad = (n) => String(n).padStart(2, '0');
     return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-}
-
-// Fängt HTML-Buttons ab und zwingt sie zu den richtigen Aktionen
-function setupBaselineButtons() {
-    try {
-        document.querySelectorAll('button').forEach(btn => {
-            const text = btn.textContent.toLowerCase();
-            const onclick = (btn.getAttribute('onclick') || '').toLowerCase();
-            
-            if (text.includes('basis') || text.includes('baseline') || onclick.includes('baseline') || onclick.includes('base')) {
-                if (text.includes('speichern') || onclick.includes('save') || text.includes('als')) {
-                    btn.removeAttribute('onclick');
-                    btn.onclick = executeSaveBaseline;
-                } else if (text.includes('laden') || onclick.includes('load')) {
-                    btn.removeAttribute('onclick');
-                    btn.onclick = loadBaseline;
-                }
-            }
-        });
-    } catch(e) {
-        console.error("Setup buttons error:", e);
-    }
-}
-
-// Fängt universell Buttons wie "+ Neu" ab
-function setupUniversalActionButtons() {
-    try {
-        document.querySelectorAll('button').forEach(btn => {
-            const text = btn.textContent.toLowerCase();
-            const onclick = (btn.getAttribute('onclick') || '').toLowerCase();
-            
-            if (text.includes('neu') || text.includes('+') || onclick.includes('new') || onclick.includes('session')) {
-                btn.removeAttribute('onclick');
-                btn.onclick = startNewSessionForm;
-            }
-        });
-    } catch(e) {
-        console.error("Universal buttons error:", e);
-    }
 }
 
 // --- ABSOLUT SICHERE SEITEN-NAVIGATION ---
