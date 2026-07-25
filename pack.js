@@ -133,16 +133,19 @@ function addPackItem(cIndex) {
 
 function deletePackItem(cIndex, iIndex) {
     let categories = getPackData();
-    categories[cIndex].items.splice(iIndex, 1);
-    localStorage.setItem('upper_pack_list', JSON.stringify(categories));
-    renderPackList();
+    const itemName = categories[cIndex].items[iIndex];
+    
+    if (confirm(`Möchtest du "${itemName}" wirklich aus der Packliste löschen?`)) {
+        categories[cIndex].items.splice(iIndex, 1);
+        localStorage.setItem('upper_pack_list', JSON.stringify(categories));
+        renderPackList();
+    }
 }
 
 function resetPackList() {
-    if (confirm("Packliste komplett auf Standard zurücksetzen?")) {
+    if (confirm("Möchtest du alle Häkchen zurücksetzen? (Eigene Einträge bleiben erhalten)")) {
         localStorage.removeItem('upper_pack_checked');
-        localStorage.removeItem('upper_pack_list');
         renderPackList();
-        showNotice('saveNotice', 'Packliste zurückgesetzt!');
+        showNotice('saveNotice', 'Häkchen zurückgesetzt!');
     }
 }
