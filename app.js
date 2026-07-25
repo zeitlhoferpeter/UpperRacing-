@@ -15,6 +15,9 @@ function initApp() {
         onTrackChange();
         loadCupUrl();
         switchPage('setup');
+        if (typeof initBackup === 'function') {
+            initBackup();
+        }
     } catch (e) {
         console.error("Init Error:", e);
     }
