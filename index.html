@@ -121,7 +121,6 @@
                         <button type="button" onclick="deleteCurrentLapSession()" style="background:#f44336; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer;" title="Stint löschen">🗑️</button>
                     </div>
 
-                    <!-- Manuelle Eingabe -->
                     <div style="background:#222; padding:10px; border-radius:6px; margin-bottom:12px;">
                         <h4 style="margin:0 0 8px 0; font-size:0.9rem; color:#aaa;">Runde hinzufügen</h4>
                         <div style="display:flex; gap:6px; align-items:center; margin-bottom:8px;">
@@ -130,7 +129,7 @@
                             <input type="number" id="manualSec" placeholder="Sek" style="width:50px; padding:6px; background:#111; border:1px solid #444; color:#fff; text-align:center; border-radius:4px;">
                             <span>.</span>
                             <input type="number" id="manualMs" placeholder="ms" style="width:60px; padding:6px; background:#111; border:1px solid #444; color:#fff; text-align:center; border-radius:4px;">
-                            <input type="number" id="manualLapNum" placeholder="Nr." style="width:45px; padding:6px; background:#111; border:1px solid #444; color:#fff; text-align:center; border-radius:4px;" title="Rundennummer (optional)">
+                            <input type="number" id="manualLapNum" placeholder="Nr." style="width:45px; padding:6px; background:#111; border:1px solid #444; color:#fff; text-align:center; border-radius:4px;" title="Rundennummer">
                         </div>
                         <button type="button" onclick="addManualLap()" style="width:100%; background:#2196F3; color:#fff; border:none; padding:8px; border-radius:4px; cursor:pointer; font-weight:bold;">Runde eintragen</button>
                     </div>
@@ -146,7 +145,7 @@
                 <div class="setup-box" style="border-left: 4px solid #FFD700;">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <h3 style="margin:0; color:#FFD700;">🏆 All-Time-Best</h3>
-                        <button type="button" onclick="confirmClearAllTimeBest()" style="background:none; border:none; color:#888; cursor:pointer; font-size:0.75rem;" title="Zurücksetzen">Zurücksetzen</button>
+                        <button type="button" onclick="confirmClearAllTimeBest()" style="background:none; border:none; color:#888; cursor:pointer; font-size:0.75rem;">Zurücksetzen</button>
                     </div>
                     <div style="font-size:1.4rem; font-weight:bold; margin:6px 0;" id="allTimeValue">--:--.---</div>
                     <div style="font-size:0.75rem; color:#888;" id="allTimeDate">Noch keine Zeit</div>
@@ -157,7 +156,7 @@
             <div id="pageCup" class="page-content" style="display:none;">
                 <div class="setup-box">
                     <h3>Cup-Reglement / Info</h3>
-                    <p style="font-size:0.85rem; color:#ccc; margin-bottom:12px;">Hier kannst du den offiziellen Cup-Link oder das PDF aufrufen.</p>
+                    <p style="font-size:0.85rem; color:#ccc; margin-bottom:12px;">Offizieller Cup-Link oder PDF.</p>
                     <div style="margin-bottom:10px;">
                         <label style="font-size:0.75rem">Cup Link / PDF URL</label>
                         <input type="text" id="cupUrlInput" placeholder="https://..." style="width:100%; padding:8px; background:#222; border:1px solid #444; color:#fff; border-radius:4px; margin-top:4px;">
