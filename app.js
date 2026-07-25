@@ -600,6 +600,14 @@ function loadAllTimeBest() {
     }
 }
 
+function confirmClearAllTimeBest() {
+    const track = document.getElementById('trackSelect').value;
+    if (confirm("Möchtest du die Bestzeit für diese Strecke wirklich löschen?")) {
+        localStorage.removeItem(`allTimeBest_${track}`);
+        loadAllTimeBest();
+    }
+}
+
 function openCupInBrowser() {
     const urlInput = document.getElementById('cupUrlInput');
     let url = urlInput ? urlInput.value.trim() : '';
