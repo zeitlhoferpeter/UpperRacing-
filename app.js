@@ -601,10 +601,20 @@ function loadAllTimeBest() {
 }
 
 function confirmClearAllTimeBest() {
-    const track = document.getElementById('trackSelect').value;
-    if (confirm("Möchtest du die Bestzeit für diese Strecke wirklich löschen?")) {
-        localStorage.removeItem(`allTimeBest_${track}`);
-        loadAllTimeBest();
+    try {
+        const trackEl = document.getElementById('trackSelect');
+        if (!trackEl) return;
+        const track = trackEl.value;
+        
+        if (confirm(`Möchtest du die Bestzeit für diese Strecke wirklich löschen?`)) {
+            localStorage.removeItem(`allTimeBest_${track}`);
+            localStorage.removeItem('allTimeBest_' + encodeURIComponent(track));
+            loadAllTimeBest();
+            showNotice('saveNotice', 'Bestzeit erfolgreich gelöscht!');
+        }
+    } catch (e) {
+        console.error("Fehler beim Löschen der Bestzeit:", e);
+        alert("Fehler beim Löschen. Bitte Browser-Einstellungen prüfen.");
     }
 }
 
