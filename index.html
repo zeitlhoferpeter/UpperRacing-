@@ -9,17 +9,23 @@
 <body onload="initApp()">
 
     <div class="app-container">
-        <!-- Header -->
+        <!-- Header mit All-Time-Best rechts oben -->
         <header class="app-header">
-            <h1>🏍️ UpperRacing</h1>
-            <div class="track-selector-wrapper">
-                <select id="trackSelect" onchange="onTrackChange()">
-                    <option value="pannoniaring">Pannoniaring</option>
-                    <option value="slovakia">Slovakiaring</option>
-                    <option value="brünn">Brünn</option>
-                    <option value="most">Autodrom Most</option>
-                    <option value="grobnik">Grobnik / Rijeka</option>
-                </select>
+            <div>
+                <h1>🏍️ UpperRacing</h1>
+                <div class="track-selector-wrapper" style="margin-top:5px;">
+                    <select id="trackSelect" onchange="onTrackChange()">
+                        <option value="pannoniaring">Pannoniaring</option>
+                        <option value="slovakia">Slovakiaring</option>
+                        <option value="brünn">Brünn</option>
+                        <option value="most">Autodrom Most</option>
+                        <option value="grobnik">Grobnik / Rijeka</option>
+                    </select>
+                </div>
+            </div>
+            <div id="headerAllTime" style="text-align:right; background:#222; padding:6px 10px; border-radius:6px; border:1px solid #444;">
+                <div style="font-size:0.65rem; color:#FFD700;">🏆 Bestzeit</div>
+                <div id="headerAllTimeValue" style="font-size:0.85rem; font-weight:bold; color:#fff;">--:--.---</div>
             </div>
         </header>
 
@@ -34,7 +40,7 @@
 
         <!-- Main Content Area -->
         <main>
-            <!-- SETUP / APP PAGE -->
+            <!-- SETUP PAGE -->
             <div id="pageSetup" class="page-content active">
                 <div class="setup-box">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
@@ -47,10 +53,13 @@
                     </div>
                     
                     <div class="grid-2">
-                        <div><label>Luftdruck V / H</label><input type="text" id="tireFront" placeholder="V: 2.1 / H: 1.5"></div>
-                        <div><label>Luft-/Asphalttemp.</label><input type="text" id="outsideTemp" placeholder="25°C / 35°C"></div>
+                        <div><label>Luftdruck Vorne</label><input type="text" id="tireFront" placeholder="2.1 bar"></div>
+                        <div><label>Luftdruck Hinten</label><input type="text" id="tireRear" placeholder="1.5 bar"></div>
                     </div>
-                    <div style="margin-top:8px;"><label>Übersetzung</label><input type="text" id="gearing" placeholder="15 / 43"></div>
+                    <div class="grid-2" style="margin-top:8px;">
+                        <div><label>Luft-/Asphalttemp.</label><input type="text" id="outsideTemp" placeholder="25°C / 35°C"></div>
+                        <div><label>Übersetzung</label><input type="text" id="gearing" placeholder="15 / 43"></div>
+                    </div>
                 </div>
 
                 <!-- Fahrwerk Gabel -->
@@ -139,16 +148,6 @@
                         <button type="button" onclick="confirmClearLaps()" style="background:none; border:none; color:#f44336; cursor:pointer; font-size:0.8rem;">Stint leeren</button>
                     </div>
                     <div id="lapsContainer"></div>
-                </div>
-
-                <!-- All Time Best -->
-                <div class="setup-box" style="border-left: 4px solid #FFD700;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <h3 style="margin:0; color:#FFD700;">🏆 All-Time-Best</h3>
-                        <button type="button" onclick="confirmClearAllTimeBest()" style="background:none; border:none; color:#888; cursor:pointer; font-size:0.75rem;">Zurücksetzen</button>
-                    </div>
-                    <div style="font-size:1.4rem; font-weight:bold; margin:6px 0;" id="allTimeValue">--:--.---</div>
-                    <div style="font-size:0.75rem; color:#888;" id="allTimeDate">Noch keine Zeit</div>
                 </div>
             </div>
 
