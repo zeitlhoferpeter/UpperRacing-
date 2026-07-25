@@ -64,9 +64,14 @@ function switchPage(pageKey) {
             target.style.display = 'block';
             target.classList.add('active');
             
-            // Link direkt laden, wenn der Cup-Tab geöffnet wird
-            if (pageKey.toLowerCase() === 'cup') {
+            // Direkt Funktionen beim Tab-Wechsel aufrufen
+            const lowerKey = pageKey.toLowerCase();
+            if (lowerKey === 'cup') {
                 loadCupUrl();
+            } else if (lowerKey === 'pack') {
+                if (typeof initPack === 'function') {
+                    initPack();
+                }
             }
         }
 
