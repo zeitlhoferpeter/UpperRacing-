@@ -1,4 +1,4 @@
-// app.js - UpperRacing Logic
+// app.js - UpperRacing Hauptlogik
 
 const tracksData = {
     pannoniaring: { name: "Pannoniaring", curves: 18 },
@@ -220,7 +220,7 @@ function startNewSessionForm() {
     loadSessionsForTrack(track);
     document.getElementById('sessionSelect').value = newKey;
     loadSessionData(newKey);
-    showNotice('saveNotice', 'Neuer Eintrag angelegt (Basis-Setup übernommen)!');
+    showNotice('saveNotice', 'Neuer Eintrag angelegt!');
 }
 
 function saveData() {
@@ -387,7 +387,6 @@ function setCurveStatus(num, status) {
 
 function saveCurvesData() {
     const track = document.getElementById('trackSelect').value;
-    
     if (!confirm("Kurven-Daten speichern?")) return;
 
     const container = document.getElementById('curvesContainer');
