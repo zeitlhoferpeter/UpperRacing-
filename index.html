@@ -123,6 +123,12 @@
 
         <!-- SEITE 3: ZEITEN & SCAN -->
         <div id="pageLaps" class="page-content">
+            <div class="session-bar">
+                <select id="lapSessionSelect" onchange="onLapSessionChange()"></select>
+                <button onclick="startNewLapSession()">+ Neu</button>
+                <button onclick="deleteCurrentLapSession()" style="background: #aa3333;">Löschen</button>
+            </div>
+
             <div class="setup-box">
                 <h3>Zeiten manuell hinzufügen</h3>
                 <div class="grid-3" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:6px; margin-bottom:8px;">
@@ -135,14 +141,18 @@
             </div>
 
             <div class="setup-box">
+                <h3>Erfasste Runden (dieser Stint)</h3>
+                <div id="lapsContainer" style="max-height: 180px; overflow-y: auto; margin-bottom: 10px; font-size:0.9rem;">
+                    <p style="font-size:0.75rem; color:#888;">Noch keine Runden in diesem Stint.</p>
+                </div>
+                <button class="btn-main" onclick="confirmClearLaps()" style="background:#aa3333;">Diesen Stint leeren</button>
+            </div>
+
+            <div class="setup-box">
                 <h3>Zeiten per Foto einlesen</h3>
                 <p style="font-size:0.75rem; color:#aaa; margin-bottom:8px;">Fotografiere deinen Laptimer / Zeiten-Ausdruck.</p>
                 <input type="file" accept="image/*" capture="environment" onchange="handleLapPhotoScan(event)">
                 <div id="scanStatus" style="margin-top:6px; font-size:0.8rem; color:#4CAF50; display:none;"></div>
-            </div>
-            
-            <div class="setup-box">
-                <button class="btn-main" onclick="confirmClearLaps()" style="background:#aa3333;">Alle Runden dieses Stints löschen</button>
             </div>
         </div>
 
