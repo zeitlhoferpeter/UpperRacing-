@@ -63,6 +63,11 @@ function switchPage(pageKey) {
         if (target) {
             target.style.display = 'block';
             target.classList.add('active');
+            
+            // Link direkt laden, wenn der Cup-Tab geöffnet wird
+            if (pageKey.toLowerCase() === 'cup') {
+                loadCupUrl();
+            }
         }
 
         document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -569,16 +574,13 @@ function addManualLap() {
     const newLap = { lapNum, timeStr, totalMs };
     lapSessions[sessionKey].push(newLap);
     
-    // Sortiere Runden nach Runden-Nummer aufsteigend
     lapSessions[sessionKey].sort((a, b) => a.lapNum - b.lapNum);
 
     localStorage.setItem(getLapSessionsKey(track), JSON.stringify(lapSessions));
     renderLapList(lapSessions[sessionKey]);
 
-    // All-Time-Best prüfen und aktualisieren
     checkAndUpdateAllTimeBest(timeStr, totalMs, track);
 
-    // Eingabefelder zurücksetzen
     document.getElementById('manualMin').value = '';
     document.getElementById('manualSec').value = '';
     document.getElementById('manualMs').value = '';
@@ -676,7 +678,10 @@ function confirmClearAllTimeBest() {
 // --- CUP & IMAGES ---
 function openCupInBrowser() {
     const urlInput = document.getElementById('cupUrlInput');
-    const url = urlInput ? urlInput.value : '#';
+    let url = urlInput ? urlInput.value.trim() : '';
+    if (!url) {
+        url = DEFAULT_CUP_URL;
+    }
     window.open(url, '_blank');
 }
 
@@ -689,8 +694,9 @@ function saveCupUrl() {
 
 function loadCupUrl() {
     const urlInput = document.getElementById('cupUrlInput');
-    const url = localStorage.getItem('cupUrl') || DEFAULT_CUP_URL;
-    if (url && urlInput) {
+    const savedUrl = localStorage.getItem('cupUrl');
+    const url = (savedUrl && savedUrl.trim() !== '') ? savedUrl : DEFAULT_CUP_URL;
+    if (urlInput) {
         urlInput.value = url;
     }
 }
