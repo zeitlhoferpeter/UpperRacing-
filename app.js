@@ -1,4 +1,4 @@
-// app.js - UpperRacing Logic (Universal-Version)
+// app.js - UpperRacing Logic
 
 const tracksData = {
     pannoniaring: { name: "Pannoniaring", curves: 18 },
@@ -8,33 +8,30 @@ const tracksData = {
     grobnik: { name: "Automotodrom Grobnik / Rijeka", curves: 18 }
 };
 
-// Fester Standard-Link für den Cup
 const DEFAULT_CUP_URL = "https://www.stardesignracing.com/wp-content/uploads/2026/07/Cup-2026.pdf";
 
 function initApp() {
     try {
         onTrackChange();
         loadCupUrl();
-        switchPage('app');
+        switchPage('setup');
     } catch (e) {
         console.error("Init Error:", e);
     }
 }
 
-// Lokale Zeit im sauberen Format
 function getLocalTimestamp() {
     const now = new Date();
     const pad = (n) => String(n).padStart(2, '0');
     return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
 }
 
-// --- ABSOLUT SICHERE SEITEN-NAVIGATION ---
 function switchPage(pageKey) {
     try {
-        if (pageKey === 'setup') pageKey = 'app';
+        if (pageKey === 'app') pageKey = 'setup';
 
         const allPossiblePageIds = [
-            'pageApp', 'pageSetup', 'setup', 'app', 
+            'pageSetup', 'setup', 
             'pageCurves', 'curves', 
             'pageLaps', 'laps', 
             'pageCup', 'cup', 
@@ -56,15 +53,12 @@ function switchPage(pageKey) {
 
         let target = document.getElementById('page' + pageKey.charAt(0).toUpperCase() + pageKey.slice(1)) ||
                      document.getElementById(pageKey) ||
-                     document.getElementById('page' + pageKey) ||
-                     (pageKey === 'app' ? document.getElementById('setup') : null) ||
-                     (pageKey === 'app' ? document.getElementById('pageSetup') : null);
+                     document.getElementById('page' + pageKey);
         
         if (target) {
             target.style.display = 'block';
             target.classList.add('active');
             
-            // Direkt Funktionen beim Tab-Wechsel aufrufen
             const lowerKey = pageKey.toLowerCase();
             if (lowerKey === 'cup') {
                 loadCupUrl();
@@ -284,16 +278,13 @@ function deleteCurrentSession() {
     }
 }
 
-// --- BASIS SETUP SPEICHERN & LADEN ---
 function saveAsBaseline() { executeSaveBaseline(); }
 function saveBaseline() { executeSaveBaseline(); }
-function saveBaseSetup() { executeSaveBaseline(); }
-function saveBasisSetup() { executeSaveBaseline(); }
 
 function executeSaveBaseline() {
     const track = document.getElementById('trackSelect').value;
     
-    if (!confirm("Möchtest du das aktuelle Setup wirklich als neues Basis-Setup für " + (tracksData[track]?.name || track) + " speichern?")) {
+    if (!confirm("Möchtest du das aktuelle Setup als neues Basis-Setup speichern?")) {
         return;
     }
 
@@ -315,7 +306,7 @@ function executeSaveBaseline() {
     };
     
     localStorage.setItem(`baseline_${track}`, JSON.stringify(baseline));
-    showNotice('saveNotice', 'Basis-Setup für ' + (tracksData[track]?.name || track) + ' gespeichert!');
+    showNotice('saveNotice', 'Basis-Setup gespeichert!');
 }
 
 function loadBaseline() {
@@ -343,7 +334,6 @@ function loadBaseline() {
     showNotice('saveNotice', 'Basis-Setup geladen!');
 }
 
-// --- CURVES ---
 function renderCurves(track) {
     const container = document.getElementById('curvesContainer');
     if (!container) return;
@@ -369,7 +359,7 @@ function renderCurves(track) {
             </div>
             <div class="grid-2" style="margin-top:6px;">
                 <div><label style="font-size:0.7rem">Gang</label><input type="text" id="curve_gear_${i}" value="${cData.gear}" placeholder="z.B. 3"></div>
-                <div><label style="font-size:0.7rem">Linie / Apex</label><input type="text" id="curve_line_${i}" value="${cData.line}" placeholder="Spät einlenken"></div>
+                <div><label style="font-size:0.7rem">Linie</label><input type="text" id="curve_line_${i}" value="${cData.line}" placeholder="Apex..."></div>
             </div>
             <div style="margin-top:4px;"><textarea id="curve_notes_${i}" rows="2" placeholder="Notiz...">${cData.notes}</textarea></div>
         `;
@@ -398,9 +388,7 @@ function setCurveStatus(num, status) {
 function saveCurvesData() {
     const track = document.getElementById('trackSelect').value;
     
-    if (!confirm("Möchtest du die Kurven-Daten für " + (tracksData[track]?.name || track) + " wirklich speichern und bestehende Notizen überschreiben?")) {
-        return;
-    }
+    if (!confirm("Kurven-Daten speichern?")) return;
 
     const container = document.getElementById('curvesContainer');
     if (!container) return;
@@ -411,20 +399,16 @@ function saveCurvesData() {
     cards.forEach(card => {
         const i = card.dataset.curveNum;
         const status = card.dataset.status || 'green';
-        const gearEl = document.getElementById(`curve_gear_${i}`);
-        const lineEl = document.getElementById(`curve_line_${i}`);
-        const notesEl = document.getElementById(`curve_notes_${i}`);
-
         savedCurves[i] = {
             status: status,
-            gear: gearEl ? gearEl.value : '',
-            line: lineEl ? lineEl.value : '',
-            notes: notesEl ? notesEl.value : ''
+            gear: document.getElementById(`curve_gear_${i}`)?.value || '',
+            line: document.getElementById(`curve_line_${i}`)?.value || '',
+            notes: document.getElementById(`curve_notes_${i}`)?.value || ''
         };
     });
 
     localStorage.setItem(`curves_${track}`, JSON.stringify(savedCurves));
-    showNotice('saveNoticeCurves', 'Kurven erfolgreich gespeichert!');
+    showNotice('saveNoticeCurves', 'Kurven gespeichert!');
 }
 
 function shareCurves() {
@@ -433,8 +417,6 @@ function shareCurves() {
     const container = document.getElementById('curvesContainer');
     
     let text = `🏍️ Kurven-Guide: ${trackName}\n------------------\n`;
-    const count = tracksData[track].curves;
-
     if (container) {
         const cards = container.querySelectorAll('.curve-card');
         cards.forEach(card => {
@@ -455,25 +437,15 @@ function shareCurves() {
         });
     }
 
-    if (text === `🏍️ Kurven-Guide: ${trackName}\n------------------\n`) {
-        text += `Noch keine Notizen ausgefüllt.`;
-    }
-
     if (navigator.share) {
-        navigator.share({
-            title: `Kurven-Guide ${trackName}`,
-            text: text
-        }).catch(() => {});
+        navigator.share({ title: `Kurven ${trackName}`, text: text }).catch(() => {});
     } else {
         navigator.clipboard.writeText(text).then(() => {
-            showNotice('saveNoticeCurves', 'Kurven-Notizen in die Zwischenablage kopiert!');
-        }).catch(() => {
-            alert('Teilen wird von diesem Browser leider nicht unterstützt.');
+            showNotice('saveNoticeCurves', 'In Zwischenablage kopiert!');
         });
     }
 }
 
-// --- RUNDENZEITEN & STINTS ---
 function getLapSessionsKey(track) {
     return 'upper_laps_' + track;
 }
@@ -484,11 +456,7 @@ function loadLapSessionsForTrack(track) {
     lapSelect.innerHTML = '';
 
     let lapSessions = JSON.parse(localStorage.getItem(getLapSessionsKey(track))) || {};
-    let keys = Object.keys(lapSessions).sort((a, b) => {
-        const dateA = new Date(a.replace(' ', 'T'));
-        const dateB = new Date(b.replace(' ', 'T'));
-        return dateB - dateA;
-    });
+    let keys = Object.keys(lapSessions).sort((a, b) => new Date(b.replace(' ', 'T')) - new Date(a.replace(' ', 'T')));
 
     if (keys.length === 0) {
         const defaultKey = getLocalTimestamp();
@@ -537,11 +505,11 @@ function deleteCurrentLapSession() {
 
     let lapSessions = JSON.parse(localStorage.getItem(getLapSessionsKey(track))) || {};
     if (Object.keys(lapSessions).length <= 1) {
-        alert("Der letzte Runden-Stint kann nicht gelöscht werden.");
+        alert("Der letzte Stint kann nicht gelöscht werden.");
         return;
     }
 
-    if (confirm(`Runden-Stint "${sessionKey}" wirklich löschen?`)) {
+    if (confirm(`Stint "${sessionKey}" löschen?`)) {
         delete lapSessions[sessionKey];
         localStorage.setItem(getLapSessionsKey(track), JSON.stringify(lapSessions));
         loadLapSessionsForTrack(track);
@@ -560,7 +528,7 @@ function addManualLap() {
     const lapNumInput = document.getElementById('manualLapNum').value.trim();
 
     if (!sec && !min) {
-        alert("Bitte zumindest Sekunden oder Minuten eingeben!");
+        alert("Bitte Zeit eingeben!");
         return;
     }
 
@@ -568,7 +536,6 @@ function addManualLap() {
     const mVal = min ? min + ':' : '';
     const msVal = ms ? String(ms).padEnd(3, '0').slice(0, 3) : '000';
     const timeStr = `${mVal}${sVal}.${msVal}`;
-
     const totalMs = (parseInt(min || 0) * 60 * 1000) + (parseInt(sec || 0) * 1000) + parseInt(ms || 0);
 
     let lapSessions = JSON.parse(localStorage.getItem(getLapSessionsKey(track))) || {};
@@ -576,14 +543,11 @@ function addManualLap() {
 
     const lapNum = lapNumInput ? parseInt(lapNumInput) : (lapSessions[sessionKey].length + 1);
 
-    const newLap = { lapNum, timeStr, totalMs };
-    lapSessions[sessionKey].push(newLap);
-    
+    lapSessions[sessionKey].push({ lapNum, timeStr, totalMs });
     lapSessions[sessionKey].sort((a, b) => a.lapNum - b.lapNum);
 
     localStorage.setItem(getLapSessionsKey(track), JSON.stringify(lapSessions));
     renderLapList(lapSessions[sessionKey]);
-
     checkAndUpdateAllTimeBest(timeStr, totalMs, track);
 
     document.getElementById('manualMin').value = '';
@@ -597,7 +561,7 @@ function renderLapList(lapsArray) {
     if (!container) return;
 
     if (!lapsArray || lapsArray.length === 0) {
-        container.innerHTML = `<p style="font-size:0.75rem; color:#888;">Noch keine Runden in diesem Stint.</p>`;
+        container.innerHTML = `<p style="font-size:0.75rem; color:#888;">Noch keine Runden.</p>`;
         return;
     }
 
@@ -624,7 +588,7 @@ function confirmClearLaps() {
     if (!lapSelect) return;
     const sessionKey = lapSelect.value;
 
-    if (confirm("Alle Runden in diesem Stint löschen?")) {
+    if (confirm("Stint leeren?")) {
         let lapSessions = JSON.parse(localStorage.getItem(getLapSessionsKey(track))) || {};
         lapSessions[sessionKey] = [];
         localStorage.setItem(getLapSessionsKey(track), JSON.stringify(lapSessions));
@@ -632,30 +596,15 @@ function confirmClearLaps() {
     }
 }
 
-function handleLapPhotoScan(event) {
-    const statusEl = document.getElementById('scanStatus');
-    if (statusEl) {
-        statusEl.style.display = 'block';
-        statusEl.textContent = "Foto-Scan Funktion ist vorbereitet (wird in einem späteren Update mit Leben gefüllt).";
-        setTimeout(() => { statusEl.style.display = 'none'; }, 4000);
-    }
-}
-
 function checkAndUpdateAllTimeBest(timeStr, totalMs, track) {
     const bestKey = `allTimeBest_${track}`;
     const currentBest = JSON.parse(localStorage.getItem(bestKey));
     if (!currentBest || totalMs < currentBest.totalMs) {
-        const newBest = {
-            timeStr: timeStr,
-            totalMs: totalMs,
-            date: getLocalTimestamp()
-        };
-        localStorage.setItem(bestKey, JSON.stringify(newBest));
+        localStorage.setItem(bestKey, JSON.stringify({ timeStr, totalMs, date: getLocalTimestamp() }));
         loadAllTimeBest();
     }
 }
 
-// --- ALL TIME BEST ---
 function loadAllTimeBest() {
     const track = document.getElementById('trackSelect').value;
     const best = JSON.parse(localStorage.getItem(`allTimeBest_${track}`));
@@ -665,7 +614,7 @@ function loadAllTimeBest() {
     
     if (best && best.timeStr) {
         valEl.textContent = best.timeStr;
-        dateEl.textContent = best.date || 'Unbekanntes Datum';
+        dateEl.textContent = best.date;
     } else {
         valEl.textContent = '--:--.---';
         dateEl.textContent = 'Noch keine Zeit';
@@ -674,19 +623,16 @@ function loadAllTimeBest() {
 
 function confirmClearAllTimeBest() {
     const track = document.getElementById('trackSelect').value;
-    if(confirm("All-Time-Best für diese Strecke wirklich löschen?")) {
+    if(confirm("All-Time-Best löschen?")) {
         localStorage.removeItem(`allTimeBest_${track}`);
         loadAllTimeBest();
     }
 }
 
-// --- CUP & IMAGES ---
 function openCupInBrowser() {
     const urlInput = document.getElementById('cupUrlInput');
     let url = urlInput ? urlInput.value.trim() : '';
-    if (!url) {
-        url = DEFAULT_CUP_URL;
-    }
+    if (!url) url = DEFAULT_CUP_URL;
     window.open(url, '_blank');
 }
 
@@ -701,9 +647,7 @@ function loadCupUrl() {
     const urlInput = document.getElementById('cupUrlInput');
     const savedUrl = localStorage.getItem('cupUrl');
     const url = (savedUrl && savedUrl.trim() !== '') ? savedUrl : DEFAULT_CUP_URL;
-    if (urlInput) {
-        urlInput.value = url;
-    }
+    if (urlInput) urlInput.value = url;
 }
 
 function handleImageUpload(event) {
@@ -749,19 +693,5 @@ function showNotice(elementId, text) {
     if(!el) return;
     el.textContent = text;
     el.style.display = 'block';
-    setTimeout(() => {
-        el.style.display = 'none';
-    }, 2500);
-}
-
-function exportData() {
-    const track = document.getElementById('trackSelect').value;
-    const sessions = localStorage.getItem(getSessionsKey(track));
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(sessions);
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `UpperRacing_${track}_Export.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
+    setTimeout(() => { el.style.display = 'none'; }, 2500);
 }
