@@ -8,6 +8,9 @@ const tracksData = {
     grobnik: { name: "Automotodrom Grobnik / Rijeka", curves: 18 }
 };
 
+// Fester Standard-Link für den Cup
+const DEFAULT_CUP_URL = "https://www.stardesignracing.com/wp-content/uploads/2026/07/Cup-2026.pdf";
+
 function initApp() {
     try {
         onTrackChange();
@@ -686,8 +689,8 @@ function saveCupUrl() {
 
 function loadCupUrl() {
     const urlInput = document.getElementById('cupUrlInput');
-    const url = localStorage.getItem('cupUrl');
-    if(url && urlInput) {
+    const url = localStorage.getItem('cupUrl') || DEFAULT_CUP_URL;
+    if (url && urlInput) {
         urlInput.value = url;
     }
 }
