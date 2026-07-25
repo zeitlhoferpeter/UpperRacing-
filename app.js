@@ -30,22 +30,6 @@ function switchPage(pageKey) {
     try {
         if (pageKey === 'app') pageKey = 'setup';
 
-        const allPossiblePageIds = [
-            'pageSetup', 'setup', 
-            'pageCurves', 'curves', 
-            'pageLaps', 'laps', 
-            'pageCup', 'cup', 
-            'pagePack', 'pack'
-        ];
-
-        allPossiblePageIds.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.style.display = 'none';
-                el.classList.remove('active');
-            }
-        });
-
         document.querySelectorAll('.page-content').forEach(el => {
             el.style.display = 'none';
             el.classList.remove('active');
@@ -607,24 +591,12 @@ function checkAndUpdateAllTimeBest(timeStr, totalMs, track) {
 function loadAllTimeBest() {
     const track = document.getElementById('trackSelect').value;
     const best = JSON.parse(localStorage.getItem(`allTimeBest_${track}`));
-    const valEl = document.getElementById('allTimeValue');
-    const dateEl = document.getElementById('allTimeDate');
-    if (!valEl || !dateEl) return;
+    const headerValEl = document.getElementById('headerAllTimeValue');
     
     if (best && best.timeStr) {
-        valEl.textContent = best.timeStr;
-        dateEl.textContent = best.date;
+        if (headerValEl) headerValEl.textContent = best.timeStr;
     } else {
-        valEl.textContent = '--:--.---';
-        dateEl.textContent = 'Noch keine Zeit';
-    }
-}
-
-function confirmClearAllTimeBest() {
-    const track = document.getElementById('trackSelect').value;
-    if(confirm("All-Time-Best löschen?")) {
-        localStorage.removeItem(`allTimeBest_${track}`);
-        loadAllTimeBest();
+        if (headerValEl) headerValEl.textContent = '--:--.---';
     }
 }
 
