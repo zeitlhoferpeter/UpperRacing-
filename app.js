@@ -27,7 +27,7 @@ function getLocalTimestamp() {
     return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
 }
 
-// Fängt HTML-Buttons ab und zwingt sie to den richtigen Aktionen
+// Fängt HTML-Buttons ab und zwingt sie zu den richtigen Aktionen
 function setupBaselineButtons() {
     try {
         document.querySelectorAll('button').forEach(btn => {
@@ -49,7 +49,7 @@ function setupBaselineButtons() {
     }
 }
 
-// Fängt universell Buttons wie "+ Neu" ab, falls im HTML ein anderer Funktionsname steht
+// Fängt universell Buttons wie "+ Neu" ab
 function setupUniversalActionButtons() {
     try {
         document.querySelectorAll('button').forEach(btn => {
@@ -66,12 +66,11 @@ function setupUniversalActionButtons() {
     }
 }
 
-// --- ABSOLUT SICHERE SEITEN-NAVIGATION (Universal für alle IDs) ---
+// --- ABSOLUT SICHERE SEITEN-NAVIGATION ---
 function switchPage(pageKey) {
     try {
         if (pageKey === 'setup') pageKey = 'app';
 
-        // Alle möglichen Container-IDs verstecken
         const allPossiblePageIds = [
             'pageApp', 'pageSetup', 'setup', 'app', 
             'pageCurves', 'curves', 
@@ -93,7 +92,6 @@ function switchPage(pageKey) {
             el.classList.remove('active');
         });
 
-        // Zielseite flexibel finden
         let target = document.getElementById('page' + pageKey.charAt(0).toUpperCase() + pageKey.slice(1)) ||
                      document.getElementById(pageKey) ||
                      document.getElementById('page' + pageKey) ||
@@ -105,7 +103,6 @@ function switchPage(pageKey) {
             target.classList.add('active');
         }
 
-        // Aktiven Tab markieren
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.remove('active');
             const onclick = (btn.getAttribute('onclick') || '').toLowerCase();
@@ -118,7 +115,6 @@ function switchPage(pageKey) {
     }
 }
 
-// Aliase, damit HTML-Aufrufe mit alten Funktionsnamen nicht fehlschlagen
 function showPage(key) { switchPage(key); }
 function changePage(key) { switchPage(key); }
 function newSession() { startNewSessionForm(); }
@@ -292,10 +288,7 @@ function saveData() {
     };
 
     localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
-    saveCurvesData();
-
     showNotice('saveNotice', 'Erfolgreich gespeichert!');
-    showNotice('saveNoticeCurves', 'Kurven erfolgreich gespeichert!');
 }
 
 function deleteCurrentSession() {
@@ -377,7 +370,7 @@ function loadBaseline() {
     showNotice('saveNotice', 'Basis-Setup geladen!');
 }
 
-// --- CURVES ---
+// --- CURVES (Manuelles Speichern wie Basis-Setup) ---
 function renderCurves(track) {
     const container = document.getElementById('curvesContainer');
     if (!container) return;
@@ -388,12 +381,14 @@ function renderCurves(track) {
     for (let i = 1; i <= count; i++) {
         const cData = savedCurves[i] || { status: 'green', gear: '', line: '', notes: '' };
         let card = document.createElement('div');
-        card.className = 'setup-box';
+        card.className = 'setup-box curve-card';
+        card.dataset.curveNum = i;
+        card.dataset.status = cData.status || 'green';
         card.style.marginBottom = '10px';
         card.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <strong>Kurve ${i}</strong>
-                <div>
+                <div class="curve-status-buttons" data-curve="${i}">
                     <button type="button" class="btn-status ${cData.status==='red'?'active-red':''}" onclick="setCurveStatus(${i}, 'red')">🔴</button>
                     <button type="button" class="btn-status ${cData.status==='yellow'?'active-yellow':''}" onclick="setCurveStatus(${i}, 'yellow')">🟡</button>
                     <button type="button" class="btn-status ${cData.status==='green'?'active-green':''}" onclick="setCurveStatus(${i}, 'green')">🟢</button>
@@ -410,31 +405,48 @@ function renderCurves(track) {
 }
 
 function setCurveStatus(num, status) {
-    const track = document.getElementById('trackSelect').value;
-    let savedCurves = JSON.parse(localStorage.getItem(`curves_${track}`)) || {};
-    if(!savedCurves[num]) savedCurves[num] = {};
-    savedCurves[num].status = status;
-    localStorage.setItem(`curves_${track}`, JSON.stringify(savedCurves));
-    renderCurves(track);
+    const container = document.getElementById('curvesContainer');
+    if (!container) return;
+    const card = container.querySelector(`[data-curve-num="${num}"]`);
+    if (!card) return;
+
+    card.dataset.status = status;
+
+    const buttons = card.querySelectorAll('.btn-status');
+    buttons.forEach(btn => {
+        btn.classList.remove('active-red', 'active-yellow', 'active-green');
+        const onclick = btn.getAttribute('onclick') || '';
+        if (onclick.includes("'red'") && status === 'red') btn.classList.add('active-red');
+        if (onclick.includes("'yellow'") && status === 'yellow') btn.classList.add('active-yellow');
+        if (onclick.includes("'green'") && status === 'green') btn.classList.add('active-green');
+    });
 }
 
 function saveCurvesData() {
     const track = document.getElementById('trackSelect').value;
-    const count = tracksData[track].curves;
-    let savedCurves = JSON.parse(localStorage.getItem(`curves_${track}`)) || {};
+    const container = document.getElementById('curvesContainer');
+    if (!container) return;
 
-    for (let i = 1; i <= count; i++) {
+    let savedCurves = {};
+    const cards = container.querySelectorAll('.curve-card');
+    
+    cards.forEach(card => {
+        const i = card.dataset.curveNum;
+        const status = card.dataset.status || 'green';
         const gearEl = document.getElementById(`curve_gear_${i}`);
         const lineEl = document.getElementById(`curve_line_${i}`);
         const notesEl = document.getElementById(`curve_notes_${i}`);
-        if(gearEl) {
-            if(!savedCurves[i]) savedCurves[i] = {};
-            savedCurves[i].gear = gearEl.value;
-            savedCurves[i].line = lineEl.value;
-            savedCurves[i].notes = notesEl.value;
-        }
-    }
+
+        savedCurves[i] = {
+            status: status,
+            gear: gearEl ? gearEl.value : '',
+            line: lineEl ? lineEl.value : '',
+            notes: notesEl ? notesEl.value : ''
+        };
+    });
+
     localStorage.setItem(`curves_${track}`, JSON.stringify(savedCurves));
+    showNotice('saveNoticeCurves', 'Kurven für ' + (tracksData[track]?.name || track) + ' erfolgreich gespeichert!');
 }
 
 // --- ALL TIME BEST ---
