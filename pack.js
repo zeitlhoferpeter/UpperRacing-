@@ -1,4 +1,4 @@
-// pack.js - Packliste für UpperRacing
+// pack.js - Packliste mit Bike, Ausrüstung, Verpflegung (Spaghetti) & Sicherheitsabfrage
 
 const DEFAULT_PACK_DATA = {
     "Bike": [
