@@ -33,7 +33,6 @@ function initPack() {
     renderPack();
 }
 
-// Lädt die Packdaten aus dem localStorage oder initialisiert die Standard-Werte
 function getStoredPackData() {
     const saved = localStorage.getItem('upper_pack_data');
     if (!saved) {
@@ -47,7 +46,6 @@ function savePackData(data) {
     localStorage.setItem('upper_pack_data', JSON.stringify(data));
 }
 
-// Rendert die gesamte Packlisten-Ansicht in das HTML-Element mit der ID 'packContainer'
 function renderPack() {
     const container = document.getElementById('packContainer');
     if (!container) return;
@@ -55,7 +53,6 @@ function renderPack() {
     const packData = getStoredPackData();
     container.innerHTML = '';
 
-    // Für jede Kategorie eine Box bauen
     for (const [categoryName, items] of Object.entries(packData)) {
         let box = document.createElement('div');
         box.className = 'setup-box';
@@ -69,7 +66,6 @@ function renderPack() {
             <div style="margin-bottom:10px;">
         `;
 
-        // Alle Items der Kategorie durchgehen
         items.forEach(item => {
             let specialStyle = item.isSpecial ? 'font-weight:bold; color:#FF9800;' : '';
             html += `
@@ -93,7 +89,7 @@ function renderPack() {
                     style="flex-grow:1; padding:6px; font-size:0.8rem; background:#222; border:1px solid #444; color:#fff; border-radius:4px;"
                     onkeydown="if(event.key === 'Enter') addPackItem('${categoryName}')">
                 <button type="button" onclick="addPackItem('${categoryName}')" 
-                    style="background:#4CAF50; color:#fff; border-name:none; border:none; padding:6px 12px; border-radius:4px; font-size:0.8rem; cursor:pointer;">+ Hinzufügen</button>
+                    style="background:#4CAF50; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:0.8rem; cursor:pointer;">+ Hinzufügen</button>
             </div>
         `;
 
@@ -102,12 +98,10 @@ function renderPack() {
     }
 }
 
-// Hilfsfunktion um IDs für Inputs sauber zu halten
 function escapeCategoryKey(cat) {
     return cat.replace(/[^a-zA-Z0-9]/g, '_');
 }
 
-// Status (Check / Uncheck) umschalten
 function togglePackItem(categoryName, itemId) {
     let packData = getStoredPackData();
     if (packData[categoryName]) {
@@ -120,7 +114,6 @@ function togglePackItem(categoryName, itemId) {
     }
 }
 
-// Neues Element zu einer Kategorie hinzufügen
 function addPackItem(categoryName) {
     const inputId = 'new_item_' + escapeCategoryKey(categoryName);
     const inputEl = document.getElementById(inputId);
@@ -147,7 +140,6 @@ function addPackItem(categoryName) {
     renderPack();
 }
 
-// Element mit Sicherheitsabfrage löschen
 function deletePackItem(categoryName, itemId) {
     let packData = getStoredPackData();
     if (!packData[categoryName]) return;
@@ -162,7 +154,6 @@ function deletePackItem(categoryName, itemId) {
     }
 }
 
-// Optional: Gesamte Packliste auf Standard zurücksetzen
 function resetPackList() {
     if (confirm("Möchtest du die Packliste komplett auf die Standard-Werte zurücksetzen?")) {
         localStorage.removeItem('upper_pack_data');
