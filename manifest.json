@@ -1,15 +1,17 @@
 {
-  "name": "UpperRacing",
+  "name": "UpperRacing - Trackday App",
   "short_name": "UpperRacing",
-  "start_url": "/",
+  "description": "Deine Trackday App für Setup, Kurven & Rundenzeiten",
+  "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#111827",
-  "theme_color": "#2563eb",
+  "background_color": "#121212",
+  "theme_color": "#1f1f1f",
   "icons": [
     {
       "src": "icon.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
