@@ -36,6 +36,7 @@
             <button type="button" class="tab-btn" onclick="switchPage('laps')">Runden</button>
             <button type="button" class="tab-btn" onclick="switchPage('cup')">Cup</button>
             <button type="button" class="tab-btn" onclick="switchPage('pack')">Packliste</button>
+            <button type="button" class="tab-btn" onclick="switchPage('backup')">Backup</button>
         </nav>
 
         <!-- Main Content Area -->
@@ -175,6 +176,28 @@
                 </div>
                 <div id="packContainer"></div>
             </div>
+
+            <!-- BACKUP PAGE -->
+            <div id="pageBackup" class="page-content" style="display:none;">
+                <div class="setup-box">
+                    <h3>Daten & Backup</h3>
+                    <p style="font-size:0.85rem; color:#ccc; margin-bottom:12px;">Sichere deine Sessions, Rundenzeiten und Einstellungen als JSON-Datei oder spiele ein Backup ein.</p>
+                    
+                    <div id="backupReminderBanner" style="display:none; background:#ff9800; color:#000; padding:10px; border-radius:6px; margin-bottom:12px; font-weight:bold; font-size:0.85rem; text-align:center;">
+                        ⚠️ Es gibt ungesicherte Änderungen von heute!
+                    </div>
+
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <button type="button" onclick="exportBackup()" style="background:#4CAF50; color:#fff; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer;">💾 Backup exportieren (JSON)</button>
+                        
+                        <div style="background:#222; padding:10px; border-radius:6px; border:1px solid #444;">
+                            <label style="font-size:0.8rem; margin-bottom:6px; display:block;">Backup wiederherstellen (Import)</label>
+                            <input type="file" accept=".json" onchange="importBackup(event)" style="font-size:0.8rem;">
+                        </div>
+                    </div>
+                    <div id="saveNoticeBackup" style="display:none; background:#4CAF50; color:#fff; text-align:center; padding:8px; border-radius:4px; margin-top:12px; font-size:0.85rem;"></div>
+                </div>
+            </div>
         </main>
     </div>
 
@@ -186,6 +209,7 @@
 
     <!-- Scripts -->
     <script src="pack.js"></script>
+    <script src="backup.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
