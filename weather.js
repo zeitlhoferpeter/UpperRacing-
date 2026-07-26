@@ -5,11 +5,11 @@
 
 (function() {
     const TRACK_COORDINATES = {
-        "pannoniaring": { lat: 47.1625, lon: 16.7139, zoom: 9 },
-        "slovakia": { lat: 48.0519, lon: 17.5508, zoom: 9 },
-        "brünn": { lat: 49.2019, lon: 16.5444, zoom: 9 },
-        "most": { lat: 50.5031, lon: 13.6331, zoom: 9 },
-        "grobnik": { lat: 45.3858, lon: 14.5139, zoom: 10 }
+        "pannoniaring": { lat: 47.2845, lon: 16.9928, zoom: 11 }, // Pannoniaring (Ostffyasszonyfa)
+        "slovakia": { lat: 48.0551, lon: 17.5514, zoom: 11 },      // Slovakiaring (Orechová Potôň)
+        "brünn": { lat: 49.2081, lon: 16.5417, zoom: 11 },         // Masaryk Circuit Brünn
+        "most": { lat: 50.5103, lon: 13.6192, zoom: 11 },          // Autodrom Most
+        "grobnik": { lat: 45.3812, lon: 14.5115, zoom: 11 }       // Automotodrom Grobnik / Rijeka
     };
 
     const DEFAULT_LOCATION = { lat: 47.1625, lon: 16.7139, zoom: 9 };
