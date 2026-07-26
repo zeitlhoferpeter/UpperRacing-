@@ -125,7 +125,7 @@ function getEmptySessionData(track) {
         return {
             tireFront: baseline.tireFront || '',
             tireRear: baseline.tireRear || '',
-            outsideTemp: '', // Temperatur gehört nicht zur Basis und startet leer
+            outsideTemp: '',
             gearing: baseline.gearing || '',
             forkRebound: baseline.forkRebound || '',
             forkCompression: baseline.forkCompression || '',
@@ -313,7 +313,7 @@ function renderCurves(track) {
     const savedCurves = JSON.parse(localStorage.getItem(`curves_${track}`)) || {};
 
     for (let i = 1; i <= count; i++) {
-        const cData = savedCurves[i] || { status: 'green', gear: '', line: '', notes: '' };
+        const cData = savedCurves[i] || { status: 'green', gear: '', line: '', brake: '', notes: '' };
         let card = document.createElement('div');
         card.className = 'setup-box curve-card';
         card.dataset.curveNum = i;
@@ -331,6 +331,9 @@ function renderCurves(track) {
             <div class="grid-2" style="margin-top:6px;">
                 <div><label style="font-size:0.7rem">Gang</label><input type="text" id="curve_gear_${i}" value="${cData.gear}" placeholder="z.B. 3"></div>
                 <div><label style="font-size:0.7rem">Linie</label><input type="text" id="curve_line_${i}" value="${cData.line}" placeholder="Apex..."></div>
+            </div>
+            <div style="margin-top:6px;">
+                <label style="font-size:0.7rem">Bremspunkt</label><input type="text" id="curve_brake_${i}" value="${cData.brake || ''}" placeholder="z.B. 100m Schild">
             </div>
             <div style="margin-top:4px;"><textarea id="curve_notes_${i}" rows="2" placeholder="Notiz...">${cData.notes}</textarea></div>
         `;
@@ -373,6 +376,7 @@ function saveCurvesData() {
             status: status,
             gear: document.getElementById(`curve_gear_${i}`)?.value || '',
             line: document.getElementById(`curve_line_${i}`)?.value || '',
+            brake: document.getElementById(`curve_brake_${i}`)?.value || '',
             notes: document.getElementById(`curve_notes_${i}`)?.value || ''
         };
     });
@@ -394,13 +398,15 @@ function shareCurves() {
             const status = card.dataset.status || 'green';
             const gear = document.getElementById(`curve_gear_${i}`)?.value || '';
             const line = document.getElementById(`curve_line_${i}`)?.value || '';
+            const brake = document.getElementById(`curve_brake_${i}`)?.value || '';
             const notes = document.getElementById(`curve_notes_${i}`)?.value || '';
 
-            if (gear || line || notes) {
+            if (gear || line || brake || notes) {
                 let statusEmoji = status === 'red' ? '🔴' : (status === 'yellow' ? '🟡' : '🟢');
                 text += `Kurve ${i} ${statusEmoji}\n`;
                 if (gear) text += ` Gang: ${gear}\n`;
                 if (line) text += ` Linie: ${line}\n`;
+                if (brake) text += ` Bremspunkt: ${brake}\n`;
                 if (notes) text += ` Notiz: ${notes}\n`;
                 text += `------------------\n`;
             }
