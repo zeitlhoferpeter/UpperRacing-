@@ -94,8 +94,8 @@
                         <button type="button" onclick="document.getElementById('cameraInput').click()" style="flex:1; background:#2196F3; color:#fff; border:none; padding:8px; border-radius:4px; cursor:pointer; font-size:0.85rem;">📷 Fotos aufnehmen</button>
                         <button type="button" onclick="document.getElementById('galleryInput').click()" style="flex:1; background:#607D8B; color:#fff; border:none; padding:8px; border-radius:4px; cursor:pointer; font-size:0.85rem;">🖼️ Galerie</button>
                     </div>
-                    <input type="file" id="cameraInput" accept="image/*" capture="environment" multiple onchange="handleImageUpload(event)" style="display:none;">
-                    <input type="file" id="galleryInput" accept="image/*" multiple onchange="handleImageUpload(event)" style="display:none;">
+                    <input type="file" id="cameraInput" accept="image/jpeg,image/png,image/webp" capture="environment" multiple onchange="handleImageUpload(event)" style="display:none;">
+                    <input type="file" id="galleryInput" accept="image/jpeg,image/png,image/webp" multiple onchange="handleImageUpload(event)" style="display:none;">
 
                     <div id="tireImageContainer" style="display:none; text-align:center; margin-top:8px;"></div>
                 </div>
