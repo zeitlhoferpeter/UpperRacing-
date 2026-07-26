@@ -5,10 +5,12 @@ function initBackup() {
     renderCleanBackupUI();
 }
 
-// Globaler Check beim Laden jeder Seite
-document.addEventListener('DOMContentLoaded', () => {
+// Globaler Check beim Laden jeder Seite (sofort ausführen)
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', checkGlobalReminder);
+} else {
     checkGlobalReminder();
-});
+}
 
 // 1. BACKUP EXPORTIEREN (Datei / Teilen)
 function exportBackup() {
@@ -24,11 +26,9 @@ function exportBackup() {
         const timeStr = new Date().toTimeString().split(' ')[0].replace(/:/g, '-');
         const fileName = `UpperRacing_Backup_${dateStr}_${timeStr}.json`;
 
-        // Änderungen als gesichert markieren
         localStorage.removeItem('upper_has_new_changes');
         hideGlobalReminder();
 
-        // Mobil-Share-Menü oder Fallback-Download
         if (navigator.share && navigator.canShare) {
             const file = new File([dataStr], fileName, { type: 'application/json' });
             if (navigator.canShare({ files: [file] })) {
@@ -82,7 +82,7 @@ function copyBackupToClipboard() {
 
 // 3. UI FÜR EXPORT & IMPORT (Auf der Backup-Seite)
 function renderCleanBackupUI() {
-    const container = document.getElementById('internalBackupsContainer');
+    const container = document.getElementById('cleanBackupContainer') || document.getElementById('internalBackupsContainer');
     if (!container) return;
 
     if (document.getElementById('cleanBackupBox')) return;
@@ -188,7 +188,9 @@ function checkGlobalReminder() {
             banner.id = 'globalBackupReminderBanner';
             banner.style.cssText = 'position:fixed; top:0; left:0; width:100%; background:#d9534f; color:#fff; text-align:center; padding:8px; font-size:0.8rem; font-weight:bold; z-index:99999; box-shadow:0 2px 5px rgba(0,0,0,0.3);';
             banner.innerHTML = '⚠️ Achtung: Ungespeicherte Änderungen (Setup/Zeiten)! Bitte erstelle ein Backup.';
-            document.body.prepend(banner);
+            if (document.body) {
+                document.body.prepend(banner);
+            }
         } else {
             banner.style.display = 'block';
         }
