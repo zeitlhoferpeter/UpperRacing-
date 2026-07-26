@@ -1,17 +1,17 @@
 /**
- * weather.js - Modulares Wetter- und Kartensystem mit Live-Regenradar und GPS
+ * weather.js - Modulares Wetter- und Kartensystem mit stabilem Radar & GPS
  */
 
 (function() {
     const TRACK_COORDINATES = {
-        "pannoniaring": { lat: 47.1813, lon: 17.0241, zoom: 11 },
-        "slovakia": { lat: 48.0551, lon: 17.5514, zoom: 11 },
-        "brünn": { lat: 49.2081, lon: 16.5417, zoom: 11 },
-        "most": { lat: 50.5103, lon: 13.6192, zoom: 11 },
-        "grobnik": { lat: 45.3812, lon: 14.5115, zoom: 11 }
+        "pannoniaring": { lat: 47.2845, lon: 16.9928, zoom: 10 },
+        "slovakia": { lat: 48.0551, lon: 17.5514, zoom: 10 },
+        "brünn": { lat: 49.2081, lon: 16.5417, zoom: 10 },
+        "most": { lat: 50.5103, lon: 13.6192, zoom: 10 },
+        "grobnik": { lat: 45.3812, lon: 14.5115, zoom: 10 }
     };
 
-    const DEFAULT_LOCATION = { lat: 47.2845, lon: 16.9928, zoom: 11 };
+    const DEFAULT_LOCATION = { lat: 47.2845, lon: 16.9928, zoom: 10 };
 
     let weatherState = {
         soundEnabled: localStorage.getItem('trackday_weather_sound') === 'true',
@@ -19,11 +19,8 @@
     };
 
     let mapInstance = null;
-    let trackMarker = null;
     let userMarker = null;
-    let radarLayer = null;
 
-    // Leaflet CSS & JS dynamisch laden
     function loadLeaflet(callback) {
         if (window.L) {
             callback();
@@ -94,7 +91,7 @@
             background: #1e1e1e;
             color: #fff;
             width: 100%;
-            max-width: 800px;
+            max-width: 850px;
             height: 90vh;
             border-radius: 12px;
             display: flex;
@@ -150,11 +147,12 @@
         }
         .radar-container {
             width: 100%;
-            height: 350px;
+            height: 400px;
             border-radius: 8px;
             overflow: hidden;
             border: 1px solid #444;
             background: #000;
+            position: relative;
         }
         .weather-settings-bar {
             display: flex;
@@ -243,8 +241,10 @@
                             </div>
                         </div>
                         <div class="weather-section">
-                            <h3>Live-Regenradar & Karte</h3>
-                            <div class="radar-container" id="weather-map-container"></div>
+                            <h3>Live-Regenradar (Animiert)</h3>
+                            <div class="radar-container" id="weather-map-container">
+                                Lädt Regenradar...
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -271,58 +271,24 @@
         const trackNameText = trackSelect && trackSelect.options[trackSelect.selectedIndex] ? trackSelect.options[trackSelect.selectedIndex].text : getCurrentTrackName();
         document.getElementById('weather-modal-title').innerText = `Wetter & Radar für ${trackNameText}`;
         
-        initMapViewer(getCurrentTrackName());
+        initRadarViewer(getCurrentTrackName());
     }
 
-    async function initMapViewer(trackName) {
-        loadLeaflet(async () => {
-            const coords = getTrackCoordinates(trackName);
-            const container = document.getElementById('weather-map-container');
-            if (!container) return;
+    function initRadarViewer(trackName) {
+        const coords = getTrackCoordinates(trackName);
+        const container = document.getElementById('weather-map-container');
+        if (!container) return;
 
-            if (mapInstance) {
-                mapInstance.remove();
-                mapInstance = null;
-                userMarker = null;
-                radarLayer = null;
-            }
-
-            container.innerHTML = '<div id="leaflet-map-view" style="width:100%; height:100%;"></div>';
-
-            mapInstance = L.map('leaflet-map-view').setView([coords.lat, coords.lon], coords.zoom);
-
-            // OpenStreetMap Hintergrund
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
-                attribution: '© OpenStreetMap'
-            }).addTo(mapInstance);
-
-            // Rennstrecken-Marker
-            trackMarker = L.marker([coords.lat, coords.lon]).addTo(mapInstance)
-                .bindPopup(`<b>🏁 ${trackName.toUpperCase()}</b>`).openPopup();
-
-            // Regenradar von RainViewer laden und als Overlay hinzufügen
-            try {
-                const response = await fetch('https://api.rainviewer.com/public/weather-maps.json');
-                const radarData = await response.json();
-                if (radarData && radarData.radar && radarData.radar.past && radarData.radar.past.length > 0) {
-                    const latestRadar = radarData.radar.past[radarData.radar.past.length - 1];
-                    const timestamp = latestRadar.time;
-
-                    radarLayer = L.tileLayer(`https://tilecache.rainviewer.com/v2/radar/${timestamp}/256/{z}/{x}/{y}/2/1_1.png`, {
-                        opacity: 0.65,
-                        maxZoom: 19,
-                        attribution: 'RainViewer'
-                    }).addTo(mapInstance);
-                }
-            } catch (e) {
-                console.error("Fehler beim Laden des Regenradars:", e);
-            }
-
-            setTimeout(() => {
-                if (mapInstance) mapInstance.invalidateSize();
-            }, 250);
-        });
+        // Wir nutzen das offizielle interaktive RainViewer Widget, das perfekt zoombar ist, die Wolken animiert anzeigt und direkt auf die Rennstrecke zentriert
+        container.innerHTML = `
+            <iframe src="https://www.rainviewer.com/map.html?loc=${coords.lat},${coords.lon},${coords.zoom}&o=1&c=3&k=1&o=1&m=1&lm=1" 
+                width="100%" 
+                height="100%" 
+                frameborder="0" 
+                style="border:0; border-radius:8px;" 
+                allowfullscreen>
+            </iframe>
+        `;
     }
 
     window.locateUserOnMap = function() {
@@ -336,7 +302,18 @@
                 const lon = position.coords.longitude;
 
                 loadLeaflet(() => {
-                    if (!mapInstance) return;
+                    const container = document.getElementById('weather-map-container');
+                    if (!container) return;
+
+                    // Wenn GPS gewünscht ist, öffnen wir eine Leaflet-Karte mit dem User-Standort
+                    if (!mapInstance) {
+                        container.innerHTML = '<div id="leaflet-map-view" style="width:100%; height:100%;"></div>';
+                        mapInstance = L.map('leaflet-map-view').setView([lat, lon], 11);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                            maxZoom: 19,
+                            attribution: '© OpenStreetMap'
+                        }).addTo(mapInstance);
+                    }
 
                     if (userMarker) {
                         mapInstance.removeLayer(userMarker);
@@ -351,10 +328,7 @@
                         })
                     }).addTo(mapInstance).bindPopup("📍 Dein aktueller Standort").openPopup();
 
-                    const trackName = getCurrentTrackName();
-                    const coords = getTrackCoordinates(trackName);
-                    const bounds = L.latLngBounds([[coords.lat, coords.lon], [lat, lon]]);
-                    mapInstance.fitBounds(bounds, { padding: [60, 60] });
+                    mapInstance.setView([lat, lon], 12);
                 });
             },
             (error) => {
