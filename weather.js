@@ -1,5 +1,5 @@
 /**
- * weather.js - Wetter & Regenradar mit GPS-Schalter und Karten-Pin
+ * weather.js - Wetter & Regenradar mit persistenter Einstellung für Sound & GPS
  */
 
 (function() {
@@ -264,13 +264,13 @@
                             <div class="weather-setting-row">
                                 <span>🔊 Akustische Warnung:</span>
                                 <label style="cursor:pointer; display:flex; align-items:center; gap:6px;">
-                                    <input type="checkbox" id="weather-sound-toggle" ${weatherState.soundEnabled ? 'checked' : ''} onchange="toggleWeatherSound(this)"> Aktiviert
+                                    <input type="checkbox" id="weather-sound-toggle" onchange="toggleWeatherSound(this)"> Aktiviert
                                 </label>
                             </div>
                             <div class="weather-setting-row">
                                 <span>📍 Live-GPS-Standort:</span>
                                 <label style="cursor:pointer; display:flex; align-items:center; gap:6px;">
-                                    <input type="checkbox" id="weather-gps-toggle" ${weatherState.gpsEnabled ? 'checked' : ''} onchange="toggleWeatherGPS(this)"> Aktiviert
+                                    <input type="checkbox" id="weather-gps-toggle" onchange="toggleWeatherGPS(this)"> Aktiviert
                                 </label>
                             </div>
                         </div>
@@ -318,6 +318,14 @@
     function openWeatherModal() {
         const modal = document.getElementById('weather-modal');
         modal.classList.add('active');
+
+        // Einstellungen frisch aus dem State/localStorage in die Checkboxes laden
+        const soundToggle = document.getElementById('weather-sound-toggle');
+        if (soundToggle) soundToggle.checked = weatherState.soundEnabled;
+
+        const gpsToggle = document.getElementById('weather-gps-toggle');
+        if (gpsToggle) gpsToggle.checked = weatherState.gpsEnabled;
+
         updateActiveLocation(() => {
             renderModalContent();
         });
