@@ -1,5 +1,5 @@
 /**
- * weather.js - Wetter & 15-Minuten-Nowcasting mit abgestuften Warnungen (Gelb / Orange / Rot blinkend)
+ * weather.js - Wetter mit statischem Tages-Max und blinkendem Alarm bei akutem Regen in < 60 Min
  */
 
 (function() {
@@ -18,7 +18,7 @@
         lastAlertLevel: 'none'
     };
 
-    let latestWeatherData = null; // Speichert die aktuellen API-Daten für das Modal
+    let latestWeatherData = null;
 
     const styleTag = document.createElement('style');
     styleTag.innerHTML = `
@@ -30,7 +30,7 @@
             padding: 5px 12px;
             border-radius: 20px;
             cursor: pointer;
-            font-size: 13px;
+            font-size: 12px;
             transition: all 0.3s ease;
             border: 1px solid rgba(255, 255, 255, 0.2);
             white-space: nowrap;
@@ -38,24 +38,26 @@
         #weather-header-widget:hover {
             background: rgba(255, 255, 255, 0.2);
         }
+        /* Statische Farben für das Tages-Maximum */
         #weather-header-widget.alert-yellow {
             background-color: rgba(255, 193, 7, 0.3);
             border-color: #ffc107;
-            box-shadow: 0 0 8px rgba(255, 193, 7, 0.4);
         }
         #weather-header-widget.alert-orange {
             background-color: rgba(255, 140, 0, 0.35);
             border-color: #ff8c00;
-            box-shadow: 0 0 12px rgba(255, 140, 0, 0.6);
         }
         #weather-header-widget.alert-red {
             background-color: rgba(220, 53, 69, 0.4);
             border-color: #dc3545;
-            animation: pulse-red 0.8s infinite alternate;
         }
-        @keyframes pulse-red {
-            0% { box-shadow: 0 0 5px rgba(220, 53, 69, 0.5); }
-            100% { box-shadow: 0 0 22px rgba(220, 53, 69, 0.95); }
+        /* Blink-Animation für akuten Regen in den nächsten 60 Minuten */
+        .weather-pulse {
+            animation: pulse-widget 0.8s infinite alternate;
+        }
+        @keyframes pulse-widget {
+            0% { transform: scale(1); box-shadow: 0 0 4px rgba(255,255,255,0.2); }
+            100% { transform: scale(1.03); box-shadow: 0 0 18px currentColor; }
         }
         #weather-modal {
             display: none;
@@ -152,19 +154,17 @@
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
             if (level === 'orange') {
-                // Sanfter, unaufdringlicher Einzelton
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
                 osc.connect(gain);
                 gain.connect(audioCtx.destination);
                 osc.type = 'sine';
-                osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+                osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
                 gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
                 osc.start();
                 osc.stop(audioCtx.currentTime + 0.35);
             } else if (level === 'red') {
-                // Öfter und aufdringlicher (Doppel-Beep mit höherer Frequenz und Rechteck-Welle)
                 const playBeep = (timeOffset, freq) => {
                     const osc = audioCtx.createOscillator();
                     const gain = audioCtx.createGain();
@@ -212,7 +212,6 @@
                     if (callback) callback();
                 },
                 (error) => {
-                    console.log("GPS nicht verfügbar, Fallback auf Strecke:", error.message);
                     updateActiveLocationByTrack();
                     if (callback) callback();
                 },
@@ -228,8 +227,8 @@
         const widget = document.getElementById('weather-header-widget');
         if (widget) {
             widget.onclick = openWeatherModal;
-            if (!document.getElementById('weather-rain')) {
-                widget.innerHTML = `<span id="weather-icon">⏳</span> <span id="weather-temp">--°C</span> <span id="weather-rain" style="font-size:11px; opacity:0.85;">💧 --%</span>`;
+            if (!document.getElementById('weather-info-text')) {
+                widget.innerHTML = `<span id="weather-icon">⏳</span> <span id="weather-temp">--°C</span> <span id="weather-info-text" style="font-size:11px; opacity:0.85;">Akt: --% | Tag: --%</span>`;
             }
         }
 
@@ -239,13 +238,13 @@
             modal.innerHTML = `
                 <div class="weather-modal-content">
                     <div class="weather-modal-header">
-                        <h2 id="weather-modal-title" style="margin:0; font-size:18px;">Wetter & Minutengenaue Prognose</h2>
+                        <h2 id="weather-modal-title" style="margin:0; font-size:18px;">Wetter & Prognose</h2>
                         <button class="weather-close-btn" onclick="closeWeatherModal()">Schließen</button>
                     </div>
                     <div class="weather-modal-body">
                         <div class="weather-settings-bar">
                             <div class="weather-setting-row">
-                                <span>🔊 Akustische Warnung (ab Orange):</span>
+                                <span>🔊 Akustischer Alarm (nur bei akuter Gefahr in < 1 Std):</span>
                                 <label style="cursor:pointer; display:flex; align-items:center; gap:6px;">
                                     <input type="checkbox" id="weather-sound-toggle" onchange="toggleWeatherSound(this)"> Aktiviert
                                 </label>
@@ -264,7 +263,7 @@
                             </div>
                         </div>
                         <div class="weather-section">
-                            <h3>Stündliche Vorhersage (nächste Stunden)</h3>
+                            <h3>Stündliche Vorhersage</h3>
                             <div class="hourly-scroll" id="weather-hourly-container">
                                 Lädt stündliche Daten...
                             </div>
@@ -339,49 +338,76 @@
                     else if (code >= 71 && code <= 77) icon = "❄️";
                     else if (code >= 95) icon = "⚡";
 
-                    // Maximale Regenwahrscheinlichkeit aus den nächsten 15-Minuten-Werten oder stündlich ermitteln
-                    let maxRainProb = 0;
-                    if (data.minutely_15 && data.minutely_15.precipitation_probability) {
-                        // Prüfe die nächsten ca. 2 Stunden (erste 8 Einträge à 15 Min)
-                        const nextSlice = data.minutely_15.precipitation_probability.slice(0, 8);
-                        maxRainProb = Math.max(...nextSlice.filter(val => val !== null), 0);
+                    // 1. Aktueller Wert
+                    let currentRain = 0;
+                    if (data.minutely_15 && data.minutely_15.precipitation_probability && data.minutely_15.precipitation_probability.length > 0) {
+                        currentRain = data.minutely_15.precipitation_probability.find(v => v !== null) || 0;
                     } else if (data.hourly && data.hourly.precipitation_probability) {
-                        const nowHourIndex = new Date().getHours();
-                        maxRainProb = Math.max(data.hourly.precipitation_probability[nowHourIndex] || 0, data.hourly.precipitation_probability[nowHourIndex + 1] || 0);
+                        currentRain = data.hourly.precipitation_probability[new Date().getHours()] || 0;
                     }
 
+                    // 2. Tages-Maximum (Zwischen 05:00 und 18:00 Uhr)
+                    let dayMaxRain = 0;
+                    if (data.hourly && data.hourly.time && data.hourly.precipitation_probability) {
+                        for (let i = 0; i < data.hourly.time.length; i++) {
+                            const dateObj = new Date(data.hourly.time[i]);
+                            const hour = dateObj.getHours();
+                            if (hour >= 5 && hour <= 18) {
+                                const prob = data.hourly.precipitation_probability[i];
+                                if (prob !== null && prob > dayMaxRain) {
+                                    dayMaxRain = prob;
+                                }
+                            }
+                        }
+                    }
+                    if (dayMaxRain === 0) dayMaxRain = currentRain;
+
+                    // UI im Header aktualisieren
                     const iconEl = document.getElementById('weather-icon');
                     const tempEl = document.getElementById('weather-temp');
-                    const rainEl = document.getElementById('weather-rain');
+                    const infoEl = document.getElementById('weather-info-text');
 
                     if (iconEl) iconEl.innerText = icon;
                     if (tempEl) tempEl.innerText = `${temp}°C`;
-                    if (rainEl) rainEl.innerText = `💧 ${maxRainProb}%`;
+                    if (infoEl) infoEl.innerText = `Akt: 💧 ${currentRain}% | Tag: ☔ ${dayMaxRain}%`;
 
+                    // 3. VISUELLE WARNUNG: Grundfarbe basiert auf dem TAGES-MAXIMUM (leuchtet statisch)
                     const widget = document.getElementById('weather-header-widget');
                     if (widget) {
-                        widget.classList.remove('alert-yellow', 'alert-orange', 'alert-red');
+                        widget.classList.remove('alert-yellow', 'alert-orange', 'alert-red', 'weather-pulse');
 
-                        let currentLevel = 'none';
-                        if (maxRainProb > 90) {
+                        if (dayMaxRain > 90) {
                             widget.classList.add('alert-red');
-                            currentLevel = 'red';
-                        } else if (maxRainProb >= 80 && maxRainProb <= 90) {
+                        } else if (dayMaxRain >= 80 && dayMaxRain <= 90) {
                             widget.classList.add('alert-orange');
-                            currentLevel = 'orange';
-                        } else if (maxRainProb >= 50 && maxRainProb < 80) {
+                        } else if (dayMaxRain >= 50 && dayMaxRain < 80) {
                             widget.classList.add('alert-yellow');
-                            currentLevel = 'yellow';
                         }
-
-                        // Ton abspielen, wenn sich das Warnlevel zu Orange oder Rot ändert
-                        if (currentLevel !== 'none' && currentLevel !== weatherState.lastAlertLevel) {
-                            if (currentLevel === 'orange' || currentLevel === 'red') {
-                                playAudioAlert(currentLevel);
-                            }
-                        }
-                        weatherState.lastAlertLevel = currentLevel;
                     }
+
+                    // 4. AKUTER REGEN IN DEN NÄCHSTEN 60 MINUTEN (Prüfung für Blinken & Ton)
+                    let imminentRainMax = 0;
+                    if (data.minutely_15 && data.minutely_15.precipitation_probability) {
+                        const nextHourSlice = data.minutely_15.precipitation_probability.slice(0, 4); // Nächste 60 Min (4 x 15 Min)
+                        imminentRainMax = Math.max(...nextHourSlice.filter(val => val !== null), 0);
+                    } else {
+                        imminentRainMax = currentRain;
+                    }
+
+                    // Wenn es akut (in < 60 Min) zu regnen droht (ab 50%), fängt das Widget an zu BLINKEN!
+                    if (imminentRainMax >= 50 && widget) {
+                        widget.classList.add('weather-pulse');
+                    }
+
+                    // Akustischer Alarm (nur bei Orange oder Rot in den nächsten 60 Min)
+                    let soundTargetLevel = 'none';
+                    if (imminentRainMax > 90) soundTargetLevel = 'red';
+                    else if (imminentRainMax >= 80) soundTargetLevel = 'orange';
+
+                    if (soundTargetLevel !== 'none' && soundTargetLevel !== weatherState.lastAlertLevel) {
+                        playAudioAlert(soundTargetLevel);
+                    }
+                    weatherState.lastAlertLevel = soundTargetLevel;
 
                     if (document.getElementById('weather-modal').classList.contains('active')) {
                         renderModalContent();
@@ -404,7 +430,6 @@
         }
 
         let html = '';
-        // Zeige die nächsten 12 Einträge (= nächste 3 Stunden im 15-Min-Takt)
         const limit = Math.min(minutely.time.length, 12);
         for (let i = 0; i < limit; i++) {
             const timeStr = new Date(minutely.time[i]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
