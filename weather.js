@@ -1,5 +1,5 @@
 /**
- * weather.js - Wetter & Regenradar mit erweitertem Header (Temperatur + Regenwahrscheinlichkeit)
+ * weather.js - Wetter & 15-Minuten-Nowcasting mit abgestuften Warnungen (Gelb / Orange / Rot blinkend)
  */
 
 (function() {
@@ -17,6 +17,8 @@
         gpsEnabled: localStorage.getItem('trackday_weather_gps') === 'true',
         lastAlertLevel: 'none'
     };
+
+    let latestWeatherData = null; // Speichert die aktuellen API-Daten für das Modal
 
     const styleTag = document.createElement('style');
     styleTag.innerHTML = `
@@ -39,16 +41,21 @@
         #weather-header-widget.alert-yellow {
             background-color: rgba(255, 193, 7, 0.3);
             border-color: #ffc107;
-            box-shadow: 0 0 10px rgba(255, 193, 7, 0.5);
+            box-shadow: 0 0 8px rgba(255, 193, 7, 0.4);
+        }
+        #weather-header-widget.alert-orange {
+            background-color: rgba(255, 140, 0, 0.35);
+            border-color: #ff8c00;
+            box-shadow: 0 0 12px rgba(255, 140, 0, 0.6);
         }
         #weather-header-widget.alert-red {
             background-color: rgba(220, 53, 69, 0.4);
             border-color: #dc3545;
-            animation: pulse-red 1s infinite alternate;
+            animation: pulse-red 0.8s infinite alternate;
         }
         @keyframes pulse-red {
             0% { box-shadow: 0 0 5px rgba(220, 53, 69, 0.5); }
-            100% { box-shadow: 0 0 20px rgba(220, 53, 69, 0.9); }
+            100% { box-shadow: 0 0 22px rgba(220, 53, 69, 0.95); }
         }
         #weather-modal {
             display: none;
@@ -118,47 +125,9 @@
             padding: 10px 15px;
             border-radius: 8px;
             text-align: center;
-            min-width: 80px;
+            min-width: 85px;
             flex-shrink: 0;
             border: 1px solid #444;
-        }
-        .radar-container {
-            position: relative;
-            width: 100%;
-            height: 380px;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 1px solid #444;
-            background: #000;
-        }
-        .map-marker-pin {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -100%);
-            background: rgba(0, 0, 0, 0.85);
-            color: #fff;
-            padding: 5px 10px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: bold;
-            pointer-events: none;
-            border: 1px solid #4da6ff;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.6);
-            white-space: nowrap;
-            z-index: 10;
-        }
-        .map-marker-pin::after {
-            content: '';
-            position: absolute;
-            bottom: -5px;
-            left: 50%;
-            transform: translateX(-50%);
-            border-width: 5px 5px 0;
-            border-style: solid;
-            border-color: rgba(0, 0, 0, 0.85) transparent;
-            display: block;
-            width: 0;
         }
         .weather-settings-bar {
             display: flex;
@@ -181,26 +150,36 @@
         if (!weatherState.soundEnabled) return;
         try {
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
 
-            if (level === 'yellow') {
+            if (level === 'orange') {
+                // Sanfter, unaufdringlicher Einzelton
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
                 osc.type = 'sine';
-                osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
-                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.4);
-            } else if (level === 'red') {
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-                osc.frequency.setValueAtTime(440, audioCtx.currentTime + 0.15);
-                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+                gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
                 osc.start();
                 osc.stop(audioCtx.currentTime + 0.35);
+            } else if (level === 'red') {
+                // Öfter und aufdringlicher (Doppel-Beep mit höherer Frequenz und Rechteck-Welle)
+                const playBeep = (timeOffset, freq) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime + timeOffset);
+                    gain.gain.setValueAtTime(0.12, audioCtx.currentTime + timeOffset);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + timeOffset + 0.2);
+                    osc.start(audioCtx.currentTime + timeOffset);
+                    osc.stop(audioCtx.currentTime + timeOffset + 0.2);
+                };
+                playBeep(0, 880);
+                playBeep(0.25, 987.77);
+                playBeep(0.5, 880);
             }
         } catch (e) {
             console.log("Audio Error:", e);
@@ -249,7 +228,6 @@
         const widget = document.getElementById('weather-header-widget');
         if (widget) {
             widget.onclick = openWeatherModal;
-            // Header-Inhalt erweitern um die Regen-Anzeige, falls noch nicht vorhanden
             if (!document.getElementById('weather-rain')) {
                 widget.innerHTML = `<span id="weather-icon">⏳</span> <span id="weather-temp">--°C</span> <span id="weather-rain" style="font-size:11px; opacity:0.85;">💧 --%</span>`;
             }
@@ -261,13 +239,13 @@
             modal.innerHTML = `
                 <div class="weather-modal-content">
                     <div class="weather-modal-header">
-                        <h2 id="weather-modal-title" style="margin:0; font-size:18px;">Wetter & Regenradar</h2>
+                        <h2 id="weather-modal-title" style="margin:0; font-size:18px;">Wetter & Minutengenaue Prognose</h2>
                         <button class="weather-close-btn" onclick="closeWeatherModal()">Schließen</button>
                     </div>
                     <div class="weather-modal-body">
                         <div class="weather-settings-bar">
                             <div class="weather-setting-row">
-                                <span>🔊 Akustische Warnung:</span>
+                                <span>🔊 Akustische Warnung (ab Orange):</span>
                                 <label style="cursor:pointer; display:flex; align-items:center; gap:6px;">
                                     <input type="checkbox" id="weather-sound-toggle" onchange="toggleWeatherSound(this)"> Aktiviert
                                 </label>
@@ -280,15 +258,15 @@
                             </div>
                         </div>
                         <div class="weather-section">
-                            <h3 id="hourly-title">Stündliche Vorhersage</h3>
-                            <div class="hourly-scroll" id="weather-hourly-container">
-                                Lädt Wetterdaten...
+                            <h3>⏱️ Minutengenaue Kurzfrist-Prognose (15-Minuten-Takt)</h3>
+                            <div class="hourly-scroll" id="weather-minutely-container">
+                                Lädt Minutendaten...
                             </div>
                         </div>
                         <div class="weather-section">
-                            <h3 id="radar-title">Live-Regenradar</h3>
-                            <div class="radar-container" id="weather-map-container">
-                                Lädt Radar...
+                            <h3>Stündliche Vorhersage (nächste Stunden)</h3>
+                            <div class="hourly-scroll" id="weather-hourly-container">
+                                Lädt stündliche Daten...
                             </div>
                         </div>
                     </div>
@@ -336,31 +314,20 @@
     }
 
     function renderModalContent() {
-        document.getElementById('weather-modal-title').innerText = `Wetter & Radar für ${activeLocation.name}`;
-        document.getElementById('hourly-title').innerText = `Stündliche Vorhersage (${activeLocation.name})`;
-        document.getElementById('radar-title').innerText = `Live-Regenradar (${activeLocation.name})`;
-
-        const container = document.getElementById('weather-map-container');
-        if (container) {
-            container.innerHTML = `
-                <iframe src="https://www.rainviewer.com/map.html?loc=${activeLocation.lat},${activeLocation.lon},${activeLocation.zoom}&o=1&c=3&k=1&o=1&m=1&lm=1" 
-                    width="100%" 
-                    height="100%" 
-                    frameborder="0" 
-                    style="border:0;" 
-                    allowfullscreen>
-                </iframe>
-                <div class="map-marker-pin">📍 ${activeLocation.name}</div>
-            `;
+        document.getElementById('weather-modal-title').innerText = `Wetter & Prognose für ${activeLocation.name}`;
+        if (latestWeatherData) {
+            renderMinutelyForecast(latestWeatherData.minutely_15);
+            renderHourlyForecast(latestWeatherData.hourly);
         }
     }
 
     async function updateWeatherData() {
         updateActiveLocation(async () => {
             try {
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${activeLocation.lat}&longitude=${activeLocation.lon}&current_weather=true&hourly=temperature_2m,precipitation_probability,weathercode&timezone=auto`;
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${activeLocation.lat}&longitude=${activeLocation.lon}&current_weather=true&hourly=temperature_2m,precipitation_probability,weathercode&minutely_15=precipitation,precipitation_probability&timezone=auto`;
                 const response = await fetch(url);
                 const data = await response.json();
+                latestWeatherData = data;
 
                 if (data && data.current_weather) {
                     const temp = Math.round(data.current_weather.temperature);
@@ -372,10 +339,16 @@
                     else if (code >= 71 && code <= 77) icon = "❄️";
                     else if (code >= 95) icon = "⚡";
 
-                    const nowHourIndex = new Date().getHours();
-                    const rainProb1 = data.hourly.precipitation_probability[nowHourIndex] || 0;
-                    const rainProb2 = data.hourly.precipitation_probability[nowHourIndex + 1] || 0;
-                    const maxRainProb = Math.max(rainProb1, rainProb2);
+                    // Maximale Regenwahrscheinlichkeit aus den nächsten 15-Minuten-Werten oder stündlich ermitteln
+                    let maxRainProb = 0;
+                    if (data.minutely_15 && data.minutely_15.precipitation_probability) {
+                        // Prüfe die nächsten ca. 2 Stunden (erste 8 Einträge à 15 Min)
+                        const nextSlice = data.minutely_15.precipitation_probability.slice(0, 8);
+                        maxRainProb = Math.max(...nextSlice.filter(val => val !== null), 0);
+                    } else if (data.hourly && data.hourly.precipitation_probability) {
+                        const nowHourIndex = new Date().getHours();
+                        maxRainProb = Math.max(data.hourly.precipitation_probability[nowHourIndex] || 0, data.hourly.precipitation_probability[nowHourIndex + 1] || 0);
+                    }
 
                     const iconEl = document.getElementById('weather-icon');
                     const tempEl = document.getElementById('weather-temp');
@@ -387,24 +360,32 @@
 
                     const widget = document.getElementById('weather-header-widget');
                     if (widget) {
-                        widget.classList.remove('alert-yellow', 'alert-red');
+                        widget.classList.remove('alert-yellow', 'alert-orange', 'alert-red');
 
                         let currentLevel = 'none';
-                        if (maxRainProb >= 80) {
+                        if (maxRainProb > 90) {
                             widget.classList.add('alert-red');
                             currentLevel = 'red';
-                        } else if (maxRainProb >= 50) {
+                        } else if (maxRainProb >= 80 && maxRainProb <= 90) {
+                            widget.classList.add('alert-orange');
+                            currentLevel = 'orange';
+                        } else if (maxRainProb >= 50 && maxRainProb < 80) {
                             widget.classList.add('alert-yellow');
                             currentLevel = 'yellow';
                         }
 
+                        // Ton abspielen, wenn sich das Warnlevel zu Orange oder Rot ändert
                         if (currentLevel !== 'none' && currentLevel !== weatherState.lastAlertLevel) {
-                            playAudioAlert(currentLevel);
+                            if (currentLevel === 'orange' || currentLevel === 'red') {
+                                playAudioAlert(currentLevel);
+                            }
                         }
                         weatherState.lastAlertLevel = currentLevel;
                     }
 
-                    renderHourlyForecast(data.hourly, nowHourIndex);
+                    if (document.getElementById('weather-modal').classList.contains('active')) {
+                        renderModalContent();
+                    }
                 }
             } catch (e) {
                 console.error("Wetter-Fehler:", e);
@@ -414,9 +395,41 @@
         });
     }
 
-    function renderHourlyForecast(hourly, startIndex) {
-        const container = document.getElementById('weather-hourly-container');
+    function renderMinutelyForecast(minutely) {
+        const container = document.getElementById('weather-minutely-container');
         if (!container) return;
+        if (!minutely || !minutely.time || minutely.time.length === 0) {
+            container.innerHTML = `<p style="font-size:12px; color:#888;">Keine Minutendaten verfügbar.</p>`;
+            return;
+        }
+
+        let html = '';
+        // Zeige die nächsten 12 Einträge (= nächste 3 Stunden im 15-Min-Takt)
+        const limit = Math.min(minutely.time.length, 12);
+        for (let i = 0; i < limit; i++) {
+            const timeStr = new Date(minutely.time[i]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const rain = minutely.precipitation_probability[i] !== null ? minutely.precipitation_probability[i] : 0;
+            
+            let rainColor = '#4da6ff';
+            if (rain > 90) rainColor = '#dc3545';
+            else if (rain >= 80) rainColor = '#ff8c00';
+            else if (rain >= 50) rainColor = '#ffc107';
+
+            html += `
+                <div class="hourly-card">
+                    <div style="font-size:11px; color:#aaa;">${timeStr}</div>
+                    <div style="font-size:14px; font-weight:bold; margin:6px 0; color:${rainColor};">☔ ${rain}%</div>
+                    <div style="font-size:10px; color:#888;">15-Min</div>
+                </div>
+            `;
+        }
+        container.innerHTML = html;
+    }
+
+    function renderHourlyForecast(hourly) {
+        const container = document.getElementById('weather-hourly-container');
+        if (!container || !hourly) return;
+        const startIndex = new Date().getHours();
         let html = '';
         for (let i = startIndex; i < startIndex + 12; i++) {
             if (!hourly.time[i]) break;
@@ -425,14 +438,15 @@
             const rain = hourly.precipitation_probability[i];
             
             let rainColor = '#4da6ff';
-            if (rain >= 80) rainColor = '#dc3545';
+            if (rain > 90) rainColor = '#dc3545';
+            else if (rain >= 80) rainColor = '#ff8c00';
             else if (rain >= 50) rainColor = '#ffc107';
 
             html += `
                 <div class="hourly-card">
                     <div style="font-size:12px; color:#aaa;">${timeStr}</div>
-                    <div style="font-size:16px; font-weight:bold; margin:5px 0;">${temp}°C</div>
-                    <div style="font-size:12px; color:${rainColor}; font-weight:bold;">☔ ${rain}%</div>
+                    <div style="font-size:15px; font-weight:bold; margin:4px 0;">${temp}°C</div>
+                    <div style="font-size:11px; color:${rainColor}; font-weight:bold;">☔ ${rain}%</div>
                 </div>
             `;
         }
