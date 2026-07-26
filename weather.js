@@ -1,5 +1,5 @@
 /**
- * weather.js - Wetter & Regenradar mit persistenter Einstellung für Sound & GPS
+ * weather.js - Wetter & Regenradar mit erweitertem Header (Temperatur + Regenwahrscheinlichkeit)
  */
 
 (function() {
@@ -25,12 +25,13 @@
             align-items: center;
             gap: 6px;
             background: rgba(255, 255, 255, 0.1);
-            padding: 4px 10px;
+            padding: 5px 12px;
             border-radius: 20px;
             cursor: pointer;
             font-size: 13px;
             transition: all 0.3s ease;
             border: 1px solid rgba(255, 255, 255, 0.2);
+            white-space: nowrap;
         }
         #weather-header-widget:hover {
             background: rgba(255, 255, 255, 0.2);
@@ -248,6 +249,10 @@
         const widget = document.getElementById('weather-header-widget');
         if (widget) {
             widget.onclick = openWeatherModal;
+            // Header-Inhalt erweitern um die Regen-Anzeige, falls noch nicht vorhanden
+            if (!document.getElementById('weather-rain')) {
+                widget.innerHTML = `<span id="weather-icon">⏳</span> <span id="weather-temp">--°C</span> <span id="weather-rain" style="font-size:11px; opacity:0.85;">💧 --%</span>`;
+            }
         }
 
         if (!document.getElementById('weather-modal')) {
@@ -319,7 +324,6 @@
         const modal = document.getElementById('weather-modal');
         modal.classList.add('active');
 
-        // Einstellungen frisch aus dem State/localStorage in die Checkboxes laden
         const soundToggle = document.getElementById('weather-sound-toggle');
         if (soundToggle) soundToggle.checked = weatherState.soundEnabled;
 
@@ -368,15 +372,18 @@
                     else if (code >= 71 && code <= 77) icon = "❄️";
                     else if (code >= 95) icon = "⚡";
 
-                    const iconEl = document.getElementById('weather-icon');
-                    const tempEl = document.getElementById('weather-temp');
-                    if (iconEl) iconEl.innerText = icon;
-                    if (tempEl) tempEl.innerText = `${temp}°C`;
-
                     const nowHourIndex = new Date().getHours();
                     const rainProb1 = data.hourly.precipitation_probability[nowHourIndex] || 0;
                     const rainProb2 = data.hourly.precipitation_probability[nowHourIndex + 1] || 0;
                     const maxRainProb = Math.max(rainProb1, rainProb2);
+
+                    const iconEl = document.getElementById('weather-icon');
+                    const tempEl = document.getElementById('weather-temp');
+                    const rainEl = document.getElementById('weather-rain');
+
+                    if (iconEl) iconEl.innerText = icon;
+                    if (tempEl) tempEl.innerText = `${temp}°C`;
+                    if (rainEl) rainEl.innerText = `💧 ${maxRainProb}%`;
 
                     const widget = document.getElementById('weather-header-widget');
                     if (widget) {
