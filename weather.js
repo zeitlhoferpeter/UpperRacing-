@@ -4,16 +4,14 @@
  */
 
 (function() {
-    // Exakte Koordinaten nur für die 5 Strecken im App-Dropdown
     const TRACK_COORDINATES = {
         "pannoniaring": { lat: 47.1625, lon: 16.7139, zoom: 9 },
+        "slovakia": { lat: 48.0519, lon: 17.5508, zoom: 9 },
         "brünn": { lat: 49.2019, lon: 16.5444, zoom: 9 },
-        "slovakia ring": { lat: 48.0519, lon: 17.5508, zoom: 9 },
-        "red bull ring": { lat: 47.2197, lon: 14.7647, zoom: 10 },
-        "most": { lat: 50.5031, lon: 13.6331, zoom: 9 }
+        "most": { lat: 50.5031, lon: 13.6331, zoom: 9 },
+        "grobnik": { lat: 45.3858, lon: 14.5139, zoom: 10 }
     };
 
-    // Standard-Fallback (Pannoniaring)
     const DEFAULT_LOCATION = { lat: 47.1625, lon: 16.7139, zoom: 9 };
 
     let weatherState = {
@@ -21,21 +19,19 @@
         lastAlertLevel: 'none'
     };
 
-    // CSS per JS injizieren
     const styleTag = document.createElement('style');
     styleTag.innerHTML = `
         #weather-header-widget {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             background: rgba(255, 255, 255, 0.1);
             padding: 4px 10px;
             border-radius: 20px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
             transition: all 0.3s ease;
             border: 1px solid rgba(255, 255, 255, 0.2);
-            margin: 0 10px;
         }
         #weather-header-widget:hover {
             background: rgba(255, 255, 255, 0.2);
@@ -181,7 +177,7 @@
         if (trackSelect && trackSelect.value) {
             return trackSelect.value;
         }
-        return "Pannoniaring";
+        return "pannoniaring";
     }
 
     function getTrackCoordinates(trackName) {
@@ -190,22 +186,9 @@
     }
 
     function initWeatherWidget() {
-        const headerContainer = document.querySelector('header') || document.querySelector('.header') || document.body;
-        
-        let widget = document.getElementById('weather-header-widget');
-        if (!widget) {
-            widget = document.createElement('div');
-            widget.id = 'weather-header-widget';
-            widget.title = 'Klicken für Wettervorhersage & Regenradar';
-            widget.innerHTML = `<span id="weather-icon">⏳</span> <span id="weather-temp">--°C</span>`;
+        const widget = document.getElementById('weather-header-widget');
+        if (widget) {
             widget.onclick = openWeatherModal;
-
-            const trackSelect = document.getElementById('trackSelect');
-            if (trackSelect && trackSelect.parentNode) {
-                trackSelect.parentNode.insertBefore(widget, trackSelect.nextSibling);
-            } else {
-                headerContainer.appendChild(widget);
-            }
         }
 
         if (!document.getElementById('weather-modal')) {
@@ -255,9 +238,10 @@
     function openWeatherModal() {
         const modal = document.getElementById('weather-modal');
         modal.classList.add('active');
-        const trackName = getCurrentTrackName();
-        document.getElementById('weather-modal-title').innerText = `Wetter & Radar für ${trackName}`;
-        updateRadarView(trackName);
+        const trackSelect = document.getElementById('trackSelect');
+        const trackNameText = trackSelect && trackSelect.options[trackSelect.selectedIndex] ? trackSelect.options[trackSelect.selectedIndex].text : getCurrentTrackName();
+        document.getElementById('weather-modal-title').innerText = `Wetter & Radar für ${trackNameText}`;
+        updateRadarView(getCurrentTrackName());
     }
 
     async function updateWeatherData() {
@@ -279,8 +263,10 @@
                 else if (code >= 71 && code <= 77) icon = "❄️";
                 else if (code >= 95) icon = "⚡";
 
-                document.getElementById('weather-icon').innerText = icon;
-                document.getElementById('weather-temp').innerText = `${temp}°C`;
+                const iconEl = document.getElementById('weather-icon');
+                const tempEl = document.getElementById('weather-temp');
+                if (iconEl) iconEl.innerText = icon;
+                if (tempEl) tempEl.innerText = `${temp}°C`;
 
                 const nowHourIndex = new Date().getHours();
                 const rainProb1 = data.hourly.precipitation_probability[nowHourIndex] || 0;
@@ -288,32 +274,36 @@
                 const maxRainProb = Math.max(rainProb1, rainProb2);
 
                 const widget = document.getElementById('weather-header-widget');
-                widget.classList.remove('alert-yellow', 'alert-red');
+                if (widget) {
+                    widget.classList.remove('alert-yellow', 'alert-red');
 
-                let currentLevel = 'none';
-                if (maxRainProb >= 80) {
-                    widget.classList.add('alert-red');
-                    currentLevel = 'red';
-                } else if (maxRainProb >= 50) {
-                    widget.classList.add('alert-yellow');
-                    currentLevel = 'yellow';
-                }
+                    let currentLevel = 'none';
+                    if (maxRainProb >= 80) {
+                        widget.classList.add('alert-red');
+                        currentLevel = 'red';
+                    } else if (maxRainProb >= 50) {
+                        widget.classList.add('alert-yellow');
+                        currentLevel = 'yellow';
+                    }
 
-                if (currentLevel !== 'none' && currentLevel !== weatherState.lastAlertLevel) {
-                    playAudioAlert(currentLevel);
+                    if (currentLevel !== 'none' && currentLevel !== weatherState.lastAlertLevel) {
+                        playAudioAlert(currentLevel);
+                    }
+                    weatherState.lastAlertLevel = currentLevel;
                 }
-                weatherState.lastAlertLevel = currentLevel;
 
                 renderHourlyForecast(data.hourly, nowHourIndex);
             }
         } catch (e) {
             console.error("Wetter-Fehler:", e);
-            document.getElementById('weather-temp').innerText = "Fehler";
+            const tempEl = document.getElementById('weather-temp');
+            if (tempEl) tempEl.innerText = "Fehler";
         }
     }
 
     function renderHourlyForecast(hourly, startIndex) {
         const container = document.getElementById('weather-hourly-container');
+        if (!container) return;
         let html = '';
         for (let i = startIndex; i < startIndex + 12; i++) {
             if (!hourly.time[i]) break;
@@ -339,6 +329,7 @@
     function updateRadarView(trackName) {
         const coords = getTrackCoordinates(trackName);
         const radarContainer = document.getElementById('weather-radar-container');
+        if (!radarContainer) return;
         radarContainer.innerHTML = `
             <iframe src="https://www.rainviewer.com/map.html?loc=${coords.lat},${coords.lon},${coords.zoom}&oqa=true&layer=radar&smooth=1&sn=1" 
                     width="100%" 
