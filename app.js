@@ -1,4 +1,4 @@
-// app.js - UpperRacing Hauptlogik (Multi-Bild, Kamera & Galerie + Status-Speicherung)
+// app.js - UpperRacing Hauptlogik (Multi-Bild, Kamera & Galerie)
 
 const tracksData = {
     pannoniaring: { name: "Pannoniaring", curves: 18 },
@@ -12,19 +12,9 @@ const DEFAULT_CUP_URL = "https://www.stardesignracing.com/wp-content/uploads/202
 
 function initApp() {
     try {
-        // Letzte Strecke wiederherstellen, falls vorhanden
-        const lastTrack = localStorage.getItem('upper_last_track');
-        if (lastTrack && tracksData[lastTrack]) {
-            const trackEl = document.getElementById('trackSelect');
-            if (trackEl) trackEl.value = lastTrack;
-        }
-
         onTrackChange();
         loadCupUrl();
-
-        // Letzte geöffnete Seite wiederherstellen (Standard: setup)
-        const lastPage = localStorage.getItem('upper_last_page') || 'setup';
-        switchPage(lastPage);
+        switchPage('setup');
     } catch (e) {
         console.error("Init Error:", e);
     }
@@ -39,9 +29,6 @@ function getLocalTimestamp() {
 function switchPage(pageKey) {
     try {
         if (pageKey === 'app') pageKey = 'setup';
-
-        // Aktuelle Seite im localStorage merken
-        localStorage.setItem('upper_last_page', pageKey);
 
         document.querySelectorAll('.page-content').forEach(el => {
             el.style.display = 'none';
@@ -88,10 +75,6 @@ function onTrackChange() {
         const trackEl = document.getElementById('trackSelect');
         if (!trackEl) return;
         const track = trackEl.value;
-
-        // Strecke im localStorage merken
-        localStorage.setItem('upper_last_track', track);
-
         loadSessionsForTrack(track);
         renderCurves(track);
         loadLapSessionsForTrack(track);
@@ -132,15 +115,8 @@ function loadSessionsForTrack(track) {
         sessionSelect.appendChild(opt);
     });
 
-    // Letzte ausgewählte Session für diese Strecke wiederherstellen oder die aktuellste nehmen
-    const lastSession = localStorage.getItem('upper_last_session_' + track);
-    if (lastSession && sessions[lastSession]) {
-        sessionSelect.value = lastSession;
-        loadSessionData(lastSession);
-    } else {
-        sessionSelect.value = keys[0];
-        loadSessionData(keys[0]);
-    }
+    sessionSelect.value = keys[0];
+    loadSessionData(keys[0]);
 }
 
 function getEmptySessionData(track) {
@@ -149,7 +125,7 @@ function getEmptySessionData(track) {
         return {
             tireFront: baseline.tireFront || '',
             tireRear: baseline.tireRear || '',
-            outsideTemp: '', // Lufttemperatur bewusst leer lassen (nicht im Basis-Setup)
+            outsideTemp: baseline.outsideTemp || '',
             gearing: baseline.gearing || '',
             forkRebound: baseline.forkRebound || '',
             forkCompression: baseline.forkCompression || '',
@@ -173,12 +149,8 @@ function getEmptySessionData(track) {
 }
 
 function onSessionChange() {
-    const track = document.getElementById('trackSelect').value;
     const sessionSelect = document.getElementById('sessionSelect');
-    if (sessionSelect) {
-        localStorage.setItem('upper_last_session_' + track, sessionSelect.value);
-        loadSessionData(sessionSelect.value);
-    }
+    if (sessionSelect) loadSessionData(sessionSelect.value);
 }
 
 function loadSessionData(sessionKey) {
@@ -254,7 +226,6 @@ function startNewSessionForm() {
 
     loadSessionsForTrack(track);
     document.getElementById('sessionSelect').value = newKey;
-    localStorage.setItem('upper_last_session_' + track, newKey);
     loadSessionData(newKey);
     showNotice('saveNotice', 'Neuer Eintrag angelegt!');
 }
@@ -329,6 +300,7 @@ function executeSaveBaseline() {
     const baseline = {
         tireFront: document.getElementById('tireFront')?.value || '',
         tireRear: document.getElementById('tireRear')?.value || '',
+        outsideTemp: document.getElementById('outsideTemp')?.value || '',
         gearing: document.getElementById('gearing')?.value || '',
         forkRebound: document.getElementById('forkRebound')?.value || '',
         forkCompression: document.getElementById('forkCompression')?.value || '',
@@ -355,7 +327,7 @@ function loadBaseline() {
     }
     setFieldValue('tireFront', baseline.tireFront);
     setFieldValue('tireRear', baseline.tireRear);
-    // outsideTemp wird hier bewusst NICHT aus der Baseline geladen
+    setFieldValue('outsideTemp', baseline.outsideTemp);
     setFieldValue('gearing', baseline.gearing);
     setFieldValue('forkRebound', baseline.forkRebound);
     setFieldValue('forkCompression', baseline.forkCompression);
@@ -692,7 +664,6 @@ function loadCupUrl() {
     if (urlInput) urlInput.value = url;
 }
 
-// BILD-UPLOAD (MULTI-BILD & KAMERA / GALERIE)
 function handleImageUpload(event) {
     const files = event.target.files;
     if (!files || files.length === 0) return;
