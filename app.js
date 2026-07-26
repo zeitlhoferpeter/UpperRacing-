@@ -53,6 +53,7 @@ function onTrackChange() {
     updateSessionSelects();
     loadTrackData();
     updateAllTimeBestDisplay();
+    renderCurves(); // Hier wird der Kurven-Guide beim Streckenwechsel nun direkt aktualisiert
 }
 
 function updateSessionSelects() {
