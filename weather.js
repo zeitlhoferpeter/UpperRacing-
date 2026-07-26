@@ -1,5 +1,5 @@
 /**
- * weather.js - Wetter & Regenradar mit Ein-/Ausschaltbarem GPS
+ * weather.js - Wetter & Regenradar mit GPS-Schalter und Karten-Pin
  */
 
 (function() {
@@ -122,12 +122,42 @@
             border: 1px solid #444;
         }
         .radar-container {
+            position: relative;
             width: 100%;
             height: 380px;
             border-radius: 8px;
             overflow: hidden;
             border: 1px solid #444;
             background: #000;
+        }
+        .map-marker-pin {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -100%);
+            background: rgba(0, 0, 0, 0.85);
+            color: #fff;
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+            pointer-events: none;
+            border: 1px solid #4da6ff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+            white-space: nowrap;
+            z-index: 10;
+        }
+        .map-marker-pin::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 5px 5px 0;
+            border-style: solid;
+            border-color: rgba(0, 0, 0, 0.85) transparent;
+            display: block;
+            width: 0;
         }
         .weather-settings-bar {
             display: flex;
@@ -308,6 +338,7 @@
                     style="border:0;" 
                     allowfullscreen>
                 </iframe>
+                <div class="map-marker-pin">📍 ${activeLocation.name}</div>
             `;
         }
     }
