@@ -1,11 +1,17 @@
-// backup.js - UpperRacing Backup & Restore (Mobil-optimiert)
+// backup.js - UpperRacing Backup & Restore (Mobil-First Redesign)
 
 function initBackup() {
     checkDailyBackupReminder();
-    renderInternalBackups();
+    renderBackupUI();
 }
 
-// 1. Backup erstellen (Blob-Download für perfekte Handy-Kompatibilität)
+// Zentraler Hub für das Backup-UI (erzeugt die modernen Buttons automatisch)
+function renderBackupUI() {
+    renderInternalBackups();
+    renderMobileExportImportBox();
+}
+
+// 1. BACKUP ERSTELLEN & TEILEN (Mobil-optimiert)
 function exportBackup() {
     try {
         let data = {};
@@ -15,43 +21,81 @@ function exportBackup() {
         }
 
         const dataStr = JSON.stringify(data, null, 2);
-        // Blob statt Data-URI verwenden – das ist der Standard für Handy-Downloads!
-        const blob = new Blob([dataStr], { type: 'application/json;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        
-        const downloadAnchor = document.createElement('a');
         const dateStr = new Date().toISOString().split('T')[0];
         const timeStr = new Date().toTimeString().split(' ')[0].replace(/:/g, '-');
-        
-        downloadAnchor.href = url;
-        downloadAnchor.download = `UpperRacing_Backup_${dateStr}_${timeStr}.json`;
-        
-        document.body.appendChild(downloadAnchor);
-        downloadAnchor.click();
-        downloadAnchor.remove();
-        
-        // URL-Objekt nach kurzer Zeit wieder freigeben
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        const fileName = `UpperRacing_Backup_${dateStr}_${timeStr}.json`;
 
-        // B) Intern in der App abspeichern (Maximal 5 Stück)
+        // Speichere es immer direkt intern ab (Sicherheitsnetz)
         saveInternalBackup(data);
-
-        // Status aktualisieren
         localStorage.setItem('upper_last_backup_date', dateStr);
         localStorage.removeItem('upper_has_new_changes');
         
         const banner = document.getElementById('backupReminderBanner');
         if (banner) banner.style.display = 'none';
 
-        showNotice('saveNoticeBackup', 'Backup erstellt & intern gespeichert!');
+        // PRÜFUNG: Unterstützt das Handy die native Teilen-Funktion? (iOS/Android)
+        if (navigator.share && navigator.canShare) {
+            const file = new File([dataStr], fileName, { type: 'application/json' });
+            if (navigator.canShare({ files: [file] })) {
+                navigator.share({
+                    title: 'UpperRacing Backup',
+                    text: 'Hier ist dein aktuelles App-Backup.',
+                    files: [file]
+                }).then(() => {
+                    showNotice('saveNoticeBackup', 'Backup erfolgreich geteilt & gespeichert!');
+                }).catch((err) => {
+                    if (err.name !== 'AbortError') {
+                        fallbackDownloadOrCopy(dataStr, fileName);
+                    }
+                });
+                renderInternalBackups();
+                return;
+            }
+        }
+
+        // Fallback: Wenn kein Share, dann direkt Download oder Zwischenablage
+        fallbackDownloadOrCopy(dataStr, fileName);
         renderInternalBackups();
+
     } catch (e) {
         console.error("Backup-Fehler:", e);
         alert("Fehler beim Erstellen des Backups: " + e.message);
     }
 }
 
-// Interne Historie aktualisieren (behält die letzten 5)
+// Fallback für PC oder Browser, die kein Share unterstützen
+function fallbackDownloadOrCopy(dataStr, fileName) {
+    const blob = new Blob([dataStr], { type: 'application/json;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.href = url;
+    downloadAnchor.download = fileName;
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+    showNotice('saveNoticeBackup', 'Backup als Datei heruntergeladen!');
+}
+
+// Direkt in die Zwischenablage kopieren (Perfekt für Handys als Alternative)
+function copyBackupToClipboard() {
+    let data = {};
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        data[key] = localStorage.getItem(key);
+    }
+    const dataStr = JSON.stringify(data, null, 2);
+
+    navigator.clipboard.writeText(dataStr).then(() => {
+        alert("📋 Backup-Code wurde in die Zwischenablage kopiert! Du kannst ihn jetzt z.B. in WhatsApp oder Notizen einfügen.");
+    }).catch(err => {
+        alert("Kopieren fehlgeschlagen: " + err);
+    });
+}
+
+// 2. INTERNE HISTORIE (Die letzten 5 Backups im Speicher)
 function saveInternalBackup(data) {
     let history = [];
     try {
@@ -62,19 +106,12 @@ function saveInternalBackup(data) {
     const now = new Date();
     const timestamp = now.toLocaleDateString() + ' ' + now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
-    history.unshift({
-        timestamp: timestamp,
-        data: data
-    });
-
-    if (history.length > 5) {
-        history = history.slice(0, 5);
-    }
+    history.unshift({ timestamp: timestamp, data: data });
+    if (history.length > 5) history = history.slice(0, 5);
 
     localStorage.setItem('upper_internal_backups', JSON.stringify(history));
 }
 
-// Interne Backups als Liste auf der Backup-Seite anzeigen
 function renderInternalBackups() {
     const container = document.getElementById('internalBackupsContainer');
     if (!container) return;
@@ -103,7 +140,6 @@ function renderInternalBackups() {
     container.innerHTML = html;
 }
 
-// Ein internes Backup per Klick wiederherstellen
 function restoreInternalBackup(index) {
     let history = [];
     try {
@@ -124,50 +160,63 @@ function restoreInternalBackup(index) {
     }
 }
 
-// 2. Klassischer Datei-Import (Mobil-optimiert mit BOM-Bereinigung)
-function importBackup(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            let text = e.target.result;
-            
-            // WICHTIG FÜR HANDYS: Entfernt das unsichtbare BOM-Zeichen am Anfang, falls vorhanden
-            if (text.charCodeAt(0) === 0xFEFF) {
-                text = text.slice(1);
-            }
-            text = text.trim();
-
-            const data = JSON.parse(text);
-            
-            if (confirm("Möchtest du dieses Backup wirklich einspielen? Alle aktuellen lokalen Daten werden dabei überschrieben!")) {
-                localStorage.clear();
-                for (const key in data) {
-                    localStorage.setItem(key, data[key]);
-                }
-                alert("Backup erfolgreich wiederhergestellt! Die App wird jetzt neu geladen.");
-                location.reload();
-            }
-        } catch (err) {
-            console.error("Import-Fehler:", err);
-            alert("Fehler beim Lesen der Datei. Ungültiges Backup-Format.\nDetails: " + err.message);
-        } finally {
-            // Input zurücksetzen, damit dieselbe Datei bei Bedarf erneut gewählt werden kann
-            event.target.value = '';
-        }
-    };
+// 3. MODERNER IMPORT (Ohne Datei-Upload, rein über Text/Einfügen)
+function renderMobileExportImportBox() {
+    const container = document.getElementById('internalBackupsContainer');
+    if (!container) return;
     
-    reader.onerror = function() {
-        alert("Fehler beim Lesen der Datei.");
-        event.target.value = '';
-    };
+    if (document.getElementById('modernBackupBox')) return;
 
-    reader.readAsText(file);
+    const wrapper = document.createElement('div');
+    wrapper.id = 'modernBackupBox';
+    wrapper.style.marginTop = '20px';
+    wrapper.style.borderTop = '1px solid #444';
+    wrapper.style.paddingTop = '15px';
+    wrapper.innerHTML = `
+        <p style="font-size:0.85rem; color:#4da6ff; margin:0 0 8px 0; font-weight:bold;">📲 Handy & Cloud Import / Export:</p>
+        
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+            <button type="button" onclick="copyBackupToClipboard()" style="flex:1; background:#6c757d; color:#fff; border:none; padding:8px; border-radius:6px; cursor:pointer; font-size:0.8rem; font-weight:bold;">📋 Code kopieren</button>
+        </div>
+
+        <textarea id="backupTextData" placeholder="Backup-Code hier einfügen (zum Importieren)..." style="width:100%; height:75px; background:#111; color:#fff; border:1px solid #444; border-radius:6px; font-size:0.75rem; padding:8px; box-sizing:border-box;"></textarea>
+        
+        <button type="button" onclick="importBackupFromText()" style="margin-top:8px; width:100%; background:#ff9800; color:#fff; border:none; padding:8px; border-radius:6px; cursor:pointer; font-size:0.85rem; font-weight:bold;">📥 Backup aus Text wiederherstellen</button>
+    `;
+    container.parentNode.appendChild(wrapper);
 }
 
-// 3. Nur dann erinnern, wenn heute neue Einträge gemacht wurden
+function importBackupFromText() {
+    const textarea = document.getElementById('backupTextData');
+    if (!textarea || !textarea.value.trim()) {
+        alert("Bitte zuerst den Backup-Text in das Textfeld einfügen!");
+        return;
+    }
+
+    try {
+        let text = textarea.value.trim();
+        if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // BOM entfernen
+
+        const data = JSON.parse(text);
+        if (typeof data !== 'object' || data === null) {
+            throw new Error("Kein gültiges Objekt.");
+        }
+
+        if (confirm("Möchtest du dieses Backup wirklich einspielen? Alle aktuellen lokalen Daten werden dabei überschrieben!")) {
+            localStorage.clear();
+            for (const key in data) {
+                localStorage.setItem(key, data[key]);
+            }
+            alert("Backup erfolgreich wiederhergestellt! Die App wird jetzt neu geladen.");
+            location.reload();
+        }
+    } catch (err) {
+        console.error("Import-Fehler:", err);
+        alert("Ungültiges Backup-Format. Bitte prüfe den Text.\nFehler: " + err.message);
+    }
+}
+
+// 4. Tägliche Erinnerung
 function checkDailyBackupReminder() {
     const lastBackupDate = localStorage.getItem('upper_last_backup_date');
     const today = new Date().toISOString().split('T')[0];
