@@ -12,6 +12,7 @@ const DEFAULT_CUP_URL = "https://www.stardesignracing.com/wp-content/uploads/202
 
 function initApp() {
     try {
+        // Letzte Strecke wiederherstellen, falls vorhanden
         const lastTrack = localStorage.getItem('upper_last_track');
         if (lastTrack && tracksData[lastTrack]) {
             const trackEl = document.getElementById('trackSelect');
@@ -21,6 +22,7 @@ function initApp() {
         onTrackChange();
         loadCupUrl();
 
+        // Letzte geöffnete Seite wiederherstellen (Standard: setup)
         const lastPage = localStorage.getItem('upper_last_page') || 'setup';
         switchPage(lastPage);
     } catch (e) {
@@ -38,6 +40,7 @@ function switchPage(pageKey) {
     try {
         if (pageKey === 'app') pageKey = 'setup';
 
+        // Aktuelle Seite im localStorage merken
         localStorage.setItem('upper_last_page', pageKey);
 
         document.querySelectorAll('.page-content').forEach(el => {
@@ -86,6 +89,7 @@ function onTrackChange() {
         if (!trackEl) return;
         const track = trackEl.value;
 
+        // Strecke im localStorage merken
         localStorage.setItem('upper_last_track', track);
 
         loadSessionsForTrack(track);
@@ -128,6 +132,7 @@ function loadSessionsForTrack(track) {
         sessionSelect.appendChild(opt);
     });
 
+    // Letzte ausgewählte Session für diese Strecke wiederherstellen oder die aktuellste nehmen
     const lastSession = localStorage.getItem('upper_last_session_' + track);
     if (lastSession && sessions[lastSession]) {
         sessionSelect.value = lastSession;
@@ -144,7 +149,7 @@ function getEmptySessionData(track) {
         return {
             tireFront: baseline.tireFront || '',
             tireRear: baseline.tireRear || '',
-            outsideTemp: '',
+            outsideTemp: '', // Lufttemperatur bewusst leer lassen (nicht im Basis-Setup)
             gearing: baseline.gearing || '',
             forkRebound: baseline.forkRebound || '',
             forkCompression: baseline.forkCompression || '',
@@ -350,6 +355,7 @@ function loadBaseline() {
     }
     setFieldValue('tireFront', baseline.tireFront);
     setFieldValue('tireRear', baseline.tireRear);
+    // outsideTemp wird hier bewusst NICHT aus der Baseline geladen
     setFieldValue('gearing', baseline.gearing);
     setFieldValue('forkRebound', baseline.forkRebound);
     setFieldValue('forkCompression', baseline.forkCompression);
