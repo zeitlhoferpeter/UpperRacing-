@@ -218,7 +218,11 @@ function startNewSessionForm() {
     
     let sessions = JSON.parse(localStorage.getItem(getSessionsKey(track))) || {};
     sessions[newKey] = getEmptySessionData(track);
-    localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
+    try {
+        localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
+    } catch (e) {
+        alert("Speicherlimit erreicht!");
+    }
 
     loadSessionsForTrack(track);
     document.getElementById('sessionSelect').value = newKey;
@@ -255,8 +259,12 @@ function saveData() {
         tireImages: currentImages
     };
 
-    localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
-    showNotice('saveNotice', 'Erfolgreich gespeichert!');
+    try {
+        localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
+        showNotice('saveNotice', 'Erfolgreich gespeichert!');
+    } catch (e) {
+        alert("Speicherlimit überschritten! Zu viele große Bilder.");
+    }
 }
 
 function deleteCurrentSession() {
@@ -656,6 +664,7 @@ function loadCupUrl() {
     if (urlInput) urlInput.value = url;
 }
 
+// BILD-UPLOAD MIT AUTOMATISCHER KOMPRIMIERUNG & GRÖßENANPASSUNG
 function handleImageUpload(event) {
     const files = event.target.files;
     if (!files || files.length === 0) return;
@@ -670,35 +679,45 @@ function handleImageUpload(event) {
     let existingData = sessions[sessionKey] || {};
     let currentImages = existingData.tireImages || (existingData.tireImage ? [existingData.tireImage] : []);
 
-    let loadedCount = 0;
+    let processedCount = 0;
     Array.from(files).forEach(file => {
         const reader = new FileReader();
         reader.onload = function(e) {
-            currentImages.push(e.target.result);
-            loadedCount++;
-            if (loadedCount === files.length) {
-                existingData.tireImages = currentImages;
-                delete existingData.tireImage;
-                sessions[sessionKey] = {
-                    tireFront: document.getElementById('tireFront')?.value || '',
-                    tireRear: document.getElementById('tireRear')?.value || '',
-                    outsideTemp: document.getElementById('outsideTemp')?.value || '',
-                    gearing: document.getElementById('gearing')?.value || '',
-                    forkRebound: document.getElementById('forkRebound')?.value || '',
-                    forkCompression: document.getElementById('forkCompression')?.value || '',
-                    forkPreload: document.getElementById('forkPreload')?.value || '',
-                    forkSag: document.getElementById('forkSag')?.value || '',
-                    forkRemaining: document.getElementById('forkRemaining')?.value || '',
-                    shockRebound: document.getElementById('shockRebound')?.value || '',
-                    shockCompression: document.getElementById('shockCompression')?.value || '',
-                    shockPreload: document.getElementById('shockPreload')?.value || '',
-                    shockSag: document.getElementById('shockSag')?.value || '',
-                    shockRemaining: document.getElementById('shockRemaining')?.value || '',
-                    tireImages: currentImages
-                };
-                localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
-                renderTireImages(currentImages);
-            }
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                const maxWidth = 800;
+                const maxHeight = 800;
+
+                if (width > height) {
+                    if (width > maxWidth) {
+                        height *= maxWidth / width;
+                        width = maxWidth;
+                    }
+                } else {
+                    if (height > maxHeight) {
+                        width *= maxHeight / height;
+                        height = maxHeight;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // Komprimiert auf JPEG 70% Qualität (schützt vor localStorage Quota-Fehlern)
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                currentImages.push(dataUrl);
+
+                processedCount++;
+                if (processedCount === files.length) {
+                    saveImagesToSession(track, sessionKey, sessions, existingData, currentImages);
+                }
+            };
+            img.src = e.target.result;
         };
         reader.readAsDataURL(file);
     });
@@ -706,20 +725,10 @@ function handleImageUpload(event) {
     event.target.value = '';
 }
 
-function deleteSingleTireImage(index) {
-    const track = document.getElementById('trackSelect').value;
-    const sessionSelect = document.getElementById('sessionSelect');
-    if (!sessionSelect) return;
-    const sessionKey = sessionSelect.value;
-    if (!sessionKey) return;
-
-    let sessions = JSON.parse(localStorage.getItem(getSessionsKey(track))) || {};
-    let existingData = sessions[sessionKey] || {};
-    let currentImages = existingData.tireImages || (existingData.tireImage ? [existingData.tireImage] : []);
-
-    currentImages.splice(index, 1);
+function saveImagesToSession(track, sessionKey, sessions, existingData, currentImages) {
     existingData.tireImages = currentImages;
     delete existingData.tireImage;
+    
     sessions[sessionKey] = {
         tireFront: document.getElementById('tireFront')?.value || '',
         tireRear: document.getElementById('tireRear')?.value || '',
@@ -738,8 +747,54 @@ function deleteSingleTireImage(index) {
         tireImages: currentImages
     };
 
-    localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
-    renderTireImages(currentImages);
+    try {
+        localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
+        renderTireImages(currentImages);
+    } catch (e) {
+        console.error("Storage quota exceeded:", e);
+        alert("Speicherlimit überschritten! Zu viele oder zu große Bilder.");
+    }
+}
+
+function deleteSingleTireImage(index) {
+    const track = document.getElementById('trackSelect').value;
+    const sessionSelect = document.getElementById('sessionSelect');
+    if (!sessionSelect) return;
+    const sessionKey = sessionSelect.value;
+    if (!sessionKey) return;
+
+    let sessions = JSON.parse(localStorage.getItem(getSessionsKey(track))) || {};
+    let existingData = sessions[sessionKey] || {};
+    let currentImages = existingData.tireImages || (existingData.tireImage ? [existingData.tireImage] : []);
+
+    currentImages.splice(index, 1);
+    existingData.tireImages = currentImages;
+    delete existingData.tireImage;
+    
+    sessions[sessionKey] = {
+        tireFront: document.getElementById('tireFront')?.value || '',
+        tireRear: document.getElementById('tireRear')?.value || '',
+        outsideTemp: document.getElementById('outsideTemp')?.value || '',
+        gearing: document.getElementById('gearing')?.value || '',
+        forkRebound: document.getElementById('forkRebound')?.value || '',
+        forkCompression: document.getElementById('forkCompression')?.value || '',
+        forkPreload: document.getElementById('forkPreload')?.value || '',
+        forkSag: document.getElementById('forkSag')?.value || '',
+        forkRemaining: document.getElementById('forkRemaining')?.value || '',
+        shockRebound: document.getElementById('shockRebound')?.value || '',
+        shockCompression: document.getElementById('shockCompression')?.value || '',
+        shockPreload: document.getElementById('shockPreload')?.value || '',
+        shockSag: document.getElementById('shockSag')?.value || '',
+        shockRemaining: document.getElementById('shockRemaining')?.value || '',
+        tireImages: currentImages
+    };
+
+    try {
+        localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
+        renderTireImages(currentImages);
+    } catch (e) {
+        alert("Fehler beim Speichern nach dem Löschen.");
+    }
 }
 
 function deleteAllTireImages() {
@@ -754,6 +809,7 @@ function deleteAllTireImages() {
     let existingData = sessions[sessionKey] || {};
     existingData.tireImages = [];
     delete existingData.tireImage;
+    
     sessions[sessionKey] = {
         tireFront: document.getElementById('tireFront')?.value || '',
         tireRear: document.getElementById('tireRear')?.value || '',
@@ -772,8 +828,12 @@ function deleteAllTireImages() {
         tireImages: []
     };
 
-    localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
-    renderTireImages([]);
+    try {
+        localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
+        renderTireImages([]);
+    } catch (e) {
+        alert("Fehler beim Speichern.");
+    }
 }
 
 function deleteTireImage() {
