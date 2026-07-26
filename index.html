@@ -90,7 +90,13 @@
                 <!-- Reifenbild / Foto -->
                 <div class="setup-box">
                     <h3>Reifenbild</h3>
-                    <input type="file" accept="image/*" onchange="handleImageUpload(event)" style="margin-bottom:8px;">
+                    <div style="display:flex; gap:8px; margin-bottom:8px;">
+                        <button type="button" onclick="document.getElementById('cameraInput').click()" style="flex:1; background:#2196F3; color:#fff; border:none; padding:8px; border-radius:4px; cursor:pointer; font-size:0.85rem;">📷 Foto aufnehmen</button>
+                        <button type="button" onclick="document.getElementById('galleryInput').click()" style="flex:1; background:#607D8B; color:#fff; border:none; padding:8px; border-radius:4px; cursor:pointer; font-size:0.85rem;">🖼️ Galerie</button>
+                    </div>
+                    <input type="file" id="cameraInput" accept="image/*" capture="environment" onchange="handleImageUpload(event)" style="display:none;">
+                    <input type="file" id="galleryInput" accept="image/*" onchange="handleImageUpload(event)" style="display:none;">
+
                     <div id="tireImageContainer" style="display:none; text-align:center; margin-top:8px;">
                         <img id="tireImagePreview" src="" alt="Reifenbild" style="max-width:100%; max-height:200px; border-radius:4px; cursor:pointer;" onclick="openModal(this.src)">
                         <br><button type="button" onclick="deleteTireImage()" style="background:#f44336; color:#fff; border:none; padding:4px 8px; border-radius:4px; margin-top:6px; cursor:pointer; font-size:0.8rem;">Bild löschen</button>
