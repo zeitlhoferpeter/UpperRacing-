@@ -1,4 +1,4 @@
-// app.js - UpperRacing Hauptlogik (Multi-Bild, Kamera & Galerie)
+// app.js - UpperRacing Hauptlogik
 
 const tracksData = {
     pannoniaring: { name: "Pannoniaring", curves: 18 },
@@ -125,7 +125,7 @@ function getEmptySessionData(track) {
         return {
             tireFront: baseline.tireFront || '',
             tireRear: baseline.tireRear || '',
-            outsideTemp: baseline.outsideTemp || '',
+            outsideTemp: '', // Temperatur gehört nicht zur Basis und startet leer
             gearing: baseline.gearing || '',
             forkRebound: baseline.forkRebound || '',
             forkCompression: baseline.forkCompression || '',
@@ -136,15 +136,13 @@ function getEmptySessionData(track) {
             shockCompression: baseline.shockCompression || '',
             shockPreload: baseline.shockPreload || '',
             shockSag: baseline.shockSag || '',
-            shockRemaining: baseline.shockRemaining || '',
-            tireImages: []
+            shockRemaining: baseline.shockRemaining || ''
         };
     }
     return {
         tireFront: '', tireRear: '', outsideTemp: '', gearing: '',
         forkRebound: '', forkCompression: '', forkPreload: '', forkSag: '', forkRemaining: '',
-        shockRebound: '', shockCompression: '', shockPreload: '', shockSag: '', shockRemaining: '',
-        tireImages: []
+        shockRebound: '', shockCompression: '', shockPreload: '', shockSag: '', shockRemaining: ''
     };
 }
 
@@ -174,37 +172,6 @@ function loadSessionData(sessionKey) {
     setFieldValue('shockPreload', data.shockPreload);
     setFieldValue('shockSag', data.shockSag);
     setFieldValue('shockRemaining', data.shockRemaining);
-
-    let images = data.tireImages || [];
-    if (images.length === 0 && data.tireImage) {
-        images = [data.tireImage];
-    }
-    renderTireImages(images);
-}
-
-function renderTireImages(imagesArray) {
-    const imgCont = document.getElementById('tireImageContainer');
-    if (!imgCont) return;
-
-    if (!imagesArray || imagesArray.length === 0) {
-        imgCont.style.display = 'none';
-        imgCont.innerHTML = '';
-        return;
-    }
-
-    imgCont.style.display = 'block';
-    let html = '<div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:8px;">';
-    imagesArray.forEach((src, idx) => {
-        html += `
-            <div style="position:relative; display:inline-block;">
-                <img src="${src}" alt="Reifenbild ${idx + 1}" style="width:90px; height:90px; object-fit:cover; border-radius:4px; cursor:pointer; border:1px solid #444;" onclick="openModal('${src}')">
-                <button type="button" onclick="deleteSingleTireImage(${idx})" style="position:absolute; top:-6px; right:-6px; background:#f44336; color:#fff; border:none; border-radius:50%; width:22px; height:22px; font-size:0.75rem; cursor:pointer; display:flex; align-items:center; justify-content:center;" title="Bild löschen">&times;</button>
-            </div>
-        `;
-    });
-    html += '</div>';
-    html += '<button type="button" onclick="deleteAllTireImages()" style="background:#f44336; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:0.8rem;">Alle Bilder löschen</button>';
-    imgCont.innerHTML = html;
 }
 
 function setFieldValue(id, val) {
@@ -238,8 +205,6 @@ function saveData() {
     if (!sessionKey) return;
 
     let sessions = JSON.parse(localStorage.getItem(getSessionsKey(track))) || {};
-    const existingData = sessions[sessionKey] || {};
-    let currentImages = existingData.tireImages || (existingData.tireImage ? [existingData.tireImage] : []);
 
     sessions[sessionKey] = {
         tireFront: document.getElementById('tireFront')?.value || '',
@@ -255,15 +220,14 @@ function saveData() {
         shockCompression: document.getElementById('shockCompression')?.value || '',
         shockPreload: document.getElementById('shockPreload')?.value || '',
         shockSag: document.getElementById('shockSag')?.value || '',
-        shockRemaining: document.getElementById('shockRemaining')?.value || '',
-        tireImages: currentImages
+        shockRemaining: document.getElementById('shockRemaining')?.value || ''
     };
 
     try {
         localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
         showNotice('saveNotice', 'Erfolgreich gespeichert!');
     } catch (e) {
-        alert("Speicherlimit überschritten! Zu viele große Bilder.");
+        alert("Speicherlimit überschritten!");
     }
 }
 
@@ -300,7 +264,6 @@ function executeSaveBaseline() {
     const baseline = {
         tireFront: document.getElementById('tireFront')?.value || '',
         tireRear: document.getElementById('tireRear')?.value || '',
-        outsideTemp: document.getElementById('outsideTemp')?.value || '',
         gearing: document.getElementById('gearing')?.value || '',
         forkRebound: document.getElementById('forkRebound')?.value || '',
         forkCompression: document.getElementById('forkCompression')?.value || '',
@@ -327,7 +290,6 @@ function loadBaseline() {
     }
     setFieldValue('tireFront', baseline.tireFront);
     setFieldValue('tireRear', baseline.tireRear);
-    setFieldValue('outsideTemp', baseline.outsideTemp);
     setFieldValue('gearing', baseline.gearing);
     setFieldValue('forkRebound', baseline.forkRebound);
     setFieldValue('forkCompression', baseline.forkCompression);
@@ -639,7 +601,7 @@ function confirmClearAllTimeBest() {
         }
     } catch (e) {
         console.error("Fehler beim Löschen der Bestzeit:", e);
-        alert("Fehler beim Löschen. Bitte Browser-Einstellungen prüfen.");
+        alert("Fehler beim Löschen.");
     }
 }
 
@@ -662,209 +624,6 @@ function loadCupUrl() {
     const savedUrl = localStorage.getItem('cupUrl');
     const url = (savedUrl && savedUrl.trim() !== '') ? savedUrl : DEFAULT_CUP_URL;
     if (urlInput) urlInput.value = url;
-}
-
-function handleImageUpload(event) {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
-
-    const track = document.getElementById('trackSelect').value;
-    const sessionSelect = document.getElementById('sessionSelect');
-    if (!sessionSelect) return;
-    const sessionKey = sessionSelect.value;
-    if (!sessionKey) return;
-
-    let sessions = JSON.parse(localStorage.getItem(getSessionsKey(track))) || {};
-    let existingData = sessions[sessionKey] || getEmptySessionData(track);
-    let currentImages = existingData.tireImages || (existingData.tireImage ? [existingData.tireImage] : []);
-
-    let processedCount = 0;
-    Array.from(files).forEach(file => {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const rawDataUrl = e.target.result;
-            const img = new Image();
-            
-            img.onload = function() {
-                try {
-                    const canvas = document.createElement('canvas');
-                    let width = img.width;
-                    let height = img.height;
-                    const maxWidth = 800;
-                    const maxHeight = 800;
-
-                    if (width > height) {
-                        if (width > maxWidth) {
-                            height *= maxWidth / width;
-                            width = maxWidth;
-                        }
-                    } else {
-                        if (height > maxHeight) {
-                            width *= maxHeight / height;
-                            height = maxHeight;
-                        }
-                    }
-
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
-
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
-                    currentImages.push(dataUrl);
-                } catch (err) {
-                    currentImages.push(rawDataUrl);
-                }
-
-                processedCount++;
-                if (processedCount === files.length) {
-                    saveImagesToSession(track, sessionKey, sessions, existingData, currentImages);
-                }
-            };
-
-            img.onerror = function() {
-                currentImages.push(rawDataUrl);
-                processedCount++;
-                if (processedCount === files.length) {
-                    saveImagesToSession(track, sessionKey, sessions, existingData, currentImages);
-                }
-            };
-
-            img.src = rawDataUrl;
-        };
-        reader.readAsDataURL(file);
-    });
-
-    event.target.value = '';
-}
-
-function saveImagesToSession(track, sessionKey, sessions, existingData, currentImages) {
-    existingData.tireImages = currentImages;
-    delete existingData.tireImage;
-    
-    sessions[sessionKey] = {
-        tireFront: document.getElementById('tireFront')?.value || '',
-        tireRear: document.getElementById('tireRear')?.value || '',
-        outsideTemp: document.getElementById('outsideTemp')?.value || '',
-        gearing: document.getElementById('gearing')?.value || '',
-        forkRebound: document.getElementById('forkRebound')?.value || '',
-        forkCompression: document.getElementById('forkCompression')?.value || '',
-        forkPreload: document.getElementById('forkPreload')?.value || '',
-        forkSag: document.getElementById('forkSag')?.value || '',
-        forkRemaining: document.getElementById('forkRemaining')?.value || '',
-        shockRebound: document.getElementById('shockRebound')?.value || '',
-        shockCompression: document.getElementById('shockCompression')?.value || '',
-        shockPreload: document.getElementById('shockPreload')?.value || '',
-        shockSag: document.getElementById('shockSag')?.value || '',
-        shockRemaining: document.getElementById('shockRemaining')?.value || '',
-        tireImages: currentImages
-    };
-
-    try {
-        localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
-        renderTireImages(currentImages);
-    } catch (e) {
-        alert("Speicherlimit überschritten! Zu viele oder zu große Bilder im Speicher.");
-    }
-}
-
-function deleteSingleTireImage(index) {
-    const track = document.getElementById('trackSelect').value;
-    const sessionSelect = document.getElementById('sessionSelect');
-    if (!sessionSelect) return;
-    const sessionKey = sessionSelect.value;
-    if (!sessionKey) return;
-
-    let sessions = JSON.parse(localStorage.getItem(getSessionsKey(track))) || {};
-    let existingData = sessions[sessionKey] || {};
-    let currentImages = existingData.tireImages || (existingData.tireImage ? [existingData.tireImage] : []);
-
-    currentImages.splice(index, 1);
-    existingData.tireImages = currentImages;
-    delete existingData.tireImage;
-    
-    sessions[sessionKey] = {
-        tireFront: document.getElementById('tireFront')?.value || '',
-        tireRear: document.getElementById('tireRear')?.value || '',
-        outsideTemp: document.getElementById('outsideTemp')?.value || '',
-        gearing: document.getElementById('gearing')?.value || '',
-        forkRebound: document.getElementById('forkRebound')?.value || '',
-        forkCompression: document.getElementById('forkCompression')?.value || '',
-        forkPreload: document.getElementById('forkPreload')?.value || '',
-        forkSag: document.getElementById('forkSag')?.value || '',
-        forkRemaining: document.getElementById('forkRemaining')?.value || '',
-        shockRebound: document.getElementById('shockRebound')?.value || '',
-        shockCompression: document.getElementById('shockCompression')?.value || '',
-        shockPreload: document.getElementById('shockPreload')?.value || '',
-        shockSag: document.getElementById('shockSag')?.value || '',
-        shockRemaining: document.getElementById('shockRemaining')?.value || '',
-        tireImages: currentImages
-    };
-
-    try {
-        localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
-        renderTireImages(currentImages);
-    } catch (e) {
-        alert("Fehler beim Speichern nach dem Löschen.");
-    }
-}
-
-function deleteAllTireImages() {
-    if (!confirm("Alle Reifenbilder dieses Eintrags löschen?")) return;
-    const track = document.getElementById('trackSelect').value;
-    const sessionSelect = document.getElementById('sessionSelect');
-    if (!sessionSelect) return;
-    const sessionKey = sessionSelect.value;
-    if (!sessionKey) return;
-
-    let sessions = JSON.parse(localStorage.getItem(getSessionsKey(track))) || {};
-    let existingData = sessions[sessionKey] || {};
-    existingData.tireImages = [];
-    delete existingData.tireImage;
-    
-    sessions[sessionKey] = {
-        tireFront: document.getElementById('tireFront')?.value || '',
-        tireRear: document.getElementById('tireRear')?.value || '',
-        outsideTemp: document.getElementById('outsideTemp')?.value || '',
-        gearing: document.getElementById('gearing')?.value || '',
-        forkRebound: document.getElementById('forkRebound')?.value || '',
-        forkCompression: document.getElementById('forkCompression')?.value || '',
-        forkPreload: document.getElementById('forkPreload')?.value || '',
-        forkSag: document.getElementById('forkSag')?.value || '',
-        forkRemaining: document.getElementById('forkRemaining')?.value || '',
-        shockRebound: document.getElementById('shockRebound')?.value || '',
-        shockCompression: document.getElementById('shockCompression')?.value || '',
-        shockPreload: document.getElementById('shockPreload')?.value || '',
-        shockSag: document.getElementById('shockSag')?.value || '',
-        shockRemaining: document.getElementById('shockRemaining')?.value || '',
-        tireImages: []
-    };
-
-    try {
-        localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
-        renderTireImages([]);
-    } catch (e) {
-        alert("Fehler beim Speichern.");
-    }
-}
-
-function deleteTireImage() {
-    deleteAllTireImages();
-}
-
-function openModal(src) {
-    if(!src) return;
-    const modal = document.getElementById('imageModal');
-    const modalImg = document.getElementById('modalImg');
-    if (modal && modalImg) {
-        modal.style.display = 'block';
-        modalImg.src = src;
-    }
-}
-
-function closeModal() {
-    const modal = document.getElementById('imageModal');
-    if (modal) modal.style.display = 'none';
 }
 
 function showNotice(elementId, text) {
