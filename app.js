@@ -93,6 +93,9 @@ function loadSessionsForTrack(track) {
     if (!sessionSelect) return;
     sessionSelect.innerHTML = '';
     
+    // Event-Listener direkt sicherstellen
+    sessionSelect.onchange = onSessionChange;
+    
     let sessions = JSON.parse(localStorage.getItem(getSessionsKey(track))) || {};
     
     let keys = Object.keys(sessions).sort((a, b) => {
@@ -431,6 +434,9 @@ function loadLapSessionsForTrack(track) {
     if (!lapSelect) return;
     lapSelect.innerHTML = '';
 
+    // Event-Listener direkt sicherstellen, damit beim Wechseln die Zeiten geladen werden
+    lapSelect.onchange = onLapSessionChange;
+
     let lapSessions = JSON.parse(localStorage.getItem(getLapSessionsKey(track))) || {};
     let keys = Object.keys(lapSessions).sort((a, b) => new Date(b.replace(' ', 'T')) - new Date(a.replace(' ', 'T')));
 
@@ -449,7 +455,7 @@ function loadLapSessionsForTrack(track) {
     });
 
     lapSelect.value = keys[0];
-    renderLapList(lapSessions[keys[0]]);
+    renderLapList(lapSessions[keys[0]] || []);
 }
 
 function onLapSessionChange() {
