@@ -230,7 +230,7 @@ function loadBaseline() {
     }
 }
 
-// --- ROBUUSTER BILD-UPLOAD (FILEREADER + CANVAS) ---
+// --- BILD-UPLOAD ---
 function handleImageUpload(event) {
     const files = event.target.files;
     if (!files || files.length === 0) return;
@@ -361,12 +361,13 @@ function renderTireImages(images) {
     });
     
     html += '</div>';
-    html += '<button type="button" onclick="deleteAllTireImages()" style="background:#f44336; color:#fff; border:none; padding:4px 8px; border-radius:4px; font-size:0.75rem; cursor:pointer;">Alle Bilder löschen</button>';
     
     container.innerHTML = html;
 }
 
 function deleteTireImage(index) {
+    if (!confirm("Dieses Reifenbild wirklich löschen?")) return;
+    
     const track = document.getElementById('trackSelect').value;
     const sessionSelect = document.getElementById('sessionSelect');
     if (!sessionSelect) return;
@@ -378,21 +379,6 @@ function deleteTireImage(index) {
     sessions[sessionKey].tireImages.splice(index, 1);
     localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
     renderTireImages(sessions[sessionKey].tireImages);
-}
-
-function deleteAllTireImages() {
-    if (!confirm("Wirklich alle Bilder dieser Session löschen?")) return;
-    const track = document.getElementById('trackSelect').value;
-    const sessionSelect = document.getElementById('sessionSelect');
-    if (!sessionSelect) return;
-    const sessionKey = sessionSelect.value;
-    
-    let sessions = JSON.parse(localStorage.getItem(getSessionsKey(track))) || {};
-    if (!sessions[sessionKey]) return;
-    
-    sessions[sessionKey].tireImages = [];
-    localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
-    renderTireImages([]);
 }
 
 function openModal(src) {
