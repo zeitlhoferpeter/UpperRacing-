@@ -1,4 +1,4 @@
-// app.js - UpperRacing Hauptlogik (Multi-Bild, Kamera & Galerie)
+// app.js - UpperRacing Hauptlogik (Multi-Bild, Kamera & Galerie + Status-Speicherung)
 
 const tracksData = {
     pannoniaring: { name: "Pannoniaring", curves: 18 },
@@ -12,9 +12,19 @@ const DEFAULT_CUP_URL = "https://www.stardesignracing.com/wp-content/uploads/202
 
 function initApp() {
     try {
+        // Letzte Strecke wiederherstellen, falls vorhanden
+        const lastTrack = localStorage.getItem('upper_last_track');
+        if (lastTrack && tracksData[lastTrack]) {
+            const trackEl = document.getElementById('trackSelect');
+            if (trackEl) trackEl.value = lastTrack;
+        }
+
         onTrackChange();
         loadCupUrl();
-        switchPage('setup');
+
+        // Letzte geöffnete Seite wiederherstellen (Standard: setup)
+        const lastPage = localStorage.getItem('upper_last_page') || 'setup';
+        switchPage(lastPage);
     } catch (e) {
         console.error("Init Error:", e);
     }
@@ -29,6 +39,9 @@ function getLocalTimestamp() {
 function switchPage(pageKey) {
     try {
         if (pageKey === 'app') pageKey = 'setup';
+
+        // Aktuelle Seite im localStorage merken
+        localStorage.setItem('upper_last_page', pageKey);
 
         document.querySelectorAll('.page-content').forEach(el => {
             el.style.display = 'none';
@@ -75,6 +88,10 @@ function onTrackChange() {
         const trackEl = document.getElementById('trackSelect');
         if (!trackEl) return;
         const track = trackEl.value;
+
+        // Strecke im localStorage merken
+        localStorage.setItem('upper_last_track', track);
+
         loadSessionsForTrack(track);
         renderCurves(track);
         loadLapSessionsForTrack(track);
@@ -115,8 +132,15 @@ function loadSessionsForTrack(track) {
         sessionSelect.appendChild(opt);
     });
 
-    sessionSelect.value = keys[0];
-    loadSessionData(keys[0]);
+    // Letzte ausgewählte Session für diese Strecke wiederherstellen oder die aktuellste nehmen
+    const lastSession = localStorage.getItem('upper_last_session_' + track);
+    if (lastSession && sessions[lastSession]) {
+        sessionSelect.value = lastSession;
+        loadSessionData(lastSession);
+    } else {
+        sessionSelect.value = keys[0];
+        loadSessionData(keys[0]);
+    }
 }
 
 function getEmptySessionData(track) {
@@ -149,8 +173,12 @@ function getEmptySessionData(track) {
 }
 
 function onSessionChange() {
+    const track = document.getElementById('trackSelect').value;
     const sessionSelect = document.getElementById('sessionSelect');
-    if (sessionSelect) loadSessionData(sessionSelect.value);
+    if (sessionSelect) {
+        localStorage.setItem('upper_last_session_' + track, sessionSelect.value);
+        loadSessionData(sessionSelect.value);
+    }
 }
 
 function loadSessionData(sessionKey) {
@@ -175,7 +203,6 @@ function loadSessionData(sessionKey) {
     setFieldValue('shockSag', data.shockSag);
     setFieldValue('shockRemaining', data.shockRemaining);
 
-    // Bilder laden (unterstützt auch Migration von altem Einzelbild)
     let images = data.tireImages || [];
     if (images.length === 0 && data.tireImage) {
         images = [data.tireImage];
@@ -227,6 +254,7 @@ function startNewSessionForm() {
 
     loadSessionsForTrack(track);
     document.getElementById('sessionSelect').value = newKey;
+    localStorage.setItem('upper_last_session_' + track, newKey);
     loadSessionData(newKey);
     showNotice('saveNotice', 'Neuer Eintrag angelegt!');
 }
