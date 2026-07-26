@@ -1,5 +1,5 @@
 /**
- * weather.js - Vereinfachtes Wetter & Regenradar mit Live-GPS Priorität
+ * weather.js - Wetter & Regenradar mit Ein-/Ausschaltbarem GPS
  */
 
 (function() {
@@ -14,6 +14,7 @@
     let activeLocation = { lat: 47.2845, lon: 16.9928, zoom: 10, name: "Pannoniaring" };
     let weatherState = {
         soundEnabled: localStorage.getItem('trackday_weather_sound') === 'true',
+        gpsEnabled: localStorage.getItem('trackday_weather_gps') === 'true',
         lastAlertLevel: 'none'
     };
 
@@ -130,14 +131,17 @@
         }
         .weather-settings-bar {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            flex-direction: column;
             background: #2c2c2c;
-            padding: 10px 15px;
+            padding: 12px 15px;
             border-radius: 8px;
             margin-bottom: 15px;
-            flex-wrap: wrap;
             gap: 10px;
+        }
+        .weather-setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
     `;
     document.head.appendChild(styleTag);
@@ -185,6 +189,31 @@
         }
     }
 
+    function updateActiveLocation(callback) {
+        if (weatherState.gpsEnabled && navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    activeLocation = {
+                        lat: position.coords.latitude,
+                        lon: position.coords.longitude,
+                        zoom: 10,
+                        name: "Dein Live-Standort (GPS)"
+                    };
+                    if (callback) callback();
+                },
+                (error) => {
+                    console.log("GPS nicht verfügbar, Fallback auf Strecke:", error.message);
+                    updateActiveLocationByTrack();
+                    if (callback) callback();
+                },
+                { timeout: 5000, maximumAge: 60000 }
+            );
+        } else {
+            updateActiveLocationByTrack();
+            if (callback) callback();
+        }
+    }
+
     function initWeatherWidget() {
         const widget = document.getElementById('weather-header-widget');
         if (widget) {
@@ -202,11 +231,18 @@
                     </div>
                     <div class="weather-modal-body">
                         <div class="weather-settings-bar">
-                            <span>🔊 Akustische Warnung:</span>
-                            <label style="cursor:pointer; display:flex; align-items:center; gap:6px;">
-                                <input type="checkbox" id="weather-sound-toggle" ${weatherState.soundEnabled ? 'checked' : ''} onchange="toggleWeatherSound(this)"> Aktiviert
-                            </label>
-                            <button type="button" onclick="refreshWithGPS()" style="background:#2196F3; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:bold;">📍 Live-GPS erzwingen</button>
+                            <div class="weather-setting-row">
+                                <span>🔊 Akustische Warnung:</span>
+                                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;">
+                                    <input type="checkbox" id="weather-sound-toggle" ${weatherState.soundEnabled ? 'checked' : ''} onchange="toggleWeatherSound(this)"> Aktiviert
+                                </label>
+                            </div>
+                            <div class="weather-setting-row">
+                                <span>📍 Live-GPS-Standort:</span>
+                                <label style="cursor:pointer; display:flex; align-items:center; gap:6px;">
+                                    <input type="checkbox" id="weather-gps-toggle" ${weatherState.gpsEnabled ? 'checked' : ''} onchange="toggleWeatherGPS(this)"> Aktiviert
+                                </label>
+                            </div>
                         </div>
                         <div class="weather-section">
                             <h3 id="hourly-title">Stündliche Vorhersage</h3>
@@ -238,64 +274,30 @@
         localStorage.setItem('trackday_weather_sound', weatherState.soundEnabled);
     };
 
+    window.toggleWeatherGPS = function(checkbox) {
+        weatherState.gpsEnabled = checkbox.checked;
+        localStorage.setItem('trackday_weather_gps', weatherState.gpsEnabled);
+        updateWeatherData();
+        if (document.getElementById('weather-modal').classList.contains('active')) {
+            updateActiveLocation(() => {
+                renderModalContent();
+            });
+        }
+    };
+
     function openWeatherModal() {
         const modal = document.getElementById('weather-modal');
         modal.classList.add('active');
-
-        // Versuche beim Öffnen direkt den GPS-Standort zu holen, nutze Track als Fallback
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    activeLocation = {
-                        lat: position.coords.latitude,
-                        lon: position.coords.longitude,
-                        zoom: 10,
-                        name: "Dein Live-Standort (GPS)"
-                    };
-                    renderModalContent();
-                },
-                (error) => {
-                    console.log("GPS nicht verfügbar, nutze Strecke:", error.message);
-                    updateActiveLocationByTrack();
-                    renderModalContent();
-                },
-                { timeout: 5000, maximumAge: 60000 }
-            );
-        } else {
-            updateActiveLocationByTrack();
+        updateActiveLocation(() => {
             renderModalContent();
-        }
+        });
     }
-
-    window.refreshWithGPS = function() {
-        if (!navigator.geolocation) {
-            alert("GPS wird von diesem Browser nicht unterstützt.");
-            return;
-        }
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                activeLocation = {
-                    lat: position.coords.latitude,
-                    lon: position.coords.longitude,
-                    zoom: 10,
-                    name: "Dein Live-Standort (GPS)"
-                };
-                renderModalContent();
-                updateWeatherData();
-            },
-            (error) => {
-                alert("Standort konnte nicht ermittelt werden: " + error.message);
-            },
-            { enableHighAccuracy: true }
-        );
-    };
 
     function renderModalContent() {
         document.getElementById('weather-modal-title').innerText = `Wetter & Radar für ${activeLocation.name}`;
         document.getElementById('hourly-title').innerText = `Stündliche Vorhersage (${activeLocation.name})`;
         document.getElementById('radar-title').innerText = `Live-Regenradar (${activeLocation.name})`;
 
-        // Regenradar via RainViewer eingebetteter Ansicht zentriert auf aktive Koordinaten
         const container = document.getElementById('weather-map-container');
         if (container) {
             container.innerHTML = `
@@ -311,59 +313,59 @@
     }
 
     async function updateWeatherData() {
-        updateActiveLocationByTrack();
+        updateActiveLocation(async () => {
+            try {
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${activeLocation.lat}&longitude=${activeLocation.lon}&current_weather=true&hourly=temperature_2m,precipitation_probability,weathercode&timezone=auto`;
+                const response = await fetch(url);
+                const data = await response.json();
 
-        try {
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${activeLocation.lat}&longitude=${activeLocation.lon}&current_weather=true&hourly=temperature_2m,precipitation_probability,weathercode&timezone=auto`;
-            const response = await fetch(url);
-            const data = await response.json();
+                if (data && data.current_weather) {
+                    const temp = Math.round(data.current_weather.temperature);
+                    const code = data.current_weather.weathercode;
+                    
+                    let icon = "☀️";
+                    if (code >= 1 && code <= 3) icon = "⛅";
+                    else if (code >= 51 && code <= 67) icon = "🌧️";
+                    else if (code >= 71 && code <= 77) icon = "❄️";
+                    else if (code >= 95) icon = "⚡";
 
-            if (data && data.current_weather) {
-                const temp = Math.round(data.current_weather.temperature);
-                const code = data.current_weather.weathercode;
-                
-                let icon = "☀️";
-                if (code >= 1 && code <= 3) icon = "⛅";
-                else if (code >= 51 && code <= 67) icon = "🌧️";
-                else if (code >= 71 && code <= 77) icon = "❄️";
-                else if (code >= 95) icon = "⚡";
+                    const iconEl = document.getElementById('weather-icon');
+                    const tempEl = document.getElementById('weather-temp');
+                    if (iconEl) iconEl.innerText = icon;
+                    if (tempEl) tempEl.innerText = `${temp}°C`;
 
-                const iconEl = document.getElementById('weather-icon');
-                const tempEl = document.getElementById('weather-temp');
-                if (iconEl) iconEl.innerText = icon;
-                if (tempEl) tempEl.innerText = `${temp}°C`;
+                    const nowHourIndex = new Date().getHours();
+                    const rainProb1 = data.hourly.precipitation_probability[nowHourIndex] || 0;
+                    const rainProb2 = data.hourly.precipitation_probability[nowHourIndex + 1] || 0;
+                    const maxRainProb = Math.max(rainProb1, rainProb2);
 
-                const nowHourIndex = new Date().getHours();
-                const rainProb1 = data.hourly.precipitation_probability[nowHourIndex] || 0;
-                const rainProb2 = data.hourly.precipitation_probability[nowHourIndex + 1] || 0;
-                const maxRainProb = Math.max(rainProb1, rainProb2);
+                    const widget = document.getElementById('weather-header-widget');
+                    if (widget) {
+                        widget.classList.remove('alert-yellow', 'alert-red');
 
-                const widget = document.getElementById('weather-header-widget');
-                if (widget) {
-                    widget.classList.remove('alert-yellow', 'alert-red');
+                        let currentLevel = 'none';
+                        if (maxRainProb >= 80) {
+                            widget.classList.add('alert-red');
+                            currentLevel = 'red';
+                        } else if (maxRainProb >= 50) {
+                            widget.classList.add('alert-yellow');
+                            currentLevel = 'yellow';
+                        }
 
-                    let currentLevel = 'none';
-                    if (maxRainProb >= 80) {
-                        widget.classList.add('alert-red');
-                        currentLevel = 'red';
-                    } else if (maxRainProb >= 50) {
-                        widget.classList.add('alert-yellow');
-                        currentLevel = 'yellow';
+                        if (currentLevel !== 'none' && currentLevel !== weatherState.lastAlertLevel) {
+                            playAudioAlert(currentLevel);
+                        }
+                        weatherState.lastAlertLevel = currentLevel;
                     }
 
-                    if (currentLevel !== 'none' && currentLevel !== weatherState.lastAlertLevel) {
-                        playAudioAlert(currentLevel);
-                    }
-                    weatherState.lastAlertLevel = currentLevel;
+                    renderHourlyForecast(data.hourly, nowHourIndex);
                 }
-
-                renderHourlyForecast(data.hourly, nowHourIndex);
+            } catch (e) {
+                console.error("Wetter-Fehler:", e);
+                const tempEl = document.getElementById('weather-temp');
+                if (tempEl) tempEl.innerText = "Fehler";
             }
-        } catch (e) {
-            console.error("Wetter-Fehler:", e);
-            const tempEl = document.getElementById('weather-temp');
-            if (tempEl) tempEl.innerText = "Fehler";
-        }
+        });
     }
 
     function renderHourlyForecast(hourly, startIndex) {
