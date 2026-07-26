@@ -1,4 +1,4 @@
-// backup.js - UpperRacing Backup & Restore (Clean Mobile Version)
+// backup.js - UpperRacing Backup & Restore (Komplett mit Datei-Import & Mobil-Optik)
 
 function initBackup() {
     checkDailyBackupReminder();
@@ -27,7 +27,7 @@ function exportBackup() {
         const banner = document.getElementById('backupReminderBanner');
         if (banner) banner.style.display = 'none';
 
-        // Handy-Share-Menü öffnen (Erlaubt "In Dateien sichern" / direktes Speichern)
+        // Handy-Share-Menü öffnen
         if (navigator.share && navigator.canShare) {
             const file = new File([dataStr], fileName, { type: 'application/json' });
             if (navigator.canShare({ files: [file] })) {
@@ -45,7 +45,6 @@ function exportBackup() {
             }
         }
 
-        // Fallback für Desktop / Browser ohne Share-API
         fallbackDownload(dataStr, fileName);
         renderInternalBackups();
 
@@ -132,7 +131,39 @@ function restoreInternalBackup(index) {
     }
 }
 
-// 3. SAUBERE UI FÜR EXPORT & TEXT-IMPORT
+// 3. WIEDERHERSTELLUNG AUS AUSGEWÄHLTER DATEI (Behebt das Problem)
+function importBackupFromFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            let text = e.target.result;
+            if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // BOM entfernen
+
+            const data = JSON.parse(text);
+            if (typeof data !== 'object' || data === null) {
+                throw new Error("Kein gültiges JSON-Objekt.");
+            }
+
+            if (confirm("Möchtest du dieses Backup wirklich aus der Datei wiederherstellen? Alle aktuellen lokalen Daten werden dabei überschrieben!")) {
+                localStorage.clear();
+                for (const key in data) {
+                    localStorage.setItem(key, data[key]);
+                }
+                alert("Backup erfolgreich wiederhergestellt! Die App wird jetzt neu geladen.");
+                location.reload();
+            }
+        }swers catch (err) {
+            console.error("Datei-Import-Fehler:", err);
+            alert("Ungültige Backup-Datei.\nFehler: " + err.message);
+        }
+    };
+    reader.readAsText(file);
+}
+
+// 4. SAUBERE UI FÜR EXPORT & IMPORT
 function renderCleanBackupUI() {
     const container = document.getElementById('internalBackupsContainer');
     if (!container) return;
@@ -152,10 +183,13 @@ function renderCleanBackupUI() {
             <button type="button" onclick="copyBackupToClipboard()" style="background:#6c757d; color:#fff; border:none; padding:10px; border-radius:6px; cursor:pointer; font-size:0.85rem; font-weight:bold;">📋 Kopieren</button>
         </div>
 
-        <p style="font-size:0.8rem; color:#4da6ff; margin:0 0 6px 0; font-weight:bold;">📥 Backup per Text einfügen:</p>
+        <p style="font-size:0.8rem; color:#4da6ff; margin:0 0 6px 0; font-weight:bold;">📥 Backup von Datei wiederherstellen:</p>
+        <input type="file" id="backupFileInput" accept=".json" onchange="importBackupFromFile(event)" style="width:100%; color:#fff; background:#111; padding:8px; border:1px solid #444; border-radius:6px; font-size:0.8rem; box-sizing:border-box; margin-bottom:10px;">
+
+        <p style="font-size:0.8rem; color:#4da6ff; margin:0 0 6px 0; font-weight:bold;">Oder Backup per Text einfügen:</p>
         <textarea id="backupTextData" placeholder="Backup-Code hier einfügen..." style="width:100%; height:70px; background:#111; color:#fff; border:1px solid #444; border-radius:6px; font-size:0.75rem; padding:8px; box-sizing:border-box;"></textarea>
         
-        <button type="button" onclick="importBackupFromText()" style="margin-top:8px; width:100%; background:#ff9800; color:#fff; border:none; padding:8px; border-radius:6px; cursor:pointer; font-size:0.85rem; font-weight:bold;">Wiederherstellen</button>
+        <button type="button" onclick="importBackupFromText()" style="margin-top:8px; width:100%; background:#ff9800; color:#fff; border:none; padding:8px; border-radius:6px; cursor:pointer; font-size:0.85rem; font-weight:bold;">Aus Text wiederherstellen</button>
     `;
     container.parentNode.appendChild(wrapper);
 }
@@ -203,7 +237,7 @@ function importBackupFromText() {
     }
 }
 
-// 4. Tägliche Erinnerung
+// 5. Tägliche Erinnerung
 function checkDailyBackupReminder() {
     const lastBackupDate = localStorage.getItem('upper_last_backup_date');
     const today = new Date().toISOString().split('T')[0];
