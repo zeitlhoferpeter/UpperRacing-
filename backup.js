@@ -1,17 +1,11 @@
-// backup.js - UpperRacing Backup & Restore (Mobil-First Redesign)
+// backup.js - UpperRacing Backup & Restore (Clean Mobile Version)
 
 function initBackup() {
     checkDailyBackupReminder();
-    renderBackupUI();
+    renderCleanBackupUI();
 }
 
-// Zentraler Hub für das Backup-UI (erzeugt die modernen Buttons automatisch)
-function renderBackupUI() {
-    renderInternalBackups();
-    renderMobileExportImportBox();
-}
-
-// 1. BACKUP ERSTELLEN & TEILEN (Mobil-optimiert)
+// 1. BACKUP ALS DATEI SPEICHERN / TEILEN
 function exportBackup() {
     try {
         let data = {};
@@ -25,7 +19,7 @@ function exportBackup() {
         const timeStr = new Date().toTimeString().split(' ')[0].replace(/:/g, '-');
         const fileName = `UpperRacing_Backup_${dateStr}_${timeStr}.json`;
 
-        // Speichere es immer direkt intern ab (Sicherheitsnetz)
+        // Internes Backup als Sicherheitsnetz speichern
         saveInternalBackup(data);
         localStorage.setItem('upper_last_backup_date', dateStr);
         localStorage.removeItem('upper_has_new_changes');
@@ -33,19 +27,17 @@ function exportBackup() {
         const banner = document.getElementById('backupReminderBanner');
         if (banner) banner.style.display = 'none';
 
-        // PRÜFUNG: Unterstützt das Handy die native Teilen-Funktion? (iOS/Android)
+        // Handy-Share-Menü öffnen (Erlaubt "In Dateien sichern" / direktes Speichern)
         if (navigator.share && navigator.canShare) {
             const file = new File([dataStr], fileName, { type: 'application/json' });
             if (navigator.canShare({ files: [file] })) {
                 navigator.share({
                     title: 'UpperRacing Backup',
-                    text: 'Hier ist dein aktuelles App-Backup.',
+                    text: 'Backup-Datei für UpperRacing',
                     files: [file]
-                }).then(() => {
-                    showNotice('saveNoticeBackup', 'Backup erfolgreich geteilt & gespeichert!');
                 }).catch((err) => {
                     if (err.name !== 'AbortError') {
-                        fallbackDownloadOrCopy(dataStr, fileName);
+                        fallbackDownload(dataStr, fileName);
                     }
                 });
                 renderInternalBackups();
@@ -53,8 +45,8 @@ function exportBackup() {
             }
         }
 
-        // Fallback: Wenn kein Share, dann direkt Download oder Zwischenablage
-        fallbackDownloadOrCopy(dataStr, fileName);
+        // Fallback für Desktop / Browser ohne Share-API
+        fallbackDownload(dataStr, fileName);
         renderInternalBackups();
 
     } catch (e) {
@@ -63,11 +55,9 @@ function exportBackup() {
     }
 }
 
-// Fallback für PC oder Browser, die kein Share unterstützen
-function fallbackDownloadOrCopy(dataStr, fileName) {
+function fallbackDownload(dataStr, fileName) {
     const blob = new Blob([dataStr], { type: 'application/json;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    
     const downloadAnchor = document.createElement('a');
     downloadAnchor.href = url;
     downloadAnchor.download = fileName;
@@ -75,27 +65,9 @@ function fallbackDownloadOrCopy(dataStr, fileName) {
     downloadAnchor.click();
     downloadAnchor.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-
-    showNotice('saveNoticeBackup', 'Backup als Datei heruntergeladen!');
 }
 
-// Direkt in die Zwischenablage kopieren (Perfekt für Handys als Alternative)
-function copyBackupToClipboard() {
-    let data = {};
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        data[key] = localStorage.getItem(key);
-    }
-    const dataStr = JSON.stringify(data, null, 2);
-
-    navigator.clipboard.writeText(dataStr).then(() => {
-        alert("📋 Backup-Code wurde in die Zwischenablage kopiert! Du kannst ihn jetzt z.B. in WhatsApp oder Notizen einfügen.");
-    }).catch(err => {
-        alert("Kopieren fehlgeschlagen: " + err);
-    });
-}
-
-// 2. INTERNE HISTORIE (Die letzten 5 Backups im Speicher)
+// 2. INTERNE SICHERHEITSKOPIEN (Letzte 5 im Speicher)
 function saveInternalBackup(data) {
     let history = [];
     try {
@@ -160,42 +132,57 @@ function restoreInternalBackup(index) {
     }
 }
 
-// 3. MODERNER IMPORT (Ohne Datei-Upload, rein über Text/Einfügen)
-function renderMobileExportImportBox() {
+// 3. SAUBERE UI FÜR EXPORT & TEXT-IMPORT
+function renderCleanBackupUI() {
     const container = document.getElementById('internalBackupsContainer');
     if (!container) return;
     
-    if (document.getElementById('modernBackupBox')) return;
+    renderInternalBackups();
+
+    if (document.getElementById('cleanBackupBox')) return;
 
     const wrapper = document.createElement('div');
-    wrapper.id = 'modernBackupBox';
-    wrapper.style.marginTop = '20px';
+    wrapper.id = 'cleanBackupBox';
+    wrapper.style.marginTop = '15px';
     wrapper.style.borderTop = '1px solid #444';
     wrapper.style.paddingTop = '15px';
     wrapper.innerHTML = `
-        <p style="font-size:0.85rem; color:#4da6ff; margin:0 0 8px 0; font-weight:bold;">📲 Handy & Cloud Import / Export:</p>
-        
         <div style="display:flex; gap:8px; margin-bottom:12px;">
-            <button type="button" onclick="copyBackupToClipboard()" style="flex:1; background:#6c757d; color:#fff; border:none; padding:8px; border-radius:6px; cursor:pointer; font-size:0.8rem; font-weight:bold;">📋 Code kopieren</button>
+            <button type="button" onclick="exportBackup()" style="flex:1; background:#4CAF50; color:#fff; border:none; padding:10px; border-radius:6px; cursor:pointer; font-size:0.85rem; font-weight:bold;">💾 Backup als Datei speichern</button>
+            <button type="button" onclick="copyBackupToClipboard()" style="background:#6c757d; color:#fff; border:none; padding:10px; border-radius:6px; cursor:pointer; font-size:0.85rem; font-weight:bold;">📋 Kopieren</button>
         </div>
 
-        <textarea id="backupTextData" placeholder="Backup-Code hier einfügen (zum Importieren)..." style="width:100%; height:75px; background:#111; color:#fff; border:1px solid #444; border-radius:6px; font-size:0.75rem; padding:8px; box-sizing:border-box;"></textarea>
+        <p style="font-size:0.8rem; color:#4da6ff; margin:0 0 6px 0; font-weight:bold;">📥 Backup per Text einfügen:</p>
+        <textarea id="backupTextData" placeholder="Backup-Code hier einfügen..." style="width:100%; height:70px; background:#111; color:#fff; border:1px solid #444; border-radius:6px; font-size:0.75rem; padding:8px; box-sizing:border-box;"></textarea>
         
-        <button type="button" onclick="importBackupFromText()" style="margin-top:8px; width:100%; background:#ff9800; color:#fff; border:none; padding:8px; border-radius:6px; cursor:pointer; font-size:0.85rem; font-weight:bold;">📥 Backup aus Text wiederherstellen</button>
+        <button type="button" onclick="importBackupFromText()" style="margin-top:8px; width:100%; background:#ff9800; color:#fff; border:none; padding:8px; border-radius:6px; cursor:pointer; font-size:0.85rem; font-weight:bold;">Wiederherstellen</button>
     `;
     container.parentNode.appendChild(wrapper);
+}
+
+function copyBackupToClipboard() {
+    let data = {};
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        data[key] = localStorage.getItem(key);
+    }
+    navigator.clipboard.writeText(JSON.stringify(data, null, 2)).then(() => {
+        alert("📋 Backup-Code in die Zwischenablage kopiert!");
+    }).catch(err => {
+        alert("Kopieren fehlgeschlagen: " + err);
+    });
 }
 
 function importBackupFromText() {
     const textarea = document.getElementById('backupTextData');
     if (!textarea || !textarea.value.trim()) {
-        alert("Bitte zuerst den Backup-Text in das Textfeld einfügen!");
+        alert("Bitte zuerst den Backup-Text in das Feld einfügen!");
         return;
     }
 
     try {
         let text = textarea.value.trim();
-        if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // BOM entfernen
+        if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
 
         const data = JSON.parse(text);
         if (typeof data !== 'object' || data === null) {
@@ -212,7 +199,7 @@ function importBackupFromText() {
         }
     } catch (err) {
         console.error("Import-Fehler:", err);
-        alert("Ungültiges Backup-Format. Bitte prüfe den Text.\nFehler: " + err.message);
+        alert("Ungültiges Backup-Format.\nFehler: " + err.message);
     }
 }
 
