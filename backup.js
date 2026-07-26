@@ -1,11 +1,11 @@
-// backup.js - UpperRacing Backup & Restore
+// backup.js - UpperRacing Backup & Restore (Mobil-optimiert)
 
 function initBackup() {
     checkDailyBackupReminder();
     renderInternalBackups();
 }
 
-// 1. Backup erstellen (Datei-Download + Speicherung in interner Liste)
+// 1. Backup erstellen (Blob-Download für perfekte Handy-Kompatibilität)
 function exportBackup() {
     try {
         let data = {};
@@ -14,18 +14,24 @@ function exportBackup() {
             data[key] = localStorage.getItem(key);
         }
 
-        // A) Datei-Download für den Notfall
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+        const dataStr = JSON.stringify(data, null, 2);
+        // Blob statt Data-URI verwenden – das ist der Standard für Handy-Downloads!
+        const blob = new Blob([dataStr], { type: 'application/json;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        
         const downloadAnchor = document.createElement('a');
         const dateStr = new Date().toISOString().split('T')[0];
         const timeStr = new Date().toTimeString().split(' ')[0].replace(/:/g, '-');
         
-        downloadAnchor.setAttribute("href", dataStr);
-        downloadAnchor.setAttribute("download", `UpperRacing_Backup_${dateStr}_${timeStr}.json`);
+        downloadAnchor.href = url;
+        downloadAnchor.download = `UpperRacing_Backup_${dateStr}_${timeStr}.json`;
         
         document.body.appendChild(downloadAnchor);
         downloadAnchor.click();
         downloadAnchor.remove();
+        
+        // URL-Objekt nach kurzer Zeit wieder freigeben
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
 
         // B) Intern in der App abspeichern (Maximal 5 Stück)
         saveInternalBackup(data);
@@ -41,7 +47,7 @@ function exportBackup() {
         renderInternalBackups();
     } catch (e) {
         console.error("Backup-Fehler:", e);
-        alert("Fehler beim Erstellen des Backups.");
+        alert("Fehler beim Erstellen des Backups: " + e.message);
     }
 }
 
@@ -118,7 +124,7 @@ function restoreInternalBackup(index) {
     }
 }
 
-// 2. Klassischer Datei-Import (für Wechsel auf ein anderes Gerät)
+// 2. Klassischer Datei-Import (Mobil-optimiert mit BOM-Bereinigung)
 function importBackup(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -126,7 +132,16 @@ function importBackup(event) {
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
-            const data = JSON.parse(e.target.result);
+            let text = e.target.result;
+            
+            // WICHTIG FÜR HANDYS: Entfernt das unsichtbare BOM-Zeichen am Anfang, falls vorhanden
+            if (text.charCodeAt(0) === 0xFEFF) {
+                text = text.slice(1);
+            }
+            text = text.trim();
+
+            const data = JSON.parse(text);
+            
             if (confirm("Möchtest du dieses Backup wirklich einspielen? Alle aktuellen lokalen Daten werden dabei überschrieben!")) {
                 localStorage.clear();
                 for (const key in data) {
@@ -137,9 +152,18 @@ function importBackup(event) {
             }
         } catch (err) {
             console.error("Import-Fehler:", err);
-            alert("Fehler beim Lesen der Datei. Ungültiges Backup-Format.");
+            alert("Fehler beim Lesen der Datei. Ungültiges Backup-Format.\nDetails: " + err.message);
+        } finally {
+            // Input zurücksetzen, damit dieselbe Datei bei Bedarf erneut gewählt werden kann
+            event.target.value = '';
         }
     };
+    
+    reader.onerror = function() {
+        alert("Fehler beim Lesen der Datei.");
+        event.target.value = '';
+    };
+
     reader.readAsText(file);
 }
 
