@@ -137,14 +137,14 @@ function getEmptySessionData(track) {
             shockPreload: baseline.shockPreload || '',
             shockSag: baseline.shockSag || '',
             shockRemaining: baseline.shockRemaining || '',
-            tireImage: ''
+            tireImages: []
         };
     }
     return {
         tireFront: '', tireRear: '', outsideTemp: '', gearing: '',
         forkRebound: '', forkCompression: '', forkPreload: '', forkSag: '', forkRemaining: '',
         shockRebound: '', shockCompression: '', shockPreload: '', shockSag: '', shockRemaining: '',
-        tireImage: ''
+        tireImages: []
     };
 }
 
@@ -175,17 +175,36 @@ function loadSessionData(sessionKey) {
     setFieldValue('shockSag', data.shockSag);
     setFieldValue('shockRemaining', data.shockRemaining);
 
-    const imgPrev = document.getElementById('tireImagePreview');
-    const imgCont = document.getElementById('tireImageContainer');
-    if (imgPrev && imgCont) {
-        if (data.tireImage) {
-            imgPrev.src = data.tireImage;
-            imgCont.style.display = 'block';
-        } else {
-            imgPrev.src = '';
-            imgCont.style.display = 'none';
-        }
+    let images = data.tireImages || [];
+    if (images.length === 0 && data.tireImage) {
+        images = [data.tireImage];
     }
+    renderTireImages(images);
+}
+
+function renderTireImages(imagesArray) {
+    const imgCont = document.getElementById('tireImageContainer');
+    if (!imgCont) return;
+
+    if (!imagesArray || imagesArray.length === 0) {
+        imgCont.style.display = 'none';
+        imgCont.innerHTML = '';
+        return;
+    }
+
+    imgCont.style.display = 'block';
+    let html = '<div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:8px;">';
+    imagesArray.forEach((src, idx) => {
+        html += `
+            <div style="position:relative; display:inline-block;">
+                <img src="${src}" alt="Reifenbild ${idx + 1}" style="width:90px; height:90px; object-fit:cover; border-radius:4px; cursor:pointer; border:1px solid #444;" onclick="openModal('${src}')">
+                <button type="button" onclick="deleteSingleTireImage(${idx})" style="position:absolute; top:-6px; right:-6px; background:#f44336; color:#fff; border:none; border-radius:50%; width:22px; height:22px; font-size:0.75rem; cursor:pointer; display:flex; align-items:center; justify-content:center;" title="Bild löschen">&times;</button>
+            </div>
+        `;
+    });
+    html += '</div>';
+    html += '<button type="button" onclick="deleteAllTireImages()" style="background:#f44336; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:0.8rem;">Alle Bilder löschen</button>';
+    imgCont.innerHTML = html;
 }
 
 function setFieldValue(id, val) {
@@ -215,10 +234,8 @@ function saveData() {
     if (!sessionKey) return;
 
     let sessions = JSON.parse(localStorage.getItem(getSessionsKey(track))) || {};
-    
-    const preview = document.getElementById('tireImagePreview');
-    const existingImg = sessions[sessionKey]?.tireImage || '';
-    const imgSrc = preview && preview.src.startsWith('data:') ? preview.src : existingImg;
+    const existingData = sessions[sessionKey] || {};
+    let currentImages = existingData.tireImages || (existingData.tireImage ? [existingData.tireImage] : []);
 
     sessions[sessionKey] = {
         tireFront: document.getElementById('tireFront')?.value || '',
@@ -235,7 +252,7 @@ function saveData() {
         shockPreload: document.getElementById('shockPreload')?.value || '',
         shockSag: document.getElementById('shockSag')?.value || '',
         shockRemaining: document.getElementById('shockRemaining')?.value || '',
-        tireImage: imgSrc
+        tireImages: currentImages
     };
 
     localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
@@ -640,26 +657,127 @@ function loadCupUrl() {
 }
 
 function handleImageUpload(event) {
-    const file = event.target.files[0];
-    if(!file) return;
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const imgPrev = document.getElementById('tireImagePreview');
-        const imgCont = document.getElementById('tireImageContainer');
-        if (imgPrev && imgCont) {
-            imgPrev.src = e.target.result;
-            imgCont.style.display = 'block';
-        }
-    }
-    reader.readAsDataURL(file);
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const track = document.getElementById('trackSelect').value;
+    const sessionSelect = document.getElementById('sessionSelect');
+    if (!sessionSelect) return;
+    const sessionKey = sessionSelect.value;
+    if (!sessionKey) return;
+
+    let sessions = JSON.parse(localStorage.getItem(getSessionsKey(track))) || {};
+    let existingData = sessions[sessionKey] || {};
+    let currentImages = existingData.tireImages || (existingData.tireImage ? [existingData.tireImage] : []);
+
+    let loadedCount = 0;
+    Array.from(files).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            currentImages.push(e.target.result);
+            loadedCount++;
+            if (loadedCount === files.length) {
+                existingData.tireImages = currentImages;
+                delete existingData.tireImage;
+                sessions[sessionKey] = {
+                    tireFront: document.getElementById('tireFront')?.value || '',
+                    tireRear: document.getElementById('tireRear')?.value || '',
+                    outsideTemp: document.getElementById('outsideTemp')?.value || '',
+                    gearing: document.getElementById('gearing')?.value || '',
+                    forkRebound: document.getElementById('forkRebound')?.value || '',
+                    forkCompression: document.getElementById('forkCompression')?.value || '',
+                    forkPreload: document.getElementById('forkPreload')?.value || '',
+                    forkSag: document.getElementById('forkSag')?.value || '',
+                    forkRemaining: document.getElementById('forkRemaining')?.value || '',
+                    shockRebound: document.getElementById('shockRebound')?.value || '',
+                    shockCompression: document.getElementById('shockCompression')?.value || '',
+                    shockPreload: document.getElementById('shockPreload')?.value || '',
+                    shockSag: document.getElementById('shockSag')?.value || '',
+                    shockRemaining: document.getElementById('shockRemaining')?.value || '',
+                    tireImages: currentImages
+                };
+                localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
+                renderTireImages(currentImages);
+            }
+        };
+        reader.readAsDataURL(file);
+    });
+
+    event.target.value = '';
+}
+
+function deleteSingleTireImage(index) {
+    const track = document.getElementById('trackSelect').value;
+    const sessionSelect = document.getElementById('sessionSelect');
+    if (!sessionSelect) return;
+    const sessionKey = sessionSelect.value;
+    if (!sessionKey) return;
+
+    let sessions = JSON.parse(localStorage.getItem(getSessionsKey(track))) || {};
+    let existingData = sessions[sessionKey] || {};
+    let currentImages = existingData.tireImages || (existingData.tireImage ? [existingData.tireImage] : []);
+
+    currentImages.splice(index, 1);
+    existingData.tireImages = currentImages;
+    delete existingData.tireImage;
+    sessions[sessionKey] = {
+        tireFront: document.getElementById('tireFront')?.value || '',
+        tireRear: document.getElementById('tireRear')?.value || '',
+        outsideTemp: document.getElementById('outsideTemp')?.value || '',
+        gearing: document.getElementById('gearing')?.value || '',
+        forkRebound: document.getElementById('forkRebound')?.value || '',
+        forkCompression: document.getElementById('forkCompression')?.value || '',
+        forkPreload: document.getElementById('forkPreload')?.value || '',
+        forkSag: document.getElementById('forkSag')?.value || '',
+        forkRemaining: document.getElementById('forkRemaining')?.value || '',
+        shockRebound: document.getElementById('shockRebound')?.value || '',
+        shockCompression: document.getElementById('shockCompression')?.value || '',
+        shockPreload: document.getElementById('shockPreload')?.value || '',
+        shockSag: document.getElementById('shockSag')?.value || '',
+        shockRemaining: document.getElementById('shockRemaining')?.value || '',
+        tireImages: currentImages
+    };
+
+    localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
+    renderTireImages(currentImages);
+}
+
+function deleteAllTireImages() {
+    if (!confirm("Alle Reifenbilder dieses Eintrags löschen?")) return;
+    const track = document.getElementById('trackSelect').value;
+    const sessionSelect = document.getElementById('sessionSelect');
+    if (!sessionSelect) return;
+    const sessionKey = sessionSelect.value;
+    if (!sessionKey) return;
+
+    let sessions = JSON.parse(localStorage.getItem(getSessionsKey(track))) || {};
+    let existingData = sessions[sessionKey] || {};
+    existingData.tireImages = [];
+    delete existingData.tireImage;
+    sessions[sessionKey] = {
+        tireFront: document.getElementById('tireFront')?.value || '',
+        tireRear: document.getElementById('tireRear')?.value || '',
+        outsideTemp: document.getElementById('outsideTemp')?.value || '',
+        gearing: document.getElementById('gearing')?.value || '',
+        forkRebound: document.getElementById('forkRebound')?.value || '',
+        forkCompression: document.getElementById('forkCompression')?.value || '',
+        forkPreload: document.getElementById('forkPreload')?.value || '',
+        forkSag: document.getElementById('forkSag')?.value || '',
+        forkRemaining: document.getElementById('forkRemaining')?.value || '',
+        shockRebound: document.getElementById('shockRebound')?.value || '',
+        shockCompression: document.getElementById('shockCompression')?.value || '',
+        shockPreload: document.getElementById('shockPreload')?.value || '',
+        shockSag: document.getElementById('shockSag')?.value || '',
+        shockRemaining: document.getElementById('shockRemaining')?.value || '',
+        tireImages: []
+    };
+
+    localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
+    renderTireImages([]);
 }
 
 function deleteTireImage() {
-    const imgPrev = document.getElementById('tireImagePreview');
-    const imgCont = document.getElementById('tireImageContainer');
-    if (imgPrev) imgPrev.src = '';
-    if (imgCont) imgCont.style.display = 'none';
-    saveData();
+    deleteAllTireImages();
 }
 
 function openModal(src) {
