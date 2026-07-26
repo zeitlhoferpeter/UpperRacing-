@@ -24,8 +24,10 @@ function exportBackup() {
         downloadAnchor.click();
         downloadAnchor.remove();
 
-        // Datum des letzten Backups speichern, damit die Erinnerung für heute verschwindet
+        // Nach erfolgreichem Export: Letztes Backup-Datum setzen und Änderungssperre aufheben
         localStorage.setItem('upper_last_backup_date', dateStr);
+        localStorage.removeItem('upper_has_new_changes');
+        
         const banner = document.getElementById('backupReminderBanner');
         if (banner) banner.style.display = 'none';
 
@@ -61,17 +63,24 @@ function importBackup(event) {
     reader.readAsText(file);
 }
 
-// 3. Prüfen ob ein neuer Tag ist und an Backup erinnern
+// 3. Nur dann erinnern, wenn heute neue Einträge gemacht wurden
 function checkDailyBackupReminder() {
     const lastBackupDate = localStorage.getItem('upper_last_backup_date');
     const today = new Date().toISOString().split('T')[0];
+    const hasNewChanges = localStorage.getItem('upper_has_new_changes');
 
     const banner = document.getElementById('backupReminderBanner');
     if (!banner) return;
 
-    if (lastBackupDate !== today) {
+    // Zeige Banner nur, wenn heute Änderungen gemacht wurden UND heute noch kein Backup lief
+    if (hasNewChanges === 'true' && lastBackupDate !== today) {
         banner.style.display = 'block';
     } else {
         banner.style.display = 'none';
     }
+}
+
+// Hilfsfunktion: Bei jeder wichtigen Speicherung in app.js aufrufen (z.B. saveData(), newSession() etc.)
+function markDataAsChanged() {
+    localStorage.setItem('upper_has_new_changes', 'true');
 }
