@@ -149,7 +149,7 @@ function getEmptySessionData(track) {
         return {
             tireFront: baseline.tireFront || '',
             tireRear: baseline.tireRear || '',
-            outsideTemp: baseline.outsideTemp || '',
+            outsideTemp: '', // Lufttemperatur bewusst leer lassen (nicht im Basis-Setup)
             gearing: baseline.gearing || '',
             forkRebound: baseline.forkRebound || '',
             forkCompression: baseline.forkCompression || '',
@@ -329,7 +329,6 @@ function executeSaveBaseline() {
     const baseline = {
         tireFront: document.getElementById('tireFront')?.value || '',
         tireRear: document.getElementById('tireRear')?.value || '',
-        outsideTemp: document.getElementById('outsideTemp')?.value || '',
         gearing: document.getElementById('gearing')?.value || '',
         forkRebound: document.getElementById('forkRebound')?.value || '',
         forkCompression: document.getElementById('forkCompression')?.value || '',
@@ -356,7 +355,7 @@ function loadBaseline() {
     }
     setFieldValue('tireFront', baseline.tireFront);
     setFieldValue('tireRear', baseline.tireRear);
-    setFieldValue('outsideTemp', baseline.outsideTemp);
+    // outsideTemp wird hier bewusst NICHT aus der Baseline geladen
     setFieldValue('gearing', baseline.gearing);
     setFieldValue('forkRebound', baseline.forkRebound);
     setFieldValue('forkCompression', baseline.forkCompression);
