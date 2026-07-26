@@ -1,4 +1,4 @@
-// app.js - UpperRacing Hauptlogik
+// app.js - UpperRacing Hauptlogik (Multi-Bild, Kamera & Galerie)
 
 const tracksData = {
     pannoniaring: { name: "Pannoniaring", curves: 18 },
@@ -175,6 +175,7 @@ function loadSessionData(sessionKey) {
     setFieldValue('shockSag', data.shockSag);
     setFieldValue('shockRemaining', data.shockRemaining);
 
+    // Bilder laden (unterstützt auch Migration von altem Einzelbild)
     let images = data.tireImages || [];
     if (images.length === 0 && data.tireImage) {
         images = [data.tireImage];
@@ -664,7 +665,7 @@ function loadCupUrl() {
     if (urlInput) urlInput.value = url;
 }
 
-// BILD-UPLOAD MIT AUTOMATISCHER KOMPRIMIERUNG & GRÖßENANPASSUNG
+// BILD-UPLOAD (MULTI-BILD & KAMERA / GALERIE)
 function handleImageUpload(event) {
     const files = event.target.files;
     if (!files || files.length === 0) return;
@@ -676,48 +677,62 @@ function handleImageUpload(event) {
     if (!sessionKey) return;
 
     let sessions = JSON.parse(localStorage.getItem(getSessionsKey(track))) || {};
-    let existingData = sessions[sessionKey] || {};
+    let existingData = sessions[sessionKey] || getEmptySessionData(track);
     let currentImages = existingData.tireImages || (existingData.tireImage ? [existingData.tireImage] : []);
 
     let processedCount = 0;
     Array.from(files).forEach(file => {
         const reader = new FileReader();
         reader.onload = function(e) {
+            const rawDataUrl = e.target.result;
             const img = new Image();
+            
             img.onload = function() {
-                const canvas = document.createElement('canvas');
-                let width = img.width;
-                let height = img.height;
-                const maxWidth = 800;
-                const maxHeight = 800;
+                try {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    const maxWidth = 800;
+                    const maxHeight = 800;
 
-                if (width > height) {
-                    if (width > maxWidth) {
-                        height *= maxWidth / width;
-                        width = maxWidth;
+                    if (width > height) {
+                        if (width > maxWidth) {
+                            height *= maxWidth / width;
+                            width = maxWidth;
+                        }
+                    } else {
+                        if (height > maxHeight) {
+                            width *= maxHeight / height;
+                            height = maxHeight;
+                        }
                     }
-                } else {
-                    if (height > maxHeight) {
-                        width *= maxHeight / height;
-                        height = maxHeight;
-                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.75);
+                    currentImages.push(dataUrl);
+                } catch (err) {
+                    currentImages.push(rawDataUrl);
                 }
-
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
-
-                // Komprimiert auf JPEG 70% Qualität (schützt vor localStorage Quota-Fehlern)
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                currentImages.push(dataUrl);
 
                 processedCount++;
                 if (processedCount === files.length) {
                     saveImagesToSession(track, sessionKey, sessions, existingData, currentImages);
                 }
             };
-            img.src = e.target.result;
+
+            img.onerror = function() {
+                currentImages.push(rawDataUrl);
+                processedCount++;
+                if (processedCount === files.length) {
+                    saveImagesToSession(track, sessionKey, sessions, existingData, currentImages);
+                }
+            };
+
+            img.src = rawDataUrl;
         };
         reader.readAsDataURL(file);
     });
@@ -751,8 +766,7 @@ function saveImagesToSession(track, sessionKey, sessions, existingData, currentI
         localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
         renderTireImages(currentImages);
     } catch (e) {
-        console.error("Storage quota exceeded:", e);
-        alert("Speicherlimit überschritten! Zu viele oder zu große Bilder.");
+        alert("Speicherlimit überschritten! Zu viele oder zu große Bilder im Speicher.");
     }
 }
 
