@@ -4,7 +4,7 @@
 
 (function() {
     const TRACK_COORDINATES = {
-        "pannoniaring": { lat: 47.2845, lon: 16.9928, zoom: 11 },
+        "pannoniaring": { lat: 47.1813, lon: 17.0241, zoom: 11 },
         "slovakia": { lat: 48.0551, lon: 17.5514, zoom: 11 },
         "brünn": { lat: 49.2081, lon: 16.5417, zoom: 11 },
         "most": { lat: 50.5103, lon: 13.6192, zoom: 11 },
