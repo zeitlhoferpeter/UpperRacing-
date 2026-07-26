@@ -36,7 +36,7 @@
             <button type="button" class="tab-btn" onclick="switchPage('laps')">Runden</button>
             <button type="button" class="tab-btn" onclick="switchPage('cup')">Cup</button>
             <button type="button" class="tab-btn" onclick="switchPage('pack')">Packliste</button>
-            <button type="button" class="tab-btn" onclick="switchPage('backup')">Backup</button>
+            <button type="button" class="tab-btn" onclick="switchPage('backup'); if(typeof initBackup==='function') initBackup();">Backup</button>
         </nav>
 
         <!-- Main Content Area -->
@@ -181,17 +181,25 @@
             <div id="pageBackup" class="page-content" style="display:none;">
                 <div class="setup-box">
                     <h3>Daten & Backup</h3>
-                    <p style="font-size:0.85rem; color:#ccc; margin-bottom:12px;">Sichere deine Sessions, Rundenzeiten und Einstellungen als JSON-Datei oder spiele ein Backup ein.</p>
+                    <p style="font-size:0.85rem; color:#ccc; margin-bottom:12px;">Sichere deine Sessions, Rundenzeiten und Einstellungen.</p>
                     
                     <div id="backupReminderBanner" style="display:none; background:#ff9800; color:#000; padding:10px; border-radius:6px; margin-bottom:12px; font-weight:bold; font-size:0.85rem; text-align:center;">
                         ⚠️ Es gibt ungesicherte Änderungen von heute!
                     </div>
 
                     <div style="display:flex; flex-direction:column; gap:10px;">
-                        <button type="button" onclick="exportBackup()" style="background:#4CAF50; color:#fff; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer;">💾 Backup exportieren (JSON)</button>
+                        <button type="button" onclick="exportBackup()" style="background:#4CAF50; color:#fff; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer;">💾 Backup erstellen & herunterladen</button>
                         
-                        <div style="background:#222; padding:10px; border-radius:6px; border:1px solid #444;">
-                            <label style="font-size:0.8rem; margin-bottom:6px; display:block;">Backup wiederherstellen (Import)</label>
+                        <!-- Interne Backups zur Sofort-Wiederherstellung -->
+                        <div style="background:#222; padding:10px; border-radius:6px; border:1px solid #444; margin-top:5px;">
+                            <h4 style="margin:0 0 8px 0; font-size:0.9rem; color:#FFD700;">Interne Backups (Letzte 5)</h4>
+                            <div id="internalBackupsContainer">
+                                <p style="font-size:0.8rem; color:#aaa; margin:0;">Noch keine internen Backups vorhanden.</p>
+                            </div>
+                        </div>
+
+                        <div style="background:#222; padding:10px; border-radius:6px; border:1px solid #444; margin-top:5px;">
+                            <label style="font-size:0.8rem; margin-bottom:6px; display:block;">Backup von Datei wiederherstellen (Import)</label>
                             <input type="file" accept=".json" onchange="importBackup(event)" style="font-size:0.8rem;">
                         </div>
                     </div>
