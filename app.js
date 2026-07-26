@@ -93,7 +93,6 @@ function loadSessionsForTrack(track) {
     if (!sessionSelect) return;
     sessionSelect.innerHTML = '';
     
-    // Event-Listener direkt sicherstellen
     sessionSelect.onchange = onSessionChange;
     
     let sessions = JSON.parse(localStorage.getItem(getSessionsKey(track))) || {};
@@ -281,6 +280,12 @@ function executeSaveBaseline() {
     };
     
     localStorage.setItem(`baseline_${track}`, JSON.stringify(baseline));
+    
+    // Backup-Erinnerung auslösen (Wichtige Änderung)
+    if (typeof markDataAsChanged === 'function') {
+        markDataAsChanged();
+    }
+
     showNotice('saveNotice', 'Basis-Setup gespeichert!');
 }
 
@@ -385,6 +390,12 @@ function saveCurvesData() {
     });
 
     localStorage.setItem(`curves_${track}`, JSON.stringify(savedCurves));
+    
+    // Backup-Erinnerung auslösen (Wichtige Änderung)
+    if (typeof markDataAsChanged === 'function') {
+        markDataAsChanged();
+    }
+
     showNotice('saveNoticeCurves', 'Kurven gespeichert!');
 }
 
@@ -434,7 +445,6 @@ function loadLapSessionsForTrack(track) {
     if (!lapSelect) return;
     lapSelect.innerHTML = '';
 
-    // Event-Listener direkt sicherstellen, damit beim Wechseln die Zeiten geladen werden
     lapSelect.onchange = onLapSessionChange;
 
     let lapSessions = JSON.parse(localStorage.getItem(getLapSessionsKey(track))) || {};
@@ -583,6 +593,12 @@ function checkAndUpdateAllTimeBest(timeStr, totalMs, track) {
     const currentBest = JSON.parse(localStorage.getItem(bestKey));
     if (!currentBest || totalMs < currentBest.totalMs) {
         localStorage.setItem(bestKey, JSON.stringify({ timeStr, totalMs, date: getLocalTimestamp() }));
+        
+        // Backup-Erinnerung auslösen (Wichtige Änderung - Bestzeit!)
+        if (typeof markDataAsChanged === 'function') {
+            markDataAsChanged();
+        }
+
         loadAllTimeBest();
     }
 }
