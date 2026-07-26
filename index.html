@@ -194,16 +194,69 @@
         </main>
     </div>
 
+    <!-- PWA Installations-Popup -->
+    <div id="pwa-install-banner" style="display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 400px; background: #222; border: 2px solid #FFD700; border-radius: 12px; padding: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.8); z-index: 10000; text-align: center; font-family: sans-serif;">
+        <div style="font-size: 1.1rem; font-weight: bold; color: #fff; margin-bottom: 5px;">🏎️ UpperRacing installieren</div>
+        <div id="pwa-install-text" style="font-size: 0.85rem; color: #ccc; margin-bottom: 12px;">Füge die App zum Startbildschirm hinzu für den besten Offline-Zugriff auf der Rennstrecke.</div>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button id="pwa-install-btn" style="flex: 1; background: #4CAF50; color: white; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer;">Installieren</button>
+            <button id="pwa-close-btn" style="background: #444; color: #aaa; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer;">Später</button>
+        </div>
+    </div>
+
     <script src="pack.js"></script>
     <script src="backup.js"></script>
     <script src="app.js"></script>
     <script src="weather.js"></script>
     <script>
+      // Service Worker registrieren
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('./sw.js')
             .then((reg) => { console.log('Service Worker registriert:', reg.scope); })
             .catch((err) => { console.log('Service Worker Fehler:', err); });
+        });
+      }
+
+      // Installations-Banner Steuerung
+      let deferredPrompt;
+      const installBanner = document.getElementById('pwa-install-banner');
+      const installBtn = document.getElementById('pwa-install-btn');
+      const closeBtn = document.getElementById('pwa-close-btn');
+      const installText = document.getElementById('pwa-install-text');
+
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+      const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+      if (!isStandalone) {
+        window.addEventListener('beforeinstallprompt', (e) => {
+          e.preventDefault();
+          deferredPrompt = e;
+          installBanner.style.display = 'block';
+        });
+
+        if (isiOS) {
+          installText.innerHTML = 'Tippe unten auf das <strong>Teilen-Symbol ( Quadrat mit Pfeil )</strong> und wähle <strong>"Zum Home-Bildschirm"</strong>.';
+          installBtn.style.display = 'none';
+          installBanner.style.display = 'block';
+        }
+      }
+
+      if (installBtn) {
+        installBtn.addEventListener('click', async () => {
+          if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`Installation outcome: ${outcome}`);
+            deferredPrompt = null;
+            installBanner.style.display = 'none';
+          }
+        });
+      }
+
+      if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+          installBanner.style.display = 'none';
         });
       }
     </script>
