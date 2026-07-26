@@ -3,239 +3,196 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UpperRacing Setup & Stints</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="manifest" href="manifest.json">
+    <title>UpperRacing Setup & Laps</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #121212; color: #fff; margin: 0; padding: 10px; }
+        .page-content { display: none; }
+        .page-content.active { display: block; }
+        .setup-box { background: #1e1e1e; padding: 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #333; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        input, select, textarea { width: 100%; padding: 8px; background: #2a2a2a; border: 1px solid #444; color: #fff; border-radius: 4px; box-sizing: border-box; margin-top: 4px; }
+        button { cursor: pointer; padding: 8px 12px; border: none; border-radius: 4px; font-weight: bold; }
+        .tab-bar { display: flex; gap: 5px; margin-bottom: 15px; background: #181818; padding: 5px; border-radius: 6px; }
+        .tab-btn { flex: 1; background: #2c2c2c; color: #aaa; padding: 10px; text-align: center; border-radius: 4px; cursor: pointer; }
+        .tab-btn.active { background: #4CAF50; color: #fff; }
+        .notice { display: none; background: #4CAF50; color: white; padding: 6px; text-align: center; border-radius: 4px; margin-bottom: 10px; font-size: 0.85rem; }
+        .btn-status { background: transparent; border: 1px solid #444; font-size: 1.1rem; padding: 4px 8px; border-radius: 4px; }
+        .active-red { background: rgba(244, 67, 54, 0.3); border-color: #f44336; }
+        .active-yellow { background: rgba(255, 193, 7, 0.3); border-color: #ffc107; }
+        .active-green { background: rgba(76, 175, 80, 0.3); border-color: #4CAF50; }
+        #imageModal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); text-align: center; }
+        #imageModal img { max-width: 90%; max-height: 90%; margin-top: 5vh; }
+    </style>
 </head>
 <body onload="initApp()">
 
-    <!-- HEADER / STRECKENAUSWAHL -->
-    <header class="app-header">
-        <div style="display:flex; justify-content:space-between; align-items:center; width:100%; margin-bottom: 8px;">
-            <h1 style="font-size: 1.1rem; margin:0;">UpperRacing</h1>
-            <div style="font-size: 0.8rem; background: #222; padding: 4px 8px; border-radius: 4px; border: 1px solid #444;">
-                🏆 Bestzeit: <span id="headerAllTimeValue" style="color: #4CAF50; font-weight: bold;">--:--.---</span>
-                <button type="button" onclick="confirmClearAllTimeBest()" style="background:none; border:none; color:#f44336; cursor:pointer; margin-left:6px; font-size:0.8rem;" title="Bestzeit löschen">🗑️</button>
-            </div>
-        </div>
-        <div style="display: flex; gap: 8px; width: 100%;">
-            <select id="trackSelect" onchange="onTrackChange()" style="flex: 1; padding: 6px; background: #1a1a1a; color: #fff; border: 1px solid #444; border-radius: 4px;">
-                <option value="pannoniaring">Pannoniaring</option>
-                <option value="slovakia">Slovakiaring</option>
-                <option value="brünn">Automotodrom Brno / Brünn</option>
-                <option value="most">Autodrom Most</option>
-                <option value="grobnik">Automotodrom Grobnik / Rijeka</option>
-            </select>
-        </div>
-    </header>
-
-    <!-- NAVIGATION TABS -->
-    <nav class="nav-tabs">
-        <button type="button" class="tab-btn active" onclick="switchPage('setup')">Setup</button>
-        <button type="button" class="tab-btn" onclick="switchPage('curves')">Kurven</button>
-        <button type="button" class="tab-btn" onclick="switchPage('laps')">Runden</button>
-        <button type="button" class="tab-btn" onclick="switchPage('cup')">Cup</button>
-        <button type="button" class="tab-btn" onclick="switchPage('pack')">Packliste</button>
-        <button type="button" class="tab-btn" onclick="switchPage('backup')">Backup</button>
-    </nav>
-
-    <!-- HAUPTINHALT CONTAINER -->
-    <main class="container">
-
-        <!-- 1. SETUP SEITE -->
-        <section id="pageSetup" class="page-content active">
-            <div class="setup-box">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                    <label style="font-weight:bold;">Session / Turn:</label>
-                    <div style="display:flex; gap:4px;">
-                        <button type="button" onclick="newSession()" style="background:#4CAF50; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:0.8rem;">+ Neu</button>
-                        <button type="button" onclick="deleteCurrentSession()" style="background:#f44336; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:0.8rem;" title="Session löschen">🗑️</button>
-                    </div>
-                </div>
-                <select id="sessionSelect" onchange="onSessionChange()" style="width:100%; padding:8px; background:#1a1a1a; color:#fff; border:1px solid #444; border-radius:4px; margin-bottom:10px;"></select>
-                
-                <div id="saveNotice" style="background:#4CAF50; color:#fff; padding:6px; text-align:center; border-radius:4px; display:none; margin-bottom:10px; font-size:0.85rem;"></div>
-
-                <div class="grid-2">
-                    <div>
-                        <label>Reifen Vorne</label>
-                        <input type="text" id="tireFront" placeholder="z.B. Pirelli SC1">
-                    </div>
-                    <div>
-                        <label>Reifen Hinten</label>
-                        <input type="text" id="tireRear" placeholder="z.B. Pirelli SC0">
-                    </div>
-                </div>
-
-                <div class="grid-2" style="margin-top:8px;">
-                    <div>
-                        <label>Lufttemperatur (°C)</label>
-                        <input type="text" id="outsideTemp" placeholder="z.B. 25">
-                    </div>
-                    <div>
-                        <label>Übersetzung</label>
-                        <input type="text" id="gearing" placeholder="z.B. 15/42">
-                    </div>
-                </div>
-            </div>
-
-            <!-- FAHRWERK VORNE -->
-            <div class="setup-box">
-                <h3>Fahrwerk Vorne (Gabel)</h3>
-                <div class="grid-2">
-                    <div><label>Zugstufe (Clicks auf)</label><input type="text" id="forkRebound"></div>
-                    <div><label>Druckstufe (Clicks auf)</label><input type="text" id="forkCompression"></div>
-                </div>
-                <div class="grid-2" style="margin-top:8px;">
-                    <div><label>Vorspannung (Umdr.)</label><input type="text" id="forkPreload"></div>
-                    <div><label>Negativfederweg (mm)</label><input type="text" id="forkSag"></div>
-                </div>
-                <div style="margin-top:8px;">
-                    <label>Restweg / Kabelbinder (mm)</label>
-                    <input type="text" id="forkRemaining">
-                </div>
-            </div>
-
-            <!-- FAHRWERK HINTEN -->
-            <div class="setup-box">
-                <h3>Fahrwerk Hinten (Federbein)</h3>
-                <div class="grid-2">
-                    <div><label>Zugstufe (Clicks auf)</label><input type="text" id="shockRebound"></div>
-                    <div><label>Druckstufe (Clicks auf)</label><input type="text" id="shockCompression"></div>
-                </div>
-                <div class="grid-2" style="margin-top:8px;">
-                    <div><label>Vorspannung (mm)</label><input type="text" id="shockPreload"></div>
-                    <div><label>Negativfederweg (mm)</label><input type="text" id="shockSag"></div>
-                </div>
-                <div style="margin-top:8px;">
-                    <label>Restweg (mm)</label>
-                    <input type="text" id="shockRemaining">
-                </div>
-            </div>
-
-            <!-- REIFENBILDER BEREICH (MEHRERE BILDER) -->
-            <div class="setup-box" style="text-align:center;">
-                <h3>Reifenbild</h3>
-                <div style="display:flex; gap:10px; justify-content:center; margin-bottom:10px;">
-                    <button type="button" onclick="document.getElementById('cameraInput').click()" style="background:#2196F3; color:#fff; border:none; padding:8px 14px; border-radius:4px; cursor:pointer; font-size:0.9rem;">📸 Kamera</button>
-                    <button type="button" onclick="document.getElementById('galleryInput').click()" style="background:#607D8B; color:#fff; border:none; padding:8px 14px; border-radius:4px; cursor:pointer; font-size:0.9rem;">📁 Galerie</button>
-                </div>
-                
-                <!-- Versteckte Multi-File-Inputs -->
-                <input type="file" id="cameraInput" accept="image/*" capture="environment" multiple onchange="handleImageUpload(event)" style="display:none;">
-                <input type="file" id="galleryInput" accept="image/*" multiple onchange="handleImageUpload(event)" style="display:none;">
-
-                <!-- Container für die angezeigten Vorschaubilder -->
-                <div id="tireImageContainer" style="display:none; margin-top:10px;"></div>
-            </div>
-
-            <!-- AKTIONSSCHALTFLÄCHEN -->
-            <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:30px;">
-                <button type="button" onclick="saveData()" style="background:#4CAF50; color:#fff; border:none; padding:12px; border-radius:6px; font-weight:bold; font-size:1rem; cursor:pointer;">💾 Speichern</button>
-                <div class="grid-2">
-                    <button type="button" onclick="saveAsBaseline()" style="background:#ff9800; color:#fff; border:none; padding:10px; border-radius:6px; cursor:pointer;">Als Basis-Setup speichern</button>
-                    <button type="button" onclick="loadBaseline()" style="background:#9c27b0; color:#fff; border:none; padding:10px; border-radius:6px; cursor:pointer;">Basis-Setup laden</button>
-                </div>
-            </div>
-        </section>
-
-        <!-- 2. KURVEN SEITE -->
-        <section id="pageCurves" class="page-content" style="display:none;">
-            <div class="setup-box">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <h3 style="margin:0;">Kurven-Guide</h3>
-                    <div style="display:flex; gap:6px;">
-                        <button type="button" onclick="shareCurves()" style="background:#2196F3; color:#fff; border:none; padding:6px 10px; border-radius:4px; cursor:pointer; font-size:0.8rem;">📤 Teilen</button>
-                        <button type="button" onclick="saveCurvesData()" style="background:#4CAF50; color:#fff; border:none; padding:6px 10px; border-radius:4px; cursor:pointer; font-size:0.8rem;">💾 Speichern</button>
-                    </div>
-                </div>
-                <div id="saveNoticeCurves" style="background:#4CAF50; color:#fff; padding:6px; text-align:center; border-radius:4px; display:none; margin-bottom:10px; font-size:0.85rem;"></div>
-                <div id="curvesContainer"></div>
-            </div>
-        </section>
-
-        <!-- 3. RUNDEN SEITE -->
-        <section id="pageLaps" class="page-content" style="display:none;">
-            <div class="setup-box">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                    <label style="font-weight:bold;">Stint / Runden-Session:</label>
-                    <div style="display:flex; gap:4px;">
-                        <button type="button" onclick="startNewLapSession()" style="background:#4CAF50; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:0.8rem;">+ Neu</button>
-                        <button type="button" onclick="deleteCurrentLapSession()" style="background:#f44336; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:0.8rem;" title="Stint löschen">🗑️</button>
-                    </div>
-                </div>
-                <select id="lapSessionSelect" onchange="onLapSessionChange()" style="width:100%; padding:8px; background:#1a1a1a; color:#fff; border:1px solid #444; border-radius:4px; margin-bottom:10px;"></select>
-
-                <h3 style="margin-top:15px; margin-bottom:8px;">Rundenzeit manuell eintragen</h3>
-                <div class="grid-2" style="margin-bottom:8px;">
-                    <div><label style="font-size:0.75rem;">Minute(n)</label><input type="number" id="manualMin" placeholder="z.B. 2"></div>
-                    <div><label style="font-size:0.75rem;">Sekunde(n)</label><input type="number" id="manualSec" placeholder="z.B. 14"></div>
-                </div>
-                <div class="grid-2" style="margin-bottom:10px;">
-                    <div><label style="font-size:0.75rem;">Millisekunden</label><input type="number" id="manualMs" placeholder="z.B. 520"></div>
-                    <div><label style="font-size:0.75rem;">Rundennummer</label><input type="number" id="manualLapNum" placeholder="optional"></div>
-                </div>
-                <div style="display:flex; gap:8px;">
-                    <button type="button" onclick="addManualLap()" style="flex:1; background:#4CAF50; color:#fff; border:none; padding:8px; border-radius:4px; font-weight:bold; cursor:pointer;">Runde hinzufügen</button>
-                    <button type="button" onclick="confirmClearLaps()" style="background:#f44336; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer;">Stint leeren</button>
-                </div>
-            </div>
-
-            <div class="setup-box">
-                <h3 style="margin-bottom:8px;">Rundenliste</h3>
-                <div id="lapsContainer"></div>
-            </div>
-        </section>
-
-        <!-- 4. CUP SEITE -->
-        <section id="pageCup" class="page-content" style="display:none;">
-            <div class="setup-box" style="text-align:center;">
-                <h3>Cup Dokument</h3>
-                <p style="font-size:0.85rem; color:#aaa; margin-bottom:15px;">Aktuelles Reglement & Infos.</p>
-                <div style="margin-bottom:15px;">
-                    <input type="text" id="cupUrlInput" placeholder="PDF Link eingeben..." style="width:100%; padding:8px; background:#1a1a1a; color:#fff; border:1px solid #444; border-radius:4px; margin-bottom:8px;">
-                    <div style="display:flex; gap:8px;">
-                        <button type="button" onclick="saveCupUrl()" style="flex:1; background:#4CAF50; color:#fff; border:none; padding:8px; border-radius:4px; cursor:pointer;">Link speichern</button>
-                        <button type="button" onclick="openCupInBrowser()" style="flex:1; background:#2196F3; color:#fff; border:none; padding:8px; border-radius:4px; cursor:pointer;">PDF öffnen</button>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- 5. PACKLISTE SEITE -->
-        <section id="pagePack" class="page-content" style="display:none;">
-            <div class="setup-box">
-                <h3 style="margin-bottom:10px;">Packliste</h3>
-                <div id="packContainer"></div>
-            </div>
-        </section>
-
-        <!-- 6. BACKUP SEITE -->
-        <section id="pageBackup" class="page-content" style="display:none;">
-            <div class="setup-box">
-                <h3 style="margin-bottom:10px;">Daten Backup / Wiederherstellung</h3>
-                <p style="font-size:0.85rem; color:#aaa; margin-bottom:15px;">Sichere deine App-Daten als Datei oder spiele ein Backup ein.</p>
-                <div style="display:flex; flex-direction:column; gap:10px;">
-                    <button type="button" onclick="exportData()" style="background:#2196F3; color:#fff; border:none; padding:10px; border-radius:4px; cursor:pointer; font-weight:bold;">📤 Backup exportieren</button>
-                    <label style="background:#607D8B; color:#fff; padding:10px; border-radius:4px; text-align:center; cursor:pointer; font-weight:bold;">
-                        📥 Backup importieren
-                        <input type="file" id="importFile" accept=".json" onchange="importData(event)" style="display:none;">
-                    </label>
-                </div>
-            </div>
-        </section>
-
-    </main>
-
-    <!-- BILD MODAL (ZOOM) -->
-    <div id="imageModal" style="display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.9); text-align:center;" onclick="closeModal()">
-        <span style="position:absolute; top:15px; right:25px; color:#f1f1f1; font-size:40px; font-weight:bold; cursor:pointer;" onclick="closeModal()">&times;</span>
-        <img id="modalImg" style="margin:auto; display:block; max-width:90%; max-height:90%; position:relative; top:50%; transform:translateY(-50%); border-radius:4px;">
+    <!-- Header / Navigation -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h2 style="margin:0; font-size:1.2rem;">UpperRacing</h2>
+        <div style="font-size:0.8rem; color:#aaa;">Bestzeit: <span id="headerAllTimeValue" style="color:#4CAF50; font-weight:bold;">--:--.---</span></div>
     </div>
 
-    <!-- SCRIPTS -->
-    <script src="pack.js"></script>
-    <script src="backup.js"></script>
+    <!-- Streckenauswahl -->
+    <div class="setup-box">
+        <label style="font-size:0.8rem;">Strecke:</label>
+        <select id="trackSelect" onchange="onTrackChange()">
+            <option value="pannoniaring">Pannoniaring</option>
+            <option value="slovakia">Slovakiaring</option>
+            <option value="brünn">Automotodrom Brno / Brünn</option>
+            <option value="most">Autodrom Most</option>
+            <option value="grobnik">Automotodrom Grobnik / Rijeka</option>
+        </select>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="tab-bar">
+        <div class="tab-btn active" onclick="switchPage('setup')">Setup</div>
+        <div class="tab-btn" onclick="switchPage('curves')">Kurven</div>
+        <div class="tab-btn" onclick="switchPage('laps')">Runden</div>
+        <div class="tab-btn" onclick="switchPage('cup')">Cup</div>
+    </div>
+
+    <div id="saveNotice" class="notice"></div>
+
+    <!-- PAGE: SETUP -->
+    <div id="pageSetup" class="page-content active">
+        <div class="setup-box">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <label style="font-size:0.8rem; font-weight:bold;">Session / Eintrag:</label>
+                <button type="button" onclick="newSession()" style="background:#2196F3; color:#fff; font-size:0.75rem; padding:4px 8px;">+ Neuer Eintrag</button>
+            </div>
+            <select id="sessionSelect" onchange="onSessionChange()"></select>
+        </div>
+
+        <div class="setup-box">
+            <h3>Reifen & Allgemein</h3>
+            <div class="grid-2">
+                <div><label style="font-size:0.75rem;">Reifen Vorne</label><input type="text" id="tireFront" placeholder="z.B. Pirelli SC1"></div>
+                <div><label style="font-size:0.75rem;">Reifen Hinten</label><input type="text" id="tireRear" placeholder="z.B. Pirelli SC2"></div>
+            </div>
+            <div class="grid-2" style="margin-top:8px;">
+                <div><label style="font-size:0.75rem;">Lufttemperatur (°C)</label><input type="text" id="outsideTemp" placeholder="z.B. 25"></div>
+                <div><label style="font-size:0.75rem;">Übersetzung</label><input type="text" id="gearing" placeholder="z.B. 15/42"></div>
+            </div>
+
+            <div style="margin-top:10px;">
+                <label style="font-size:0.75rem;">Reifenbilder / Zustand:</label>
+                <input type="file" accept="image/*" multiple onchange="handleImageUpload(event)" style="margin-top:4px;">
+                <div id="tireImageContainer" style="margin-top:8px; display:none;"></div>
+            </div>
+        </div>
+
+        <div class="setup-box">
+            <h3>Gabel (Front)</h3>
+            <div class="grid-2">
+                <div><label style="font-size:0.75rem;">Zugstufe (Rebound)</label><input type="text" id="forkRebound" placeholder="Klicks offen"></div>
+                <div><label style="font-size:0.75rem;">Druckstufe (Comp)</label><input type="text" id="forkCompression" placeholder="Klicks offen"></div>
+            </div>
+            <div class="grid-2" style="margin-top:8px;">
+                <div><label style="font-size:0.75rem;">Vorspannung</label><input type="text" id="forkPreload" placeholder="Ringe / mm"></div>
+                <div><label style="font-size:0.75rem;">Negativfederweg (Sag)</label><input type="text" id="forkSag" placeholder="mm"></div>
+            </div>
+            <div style="margin-top:8px;">
+                <label style="font-size:0.75rem;">Restfederweg</label><input type="text" id="forkRemaining" placeholder="mm">
+            </div>
+        </div>
+
+        <div class="setup-box">
+            <h3>Federbein (Rear)</h3>
+            <div class="grid-2">
+                <div><label style="font-size:0.75rem;">Zugstufe (Rebound)</label><input type="text" id="shockRebound" placeholder="Klicks offen"></div>
+                <div><label style="font-size:0.75rem;">Druckstufe (Comp)</label><input type="text" id="shockCompression" placeholder="Klicks offen"></div>
+            </div>
+            <div class="grid-2" style="margin-top:8px;">
+                <div><label style="font-size:0.75rem;">Vorspannung</label><input type="text" id="shockPreload" placeholder="mm"></div>
+                <div><label style="font-size:0.75rem;">Negativfederweg (Sag)</label><input type="text" id="shockSag" placeholder="mm"></div>
+            </div>
+            <div style="margin-top:8px;">
+                <label style="font-size:0.75rem;">Restfederweg</label><input type="text" id="shockRemaining" placeholder="mm">
+            </div>
+        </div>
+
+        <div style="display:flex; gap:8px; margin-bottom:20px;">
+            <button type="button" onclick="saveData()" style="flex:2; background:#4CAF50; color:#fff; padding:12px;">Speichern</button>
+            <button type="button" onclick="saveBaseline()" style="flex:1; background:#FF9800; color:#fff; padding:12px; font-size:0.8rem;">Als Basis</button>
+            <button type="button" onclick="loadBaseline()" style="flex:1; background:#607D8B; color:#fff; padding:12px; font-size:0.8rem;">Basis laden</button>
+        </div>
+        <div style="text-align:center; margin-bottom:20px;">
+            <button type="button" onclick="deleteCurrentSession()" style="background:#f44336; color:#fff; font-size:0.8rem; padding:6px 12px;">Diesen Eintrag löschen</button>
+        </div>
+    </div>
+
+    <!-- PAGE: CURVES -->
+    <div id="pageCurves" class="page-content">
+        <div class="setup-box">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h3 style="margin:0;">Kurven-Guide</h3>
+                <div>
+                    <button type="button" onclick="saveCurvesData()" style="background:#4CAF50; color:#fff; font-size:0.75rem; padding:6px 10px;">Speichern</button>
+                    <button type="button" onclick="shareCurves()" style="background:#2196F3; color:#fff; font-size:0.75rem; padding:6px 10px;">Teilen</button>
+                </div>
+            </div>
+            <div id="saveNoticeCurves" class="notice"></div>
+            <div id="curvesContainer"></div>
+        </div>
+    </div>
+
+    <!-- PAGE: LAPS -->
+    <div id="pageLaps" class="page-content">
+        <div class="setup-box">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <label style="font-size:0.8rem; font-weight:bold;">Stint:</label>
+                <div>
+                    <button type="button" onclick="startNewLapSession()" style="background:#2196F3; color:#fff; font-size:0.75rem; padding:4px 8px;">+ Neuer Stint</button>
+                    <button type="button" onclick="deleteCurrentLapSession()" style="background:#f44336; color:#fff; font-size:0.75rem; padding:4px 8px;">Löschen</button>
+                </div>
+            </div>
+            <select id="lapSessionSelect" onchange="onLapSessionChange()"></select>
+        </div>
+
+        <div class="setup-box">
+            <h3>Runde hinzufügen</h3>
+            <div class="grid-2">
+                <div><label style="font-size:0.75rem;">Minuten</label><input type="number" id="manualMin" placeholder="0"></div>
+                <div><label style="font-size:0.75rem;">Sekunden</label><input type="number" id="manualSec" placeholder="35"></div>
+            </div>
+            <div class="grid-2" style="margin-top:8px;">
+                <div><label style="font-size:0.75rem;">Millisekunden</label><input type="number" id="manualMs" placeholder="123"></div>
+                <div><label style="font-size:0.75rem;">Runden-Nr. (opt.)</label><input type="number" id="manualLapNum" placeholder="1"></div>
+            </div>
+            <button type="button" onclick="addManualLap()" style="width:100%; background:#4CAF50; color:#fff; margin-top:10px; padding:10px;">Runde eintragen</button>
+        </div>
+
+        <div class="setup-box">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <h3 style="margin:0;">Rundenliste</h3>
+                <button type="button" onclick="confirmClearLaps()" style="background:#f44336; color:#fff; font-size:0.75rem; padding:4px 8px;">Stint leeren</button>
+            </div>
+            <div id="lapsContainer"></div>
+            <div style="margin-top:15px; border-top:1px solid #333; padding-top:10px; text-align:center;">
+                <button type="button" onclick="confirmClearAllTimeBest()" style="background:#b71c1c; color:#fff; font-size:0.75rem; padding:6px 12px;">All-Time Bestzeit zurücksetzen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAGE: CUP -->
+    <div id="pageCup" class="page-content">
+        <div class="setup-box">
+            <h3>Cup / Reglement & Link</h3>
+            <label style="font-size:0.75rem;">PDF / Web-Link:</label>
+            <input type="text" id="cupUrlInput" placeholder="https://...">
+            <div style="display:flex; gap:8px; margin-top:10px;">
+                <button type="button" onclick="saveCupUrl()" style="flex:1; background:#4CAF50; color:#fff; padding:10px;">Link speichern</button>
+                <button type="button" onclick="openCupInBrowser()" style="flex:1; background:#2196F3; color:#fff; padding:10px;">Öffnen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Modal -->
+    <div id="imageModal" onclick="closeModal()">
+        <img id="modalImg" src="">
+    </div>
+
     <script src="app.js"></script>
 </body>
 </html>
