@@ -8,11 +8,20 @@ const tracksConfig = {
     grobnik: { name: "Grobnik / Rijeka", curves: 15 }
 };
 
+const defaultCupUrls = {
+    pannoniaring: "https://www.pannoniaring.com",
+    slovakia: "https://slovakiaring.sk",
+    brünn: "https://www.autodrom-brno.com",
+    most: "https://www.autodrom-most.cz",
+    grobnik: "https://grobnik.hr"
+};
+
 function initApp() {
     onTrackChange();
     initCurves();
     initLaps();
     loadCupUrl();
+    initPacklist();
 }
 
 function switchPage(pageId) {
@@ -53,7 +62,8 @@ function onTrackChange() {
     updateSessionSelects();
     loadTrackData();
     updateAllTimeBestDisplay();
-    renderCurves(); // Hier wird der Kurven-Guide beim Streckenwechsel nun direkt aktualisiert
+    renderCurves();
+    loadCupUrl();
 }
 
 function updateSessionSelects() {
@@ -155,11 +165,16 @@ function newSession() {
     const track = document.getElementById('trackSelect').value;
     let sessions = JSON.parse(localStorage.getItem(getSessionsKey(track))) || {};
     
-    const newName = prompt("Name für neue Session:", "Session " + (Object.keys(sessions).length + 1));
+    const now = new Date();
+    const dateStr = String(now.getDate()).padStart(2, '0') + '.' + String(now.getMonth() + 1).padStart(2, '0') + '.';
+    const timeStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    const defaultName = `Eintrag vom ${dateStr} um ${timeStr}`;
+    
+    const newName = prompt("Name für neuen Eintrag:", defaultName);
     if (!newName) return;
     
     if (sessions[newName]) {
-        alert("Session existiert bereits!");
+        alert("Dieser Eintrag existiert bereits!");
         return;
     }
     
@@ -178,11 +193,11 @@ function deleteCurrentSession() {
     
     let sessions = JSON.parse(localStorage.getItem(getSessionsKey(track))) || {};
     if (Object.keys(sessions).length <= 1) {
-        alert("Die letzte Session kann nicht gelöscht werden.");
+        alert("Der letzte Eintrag kann nicht gelöscht werden.");
         return;
     }
     
-    if (confirm(`Session "${sessionKey}" wirklich löschen?`)) {
+    if (confirm(`Eintrag "${sessionKey}" wirklich löschen?`)) {
         delete sessions[sessionKey];
         localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
         updateSessionSelects();
@@ -396,7 +411,7 @@ function closeModal() {
     if (modal) modal.style.display = 'none';
 }
 
-// --- CURVES & LAPS & CUP HELPERS ---
+// --- CURVES (MIT AMPEL) ---
 function initCurves() {
     renderCurves();
 }
@@ -410,15 +425,31 @@ function renderCurves() {
     
     let html = '';
     for (let i = 1; i <= count; i++) {
-        const val = saved['curve_' + i] || '';
+        const curveData = saved['curve_' + i] || { text: '', status: 'green' };
+        const text = typeof curveData === 'object' ? (curveData.text || '') : curveData;
+        const status = typeof curveData === 'object' ? (curveData.status || 'green') : 'green';
+        
         html += `
             <div class="setup-box" style="margin-bottom:8px; padding:10px;">
-                <label style="font-weight:bold; color:#FFD700; margin-bottom:4px; display:block;">Kurve ${i}</label>
-                <textarea id="curveText_${i}" placeholder="Gang, Linie, Bremspunkt..." style="width:100%; height:50px; background:#111; color:#fff; border:1px solid #444; border-radius:4px; padding:6px; font-size:0.85rem;">${val}</textarea>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                    <label style="font-weight:bold; color:#FFD700;">Kurve ${i}</label>
+                    <div style="display:flex; gap:6px;">
+                        <button type="button" onclick="setCurveStatus(${i}, 'green')" style="width:22px; height:22px; border-radius:50%; border:2px solid ${status === 'green' ? '#fff' : 'transparent'}; background:#4CAF50; cursor:pointer;" title="Grip gut"></button>
+                        <button type="button" onclick="setCurveStatus(${i}, 'yellow')" style="width:22px; height:22px; border-radius:50%; border:2px solid ${status === 'yellow' ? '#fff' : 'transparent'}; background:#FFEB3B; cursor:pointer;" title="Vorsicht / Rutschig"></button>
+                        <button type="button" onclick="setCurveStatus(${i}, 'red')" style="width:22px; height:22px; border-radius:50%; border:2px solid ${status === 'red' ? '#fff' : 'transparent'}; background:#F44336; cursor:pointer;" title="Gefahr / Hart"></button>
+                    </div>
+                </div>
+                <textarea id="curveText_${i}" placeholder="Gang, Linie, Bremspunkt..." style="width:100%; height:50px; background:#111; color:#fff; border:1px solid #444; border-radius:4px; padding:6px; font-size:0.85rem;">${text}</textarea>
+                <input type="hidden" id="curveStatus_${i}" value="${status}">
             </div>
         `;
     }
     container.innerHTML = html;
+}
+
+function setCurveStatus(curveNum, status) {
+    document.getElementById(`curveStatus_${curveNum}`).value = status;
+    saveCurvesData();
 }
 
 function saveCurvesData() {
@@ -426,8 +457,14 @@ function saveCurvesData() {
     const count = tracksConfig[track]?.curves || 10;
     let data = {};
     for (let i = 1; i <= count; i++) {
-        const el = document.getElementById('curveText_' + i);
-        if (el) data['curve_' + i] = el.value;
+        const textEl = document.getElementById('curveText_' + i);
+        const statusEl = document.getElementById('curveStatus_' + i);
+        if (textEl) {
+            data['curve_' + i] = {
+                text: textEl.value,
+                status: statusEl ? statusEl.value : 'green'
+            };
+        }
     }
     localStorage.setItem('curves_' + track, JSON.stringify(data));
     showNotice('saveNoticeCurves', 'Kurven-Guide gespeichert!');
@@ -451,6 +488,7 @@ function shareCurves() {
     }
 }
 
+// --- LAPS ---
 function initLaps() {
     updateSessionSelects();
 }
@@ -597,9 +635,10 @@ function confirmClearAllTimeBest() {
     alert("Die Bestzeit ermittelt sich automatisch aus der schnellsten aller eingetragenen Runden über alle Sessions hinweg.");
 }
 
+// --- CUP & PACKLISTE ---
 function loadCupUrl() {
     const track = document.getElementById('trackSelect').value;
-    const url = localStorage.getItem('cup_url_' + track) || '';
+    const url = localStorage.getItem('cup_url_' + track) || defaultCupUrls[track] || '';
     const input = document.getElementById('cupUrlInput');
     if (input) input.value = url;
 }
@@ -620,6 +659,59 @@ function openCupInBrowser() {
     } else {
         alert("Bitte zuerst eine URL eintragen.");
     }
+}
+
+function initPacklist() {
+    const container = document.getElementById('packlistContainer');
+    if (!container) return;
+    let items = JSON.parse(localStorage.getItem('upper_racing_packlist'));
+    if (!items || items.length === 0) {
+        items = [
+            { text: "Motorrad & Reifenwärmer", checked: false },
+            { text: "Kombi, Helm, Stiefel, Handschuhe, Protektoren", checked: false },
+            { text: "Tankkanister / Benzin", checked: false },
+            { text: "Werkzeugkasten & Drehmomentschlüssel", checked: false },
+            { text: "Ersatzreifen & Felgen", checked: false },
+            { text: "Montierständer vorne & hinten", checked: false },
+            { text: "Stromkabel, Verlängerung, Mehrfachstecker", checked: false },
+            { text: "Kabelbinder, Panzertape, Bremsenreiniger", checked: false },
+            { text: "Ersatzteile (Hebel, Rasten, Schrauben)", checked: false },
+            { text: "Verpflegung & ausreichend Wasser", checked: false }
+        ];
+        localStorage.setItem('upper_racing_packlist', JSON.stringify(items));
+    }
+    renderPacklist(items);
+}
+
+function renderPacklist(items) {
+    const container = document.getElementById('packlistContainer');
+    if (!container) return;
+    let html = '<div style="display:flex; flex-direction:column; gap:6px;">';
+    items.forEach((item, idx) => {
+        html += `
+            <label style="display:flex; align-items:center; gap:10px; background:#222; padding:8px 12px; border-radius:4px; cursor:pointer;">
+                <input type="checkbox" ${item.checked ? 'checked' : ''} onchange="togglePacklistItem(${idx})" style="width:18px; height:18px; accent-color:#FFD700;">
+                <span style="font-size:0.9rem; color:${item.checked ? '#777' : '#fff'}; text-decoration:${item.checked ? 'line-through' : 'none'};">${item.text}</span>
+            </label>
+        `;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function togglePacklistItem(index) {
+    let items = JSON.parse(localStorage.getItem('upper_racing_packlist')) || [];
+    if (items[index]) {
+        items[index].checked = !items[index].checked;
+        localStorage.setItem('upper_racing_packlist', JSON.stringify(items));
+        renderPacklist(items);
+    }
+}
+
+function resetPacklist() {
+    if (!confirm("Packliste auf Standard zurücksetzen?")) return;
+    localStorage.removeItem('upper_racing_packlist');
+    initPacklist();
 }
 
 function showNotice(elementId, text) {
