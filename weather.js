@@ -1,23 +1,48 @@
 /**
- * weather.js - Modulares Wetter- und Regenradar-System für die Trackday-App
- * Unterstützt exakt nur die Strecken aus dem App-Dropdown-Menü.
+ * weather.js - Modulares Wetter- und Kartensystem mit GPS-Standortanzeige
  */
 
 (function() {
     const TRACK_COORDINATES = {
-        "pannoniaring": { lat: 47.2845, lon: 16.9928, zoom: 11 }, // Pannoniaring (Ostffyasszonyfa)
-        "slovakia": { lat: 48.0551, lon: 17.5514, zoom: 11 },      // Slovakiaring (Orechová Potôň)
-        "brünn": { lat: 49.2081, lon: 16.5417, zoom: 11 },         // Masaryk Circuit Brünn
-        "most": { lat: 50.5103, lon: 13.6192, zoom: 11 },          // Autodrom Most
-        "grobnik": { lat: 45.3812, lon: 14.5115, zoom: 11 }       // Automotodrom Grobnik / Rijeka
+        "pannoniaring": { lat: 47.2845, lon: 16.9928, zoom: 12 },
+        "slovakia": { lat: 48.0551, lon: 17.5514, zoom: 12 },
+        "brünn": { lat: 49.2081, lon: 16.5417, zoom: 12 },
+        "most": { lat: 50.5103, lon: 13.6192, zoom: 12 },
+        "grobnik": { lat: 45.3812, lon: 14.5115, zoom: 12 }
     };
 
-    const DEFAULT_LOCATION = { lat: 47.1625, lon: 16.7139, zoom: 9 };
+    const DEFAULT_LOCATION = { lat: 47.2845, lon: 16.9928, zoom: 12 };
 
     let weatherState = {
         soundEnabled: localStorage.getItem('trackday_weather_sound') === 'true',
         lastAlertLevel: 'none'
     };
+
+    let mapInstance = null;
+    let trackMarker = null;
+    let userMarker = null;
+
+    // Leaflet CSS & JS dynamisch laden, falls noch nicht vorhanden
+    function loadLeaflet(callback) {
+        if (window.L) {
+            callback();
+            return;
+        }
+        if (!document.getElementById('leaflet-css')) {
+            const link = document.createElement('link');
+            link.id = 'leaflet-css';
+            link.rel = 'stylesheet';
+            link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+            document.head.appendChild(link);
+        }
+        if (!document.getElementById('leaflet-script')) {
+            const script = document.createElement('script');
+            script.id = 'leaflet-script';
+            script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+            script.onload = callback;
+            document.head.appendChild(script);
+        }
+    }
 
     const styleTag = document.createElement('style');
     styleTag.innerHTML = `
@@ -138,6 +163,8 @@
             padding: 10px 15px;
             border-radius: 8px;
             margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
         }
     `;
     document.head.appendChild(styleTag);
@@ -197,15 +224,16 @@
             modal.innerHTML = `
                 <div class="weather-modal-content">
                     <div class="weather-modal-header">
-                        <h2 id="weather-modal-title" style="margin:0; font-size:18px;">Wetter & Regenradar</h2>
+                        <h2 id="weather-modal-title" style="margin:0; font-size:18px;">Wetter & Streckenkarte</h2>
                         <button class="weather-close-btn" onclick="closeWeatherModal()">Schließen</button>
                     </div>
                     <div class="weather-modal-body">
                         <div class="weather-settings-bar">
-                            <span>🔊 Akustische Regenwarnung beim App-Start:</span>
+                            <span>🔊 Akustische Regenwarnung:</span>
                             <label style="cursor:pointer; display:flex; align-items:center; gap:6px;">
                                 <input type="checkbox" id="weather-sound-toggle" ${weatherState.soundEnabled ? 'checked' : ''} onchange="toggleWeatherSound(this)"> Aktiviert
                             </label>
+                            <button type="button" onclick="locateUserOnMap()" style="background:#2196F3; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:bold;">📍 Meinen Standort anzeigen</button>
                         </div>
                         <div class="weather-section">
                             <h3>Stündliche Vorhersage (nächste Stunden)</h3>
@@ -214,8 +242,8 @@
                             </div>
                         </div>
                         <div class="weather-section">
-                            <h3>Live Regenradar</h3>
-                            <div class="radar-container" id="weather-radar-container"></div>
+                            <h3>Streckenkarte & GPS-Standort</h3>
+                            <div class="radar-container" id="weather-map-container"></div>
                         </div>
                     </div>
                 </div>
@@ -240,9 +268,79 @@
         modal.classList.add('active');
         const trackSelect = document.getElementById('trackSelect');
         const trackNameText = trackSelect && trackSelect.options[trackSelect.selectedIndex] ? trackSelect.options[trackSelect.selectedIndex].text : getCurrentTrackName();
-        document.getElementById('weather-modal-title').innerText = `Wetter & Radar für ${trackNameText}`;
-        updateRadarView(getCurrentTrackName());
+        document.getElementById('weather-modal-title').innerText = `Wetter & Karte für ${trackNameText}`;
+        
+        initMapViewer(getCurrentTrackName());
     }
+
+    function initMapViewer(trackName) {
+        loadLeaflet(() => {
+            const coords = getTrackCoordinates(trackName);
+            const container = document.getElementById('weather-map-container');
+            if (!container) return;
+
+            if (mapInstance) {
+                mapInstance.remove();
+                mapInstance = null;
+                userMarker = null;
+            }
+
+            container.innerHTML = '<div id="leaflet-map-view" style="width:100%; height:100%;"></div>';
+
+            mapInstance = L.map('leaflet-map-view').setView([coords.lat, coords.lon], coords.zoom);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap'
+            }).addTo(mapInstance);
+
+            trackMarker = L.marker([coords.lat, coords.lon]).addTo(mapInstance)
+                .bindPopup(`<b>🏁 ${trackName.toUpperCase()}</b>`).openPopup();
+
+            setTimeout(() => {
+                if (mapInstance) mapInstance.invalidateSize();
+            }, 250);
+        });
+    }
+
+    window.locateUserOnMap = function() {
+        if (!navigator.geolocation) {
+            alert("Geolocation wird von deinem Browser nicht unterstützt.");
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+
+                loadLeaflet(() => {
+                    if (!mapInstance) return;
+
+                    if (userMarker) {
+                        mapInstance.removeLayer(userMarker);
+                    }
+
+                    userMarker = L.marker([lat, lon], {
+                        icon: L.divIcon({
+                            className: 'user-gps-marker',
+                            html: '<div style="background:#2196F3; width:16px; height:16px; border:3px solid #fff; border-radius:50%; box-shadow:0 0 10px rgba(0,0,0,0.6);"></div>',
+                            iconSize: [16, 16],
+                            iconAnchor: [8, 8]
+                        })
+                    }).addTo(mapInstance).bindPopup("📍 Dein aktueller Standort").openPopup();
+
+                    const trackName = getCurrentTrackName();
+                    const coords = getTrackCoordinates(trackName);
+                    const bounds = L.latLngBounds([[coords.lat, coords.lon], [lat, lon]]);
+                    mapInstance.fitBounds(bounds, { padding: [60, 60] });
+                });
+            },
+            (error) => {
+                alert("Standort konnte nicht ermittelt werden: " + error.message);
+            },
+            { enableHighAccuracy: true }
+        );
+    };
 
     async function updateWeatherData() {
         const trackName = getCurrentTrackName();
@@ -324,21 +422,6 @@
             `;
         }
         container.innerHTML = html;
-    }
-
-    function updateRadarView(trackName) {
-        const coords = getTrackCoordinates(trackName);
-        const radarContainer = document.getElementById('weather-radar-container');
-        if (!radarContainer) return;
-        radarContainer.innerHTML = `
-            <iframe src="https://www.rainviewer.com/map.html?loc=${coords.lat},${coords.lon},${coords.zoom}&oqa=true&layer=radar&smooth=1&sn=1" 
-                    width="100%" 
-                    height="100%" 
-                    frameborder="0" 
-                    style="border:0;" 
-                    allowfullscreen>
-            </iframe>
-        `;
     }
 
     document.addEventListener('DOMContentLoaded', () => {
