@@ -12,7 +12,7 @@
         <header class="app-header">
             <div>
                 <h1>🏍️ UpperRacing</h1>
-                <div class="track-selector-wrapper" style="margin-top:5px;">
+                <div class="track-selector-wrapper" style="margin-top:5px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                     <select id="trackSelect" onchange="onTrackChange()">
                         <option value="pannoniaring">Pannoniaring</option>
                         <option value="slovakia">Slovakiaring</option>
@@ -20,6 +20,9 @@
                         <option value="most">Autodrom Most</option>
                         <option value="grobnik">Grobnik / Rijeka</option>
                     </select>
+                    <div id="weather-header-widget" title="Klicken für Wettervorhersage & Regenradar">
+                        <span id="weather-icon">⏳</span> <span id="weather-temp">--°C</span>
+                    </div>
                 </div>
             </div>
             <div id="headerAllTime" onclick="confirmClearAllTimeBest()" style="text-align:right; background:#222; padding:6px 10px; border-radius:6px; border:1px solid #444; cursor:pointer;" title="Klicken zum Zurücksetzen der Bestzeit">
@@ -189,5 +192,6 @@
     <script src="pack.js"></script>
     <script src="backup.js"></script>
     <script src="app.js"></script>
+    <script src="weather.js"></script>
 </body>
 </html>
