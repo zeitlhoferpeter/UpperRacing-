@@ -1,14 +1,14 @@
-// sw.js - Service Worker für UpperRacing PWA
-const CACHE_NAME = 'upperracing-v1';
+// sw.js - Service Worker für UpperRacing PWA (GitHub Pages kompatibel)
+const CACHE_NAME = 'upperracing-v2';
 const assetsToCache = [
-  '/',
-  '/index.html',
-  '/style.css',
-  '/app.js',
-  '/pack.js',
-  '/backup.js',
-  '/weather.js',
-  '/icon.png'
+  './',
+  './index.html',
+  './style.css',
+  './app.js',
+  './pack.js',
+  './backup.js',
+  './weather.js',
+  './icon.png'
 ];
 
 // Installation: Dateien cachen
