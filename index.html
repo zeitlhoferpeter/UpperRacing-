@@ -24,22 +24,29 @@
         <header class="app-header">
             <div>
                 <h1>🏍️ UpperRacing</h1>
-                <div class="track-selector-wrapper" style="margin-top:5px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <div class="track-selector-wrapper" style="margin-top:5px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                     <select id="trackSelect" onchange="onTrackChange()">
-                        <option value="pannoniaring">Pannoniaring</option>
-                        <option value="slovakia">Slovakiaring</option>
+                        <option value="pannoniaring">Pannonia</option>
+                        <option value="slovakia">Slovakia</option>
                         <option value="brünn">Brünn</option>
-                        <option value="most">Autodrom Most</option>
-                        <option value="grobnik">Grobnik / Rijeka</option>
+                        <option value="most">Most</option>
+                        <option value="grobnik">Grobnik</option>
+                    </select>
+                    <select id="motorcycleSelect" onchange="onMotorcycleChange()">
+                        <!-- Wird dynamisch gefüllt -->
                     </select>
                     <div id="weather-header-widget" title="Klicken für Wettervorhersage & Regenradar">
                         <span id="weather-icon">⏳</span> <span id="weather-temp">--°C</span>
                     </div>
                 </div>
             </div>
-            <div id="headerAllTime" onclick="confirmClearAllTimeBest()" style="text-align:right; background:#222; padding:6px 10px; border-radius:6px; border:1px solid #444; cursor:pointer;" title="Klicken zum Zurücksetzen der Bestzeit">
-                <div style="font-size:0.65rem; color:#FFD700;">🏆 Bestzeit 🗑️</div>
-                <div id="headerAllTimeValue" style="font-size:0.85rem; font-weight:bold; color:#fff;">--:--.---</div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <!-- Platz für Punkt 2 -->
+                <div id="headerPoint2Slot"></div>
+                <div id="headerAllTime" onclick="confirmClearAllTimeBest()" style="text-align:right; background:#222; padding:6px 10px; border-radius:6px; border:1px solid #444; cursor:pointer;" title="Klicken zum Zurücksetzen der Bestzeit">
+                    <div style="font-size:0.65rem; color:#FFD700;">🏆 Bestzeit 🗑️</div>
+                    <div id="headerAllTimeValue" style="font-size:0.85rem; font-weight:bold; color:#fff;">--:--.---</div>
+                </div>
             </div>
         </header>
 
