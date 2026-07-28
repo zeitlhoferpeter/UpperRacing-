@@ -1,8 +1,8 @@
 // app.js - UpperRacing Hauptlogik
 
 const tracksData = {
-    pannoniaring: { name: "Pannoniaring", curves: 18 },
-    slovakia: { name: "Slovakiaring", curves: 14 },
+    pannoniaring: { name: "Pannonia", curves: 18 },
+    slovakia: { name: "Slovakia", curves: 14 },
     brünn: { name: "Automotodrom Brno / Brünn", curves: 14 },
     most: { name: "Autodrom Most", curves: 21 },
     grobnik: { name: "Automotodrom Grobnik / Rijeka", curves: 18 }
@@ -12,6 +12,7 @@ const DEFAULT_CUP_URL = "https://www.stardesignracing.com/wp-content/uploads/202
 
 function initApp() {
     try {
+        initMotorcycles();
         onTrackChange();
         loadCupUrl();
         switchPage('setup');
@@ -24,6 +25,81 @@ function getLocalTimestamp() {
     const now = new Date();
     const pad = (n) => String(n).padStart(2, '0');
     return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+
+// Motorrad-Verwaltung
+function getMotorcyclesList() {
+    const saved = localStorage.getItem('upper_motorcycles_list');
+    if (saved) {
+        try { return JSON.parse(saved); } catch(e) {}
+    }
+    return ["Yamaha R6", "Kawasaki ZX-6R", "BMW S1000RR"];
+}
+
+function initMotorcycles() {
+    const select = document.getElementById('motorcycleSelect');
+    if (!select) return;
+    
+    let list = getMotorcyclesList();
+    let current = select.value || localStorage.getItem('upper_selected_motorcycle') || list[0];
+    
+    select.innerHTML = '';
+    list.forEach(moto => {
+        let opt = document.createElement('option');
+        opt.value = moto;
+        opt.textContent = moto;
+        select.appendChild(opt);
+    });
+
+    let addOpt = document.createElement('option');
+    addOpt.value = '__add_new__';
+    addOpt.textContent = '➕ Neues Motorrad...';
+    select.appendChild(addOpt);
+
+    if (list.includes(current)) {
+        select.value = current;
+    } else {
+        select.value = list[0];
+    }
+    localStorage.setItem('upper_selected_motorcycle', select.value);
+}
+
+function onMotorcycleChange() {
+    const select = document.getElementById('motorcycleSelect');
+    if (!select) return;
+
+    if (select.value === '__add_new__') {
+        const newMoto = prompt("Gib Marke und Modell deines Motorrads ein (z.B. Yamaha R6 RJ03):");
+        if (newMoto && newMoto.trim() !== '') {
+            let list = getMotorcyclesList();
+            const trimmed = newMoto.trim();
+            if (!list.includes(trimmed)) {
+                list.push(trimmed);
+                localStorage.setItem('upper_motorcycles_list', JSON.stringify(list));
+            }
+            initMotorcycles();
+            select.value = trimmed;
+        } else {
+            const prev = localStorage.getItem('upper_selected_motorcycle') || getMotorcyclesList()[0];
+            select.value = prev;
+            return;
+        }
+    }
+
+    localStorage.setItem('upper_selected_motorcycle', select.value);
+    onTrackChange();
+}
+
+function getCurrentMotorcycle() {
+    const select = document.getElementById('motorcycleSelect');
+    return select ? select.value : (localStorage.getItem('upper_selected_motorcycle') || 'Yamaha R6');
+}
+
+function getStorageSuffix() {
+    const track = document.getElementById('trackSelect')?.value || 'pannoniaring';
+    const moto = getCurrentMotorcycle();
+    const safeMoto = moto.replace(/[^a-zA-Z0-9_-]/g, '_');
+    return `${track}_${safeMoto}`;
 }
 
 function switchPage(pageKey) {
@@ -84,8 +160,8 @@ function onTrackChange() {
     }
 }
 
-function getSessionsKey(track) {
-    return 'upper_sessions_' + track;
+function getSessionsKey() {
+    return 'upper_sessions_' + getStorageSuffix();
 }
 
 function loadSessionsForTrack(track) {
@@ -95,7 +171,7 @@ function loadSessionsForTrack(track) {
     
     sessionSelect.onchange = onSessionChange;
     
-    let sessions = JSON.parse(localStorage.getItem(getSessionsKey(track))) || {};
+    let sessions = JSON.parse(localStorage.getItem(getSessionsKey())) || {};
     
     let keys = Object.keys(sessions).sort((a, b) => {
         const dateA = new Date(a.replace(' ', 'T'));
@@ -106,7 +182,7 @@ function loadSessionsForTrack(track) {
     if (keys.length === 0) {
         const defaultKey = getLocalTimestamp();
         sessions[defaultKey] = getEmptySessionData(track);
-        localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
+        localStorage.setItem(getSessionsKey(), JSON.stringify(sessions));
         keys = [defaultKey];
     }
 
@@ -122,7 +198,7 @@ function loadSessionsForTrack(track) {
 }
 
 function getEmptySessionData(track) {
-    const baseline = JSON.parse(localStorage.getItem(`baseline_${track}`));
+    const baseline = JSON.parse(localStorage.getItem(`baseline_${getStorageSuffix()}`));
     if (baseline) {
         return {
             tireFront: baseline.tireFront || '',
@@ -154,9 +230,8 @@ function onSessionChange() {
 }
 
 function loadSessionData(sessionKey) {
-    const track = document.getElementById('trackSelect').value;
-    const sessions = JSON.parse(localStorage.getItem(getSessionsKey(track))) || {};
-    const data = sessions[sessionKey] || getEmptySessionData(track);
+    const sessions = JSON.parse(localStorage.getItem(getSessionsKey())) || {};
+    const data = sessions[sessionKey] || getEmptySessionData();
 
     setFieldValue('tireFront', data.tireFront);
     setFieldValue('tireRear', data.tireRear);
@@ -185,10 +260,10 @@ function startNewSessionForm() {
     const track = document.getElementById('trackSelect').value;
     const newKey = getLocalTimestamp();
     
-    let sessions = JSON.parse(localStorage.getItem(getSessionsKey(track))) || {};
+    let sessions = JSON.parse(localStorage.getItem(getSessionsKey())) || {};
     sessions[newKey] = getEmptySessionData(track);
     try {
-        localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
+        localStorage.setItem(getSessionsKey(), JSON.stringify(sessions));
     } catch (e) {
         alert("Speicherlimit erreicht!");
     }
@@ -200,13 +275,12 @@ function startNewSessionForm() {
 }
 
 function saveData() {
-    const track = document.getElementById('trackSelect').value;
     const sessionSelect = document.getElementById('sessionSelect');
     if (!sessionSelect) return;
     const sessionKey = sessionSelect.value;
     if (!sessionKey) return;
 
-    let sessions = JSON.parse(localStorage.getItem(getSessionsKey(track))) || {};
+    let sessions = JSON.parse(localStorage.getItem(getSessionsKey())) || {};
 
     sessions[sessionKey] = {
         tireFront: document.getElementById('tireFront')?.value || '',
@@ -226,7 +300,7 @@ function saveData() {
     };
 
     try {
-        localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
+        localStorage.setItem(getSessionsKey(), JSON.stringify(sessions));
         showNotice('saveNotice', 'Erfolgreich gespeichert!');
     } catch (e) {
         alert("Speicherlimit überschritten!");
@@ -239,7 +313,7 @@ function deleteCurrentSession() {
     if (!sessionSelect) return;
     const sessionKey = sessionSelect.value;
 
-    let sessions = JSON.parse(localStorage.getItem(getSessionsKey(track))) || {};
+    let sessions = JSON.parse(localStorage.getItem(getSessionsKey())) || {};
     if (Object.keys(sessions).length <= 1) {
         alert("Der letzte Eintrag kann nicht gelöscht werden.");
         return;
@@ -247,7 +321,7 @@ function deleteCurrentSession() {
 
     if (confirm(`Eintrag "${sessionKey}" wirklich löschen?`)) {
         delete sessions[sessionKey];
-        localStorage.setItem(getSessionsKey(track), JSON.stringify(sessions));
+        localStorage.setItem(getSessionsKey(), JSON.stringify(sessions));
         loadSessionsForTrack(track);
         showNotice('saveNotice', 'Eintrag gelöscht!');
     }
@@ -257,8 +331,6 @@ function saveAsBaseline() { executeSaveBaseline(); }
 function saveBaseline() { executeSaveBaseline(); }
 
 function executeSaveBaseline() {
-    const track = document.getElementById('trackSelect').value;
-    
     if (!confirm("Möchtest du das aktuelle Setup als neues Basis-Setup speichern?")) {
         return;
     }
@@ -279,9 +351,8 @@ function executeSaveBaseline() {
         shockRemaining: document.getElementById('shockRemaining')?.value || ''
     };
     
-    localStorage.setItem(`baseline_${track}`, JSON.stringify(baseline));
+    localStorage.setItem(`baseline_${getStorageSuffix()}`, JSON.stringify(baseline));
     
-    // Backup-Erinnerung auslösen (Wichtige Änderung)
     if (typeof markDataAsChanged === 'function') {
         markDataAsChanged();
     }
@@ -290,10 +361,9 @@ function executeSaveBaseline() {
 }
 
 function loadBaseline() {
-    const track = document.getElementById('trackSelect').value;
-    const baseline = JSON.parse(localStorage.getItem(`baseline_${track}`));
+    const baseline = JSON.parse(localStorage.getItem(`baseline_${getStorageSuffix()}`));
     if (!baseline) {
-        alert('Kein Basis-Setup für diese Strecke gefunden!');
+        alert('Kein Basis-Setup für diese Strecken- & Motorrad-Kombination gefunden!');
         return;
     }
     setFieldValue('tireFront', baseline.tireFront);
@@ -318,7 +388,7 @@ function renderCurves(track) {
     if (!container) return;
     container.innerHTML = '';
     const count = tracksData[track].curves;
-    const savedCurves = JSON.parse(localStorage.getItem(`curves_${track}`)) || {};
+    const savedCurves = JSON.parse(localStorage.getItem(`curves_${getStorageSuffix()}`)) || {};
 
     for (let i = 1; i <= count; i++) {
         const cData = savedCurves[i] || { status: 'green', gear: '', line: '', brake: '', notes: '' };
@@ -368,7 +438,6 @@ function setCurveStatus(num, status) {
 }
 
 function saveCurvesData() {
-    const track = document.getElementById('trackSelect').value;
     if (!confirm("Kurven-Daten speichern?")) return;
 
     const container = document.getElementById('curvesContainer');
@@ -389,9 +458,8 @@ function saveCurvesData() {
         };
     });
 
-    localStorage.setItem(`curves_${track}`, JSON.stringify(savedCurves));
+    localStorage.setItem(`curves_${getStorageSuffix()}`, JSON.stringify(savedCurves));
     
-    // Backup-Erinnerung auslösen (Wichtige Änderung)
     if (typeof markDataAsChanged === 'function') {
         markDataAsChanged();
     }
@@ -402,9 +470,10 @@ function saveCurvesData() {
 function shareCurves() {
     const track = document.getElementById('trackSelect').value;
     const trackName = tracksData[track]?.name || track;
+    const moto = getCurrentMotorcycle();
     const container = document.getElementById('curvesContainer');
     
-    let text = `🏍️ Kurven-Guide: ${trackName}\n------------------\n`;
+    let text = `🏍️ Kurven-Guide: ${trackName} (${moto})\n------------------\n`;
     if (container) {
         const cards = container.querySelectorAll('.curve-card');
         cards.forEach(card => {
@@ -436,8 +505,8 @@ function shareCurves() {
     }
 }
 
-function getLapSessionsKey(track) {
-    return 'upper_laps_' + track;
+function getLapSessionsKey() {
+    return 'upper_laps_' + getStorageSuffix();
 }
 
 function loadLapSessionsForTrack(track) {
@@ -447,13 +516,13 @@ function loadLapSessionsForTrack(track) {
 
     lapSelect.onchange = onLapSessionChange;
 
-    let lapSessions = JSON.parse(localStorage.getItem(getLapSessionsKey(track))) || {};
+    let lapSessions = JSON.parse(localStorage.getItem(getLapSessionsKey())) || {};
     let keys = Object.keys(lapSessions).sort((a, b) => new Date(b.replace(' ', 'T')) - new Date(a.replace(' ', 'T')));
 
     if (keys.length === 0) {
         const defaultKey = getLocalTimestamp();
         lapSessions[defaultKey] = [];
-        localStorage.setItem(getLapSessionsKey(track), JSON.stringify(lapSessions));
+        localStorage.setItem(getLapSessionsKey(), JSON.stringify(lapSessions));
         keys = [defaultKey];
     }
 
@@ -469,10 +538,9 @@ function loadLapSessionsForTrack(track) {
 }
 
 function onLapSessionChange() {
-    const track = document.getElementById('trackSelect').value;
     const lapSelect = document.getElementById('lapSessionSelect');
     if (!lapSelect) return;
-    const lapSessions = JSON.parse(localStorage.getItem(getLapSessionsKey(track))) || {};
+    const lapSessions = JSON.parse(localStorage.getItem(getLapSessionsKey())) || {};
     renderLapList(lapSessions[lapSelect.value] || []);
 }
 
@@ -480,9 +548,9 @@ function startNewLapSession() {
     const track = document.getElementById('trackSelect').value;
     const newKey = getLocalTimestamp();
     
-    let lapSessions = JSON.parse(localStorage.getItem(getLapSessionsKey(track))) || {};
+    let lapSessions = JSON.parse(localStorage.getItem(getLapSessionsKey())) || {};
     lapSessions[newKey] = [];
-    localStorage.setItem(getLapSessionsKey(track), JSON.stringify(lapSessions));
+    localStorage.setItem(getLapSessionsKey(), JSON.stringify(lapSessions));
 
     loadLapSessionsForTrack(track);
     document.getElementById('lapSessionSelect').value = newKey;
@@ -495,7 +563,7 @@ function deleteCurrentLapSession() {
     if (!lapSelect) return;
     const sessionKey = lapSelect.value;
 
-    let lapSessions = JSON.parse(localStorage.getItem(getLapSessionsKey(track))) || {};
+    let lapSessions = JSON.parse(localStorage.getItem(getLapSessionsKey())) || {};
     if (Object.keys(lapSessions).length <= 1) {
         alert("Der letzte Stint kann nicht gelöscht werden.");
         return;
@@ -503,7 +571,7 @@ function deleteCurrentLapSession() {
 
     if (confirm(`Stint "${sessionKey}" löschen?`)) {
         delete lapSessions[sessionKey];
-        localStorage.setItem(getLapSessionsKey(track), JSON.stringify(lapSessions));
+        localStorage.setItem(getLapSessionsKey(), JSON.stringify(lapSessions));
         loadLapSessionsForTrack(track);
     }
 }
@@ -530,7 +598,7 @@ function addManualLap() {
     const timeStr = `${mVal}${sVal}.${msVal}`;
     const totalMs = (parseInt(min || 0) * 60 * 1000) + (parseInt(sec || 0) * 1000) + parseInt(ms || 0);
 
-    let lapSessions = JSON.parse(localStorage.getItem(getLapSessionsKey(track))) || {};
+    let lapSessions = JSON.parse(localStorage.getItem(getLapSessionsKey())) || {};
     if (!lapSessions[sessionKey]) lapSessions[sessionKey] = [];
 
     const lapNum = lapNumInput ? parseInt(lapNumInput) : (lapSessions[sessionKey].length + 1);
@@ -538,9 +606,9 @@ function addManualLap() {
     lapSessions[sessionKey].push({ lapNum, timeStr, totalMs });
     lapSessions[sessionKey].sort((a, b) => a.lapNum - b.lapNum);
 
-    localStorage.setItem(getLapSessionsKey(track), JSON.stringify(lapSessions));
+    localStorage.setItem(getLapSessionsKey(), JSON.stringify(lapSessions));
     renderLapList(lapSessions[sessionKey]);
-    checkAndUpdateAllTimeBest(timeStr, totalMs, track);
+    checkAndUpdateAllTimeBest(timeStr, totalMs);
 
     document.getElementById('manualMin').value = '';
     document.getElementById('manualSec').value = '';
@@ -575,26 +643,24 @@ function renderLapList(lapsArray) {
 }
 
 function confirmClearLaps() {
-    const track = document.getElementById('trackSelect').value;
     const lapSelect = document.getElementById('lapSessionSelect');
     if (!lapSelect) return;
     const sessionKey = lapSelect.value;
 
     if (confirm("Stint leeren?")) {
-        let lapSessions = JSON.parse(localStorage.getItem(getLapSessionsKey(track))) || {};
+        let lapSessions = JSON.parse(localStorage.getItem(getLapSessionsKey())) || {};
         lapSessions[sessionKey] = [];
-        localStorage.setItem(getLapSessionsKey(track), JSON.stringify(lapSessions));
+        localStorage.setItem(getLapSessionsKey(), JSON.stringify(lapSessions));
         renderLapList([]);
     }
 }
 
-function checkAndUpdateAllTimeBest(timeStr, totalMs, track) {
-    const bestKey = `allTimeBest_${track}`;
+function checkAndUpdateAllTimeBest(timeStr, totalMs) {
+    const bestKey = `allTimeBest_${getStorageSuffix()}`;
     const currentBest = JSON.parse(localStorage.getItem(bestKey));
     if (!currentBest || totalMs < currentBest.totalMs) {
         localStorage.setItem(bestKey, JSON.stringify({ timeStr, totalMs, date: getLocalTimestamp() }));
         
-        // Backup-Erinnerung auslösen (Wichtige Änderung - Bestzeit!)
         if (typeof markDataAsChanged === 'function') {
             markDataAsChanged();
         }
@@ -604,8 +670,8 @@ function checkAndUpdateAllTimeBest(timeStr, totalMs, track) {
 }
 
 function loadAllTimeBest() {
-    const track = document.getElementById('trackSelect').value;
-    const best = JSON.parse(localStorage.getItem(`allTimeBest_${track}`));
+    const bestKey = `allTimeBest_${getStorageSuffix()}`;
+    const best = JSON.parse(localStorage.getItem(bestKey));
     const headerValEl = document.getElementById('headerAllTimeValue');
     
     if (best && best.timeStr) {
@@ -617,13 +683,8 @@ function loadAllTimeBest() {
 
 function confirmClearAllTimeBest() {
     try {
-        const trackEl = document.getElementById('trackSelect');
-        if (!trackEl) return;
-        const track = trackEl.value;
-        
-        if (confirm(`Möchtest du die Bestzeit für diese Strecke wirklich löschen?`)) {
-            localStorage.removeItem(`allTimeBest_${track}`);
-            localStorage.removeItem('allTimeBest_' + encodeURIComponent(track));
+        if (confirm(`Möchtest du die Bestzeit für diese Strecken- & Motorrad-Kombination wirklich löschen?`)) {
+            localStorage.removeItem(`allTimeBest_${getStorageSuffix()}`);
             loadAllTimeBest();
             showNotice('saveNotice', 'Bestzeit erfolgreich gelöscht!');
         }
