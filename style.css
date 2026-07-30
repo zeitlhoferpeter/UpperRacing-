@@ -37,32 +37,94 @@ body {
     color: #4CAF50;
 }
 
+/* Gekürzte, kompaktere Select-Menüs im Header */
 .track-selector-wrapper select {
     background: #2a2a2a;
     color: #fff;
     border: 1px solid #444;
-    padding: 4px 8px;
+    padding: 4px 6px;
     border-radius: 6px;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
+    max-width: 85px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+/* Header Schedule Widget */
+.header-schedule-widget {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #222;
+    padding: 4px 8px;
+    border-radius: 14px;
+    border: 1px solid #444;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.turn-group-badge {
+    background: #555;
+    color: #fff;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-weight: bold;
+    font-size: 0.7rem;
+}
+
+.turn-group-badge.my-group {
+    background: #FFD700;
+    color: #000;
+}
+
+.turn-time-rem {
+    font-weight: bold;
+    color: #4CAF50;
+}
+
+/* 10 MINUTEN ALARM: Gelb/Orange glühender Header-Badge */
+@keyframes schedule-pulse-glow {
+    0% { transform: scale(1); box-shadow: 0 0 4px #ff9800; border-color: #ff9800; }
+    100% { transform: scale(1.05); box-shadow: 0 0 16px #ff9800; border-color: #FFD700; background: #3a2500; }
+}
+
+.schedule-glow-10m {
+    animation: schedule-pulse-glow 0.8s infinite alternate !important;
+}
+
+/* 5 MINUTEN ALARM: Pulsierender ROTER Bildschirmrand */
+@keyframes red-screen-border-blink {
+    0%, 100% { box-shadow: inset 0 0 0 0px transparent; }
+    50% { box-shadow: inset 0 0 25px 8px rgba(244, 67, 54, 0.95); }
+}
+
+body.screen-alert-red {
+    animation: red-screen-border-blink 1s infinite !important;
 }
 
 .nav-tabs {
     display: flex;
     background-color: #222;
     border-bottom: 1px solid #333;
+    overflow-x: auto;
 }
 
 .tab-btn {
     flex: 1;
+    min-width: 55px;
     background: none;
     border: none;
     color: #aaa;
-    padding: 12px 4px;
-    font-size: 0.75rem;
+    padding: 12px 2px;
+    font-size: 0.72rem;
     cursor: pointer;
     text-align: center;
     border-bottom: 3px solid transparent;
     transition: all 0.2s;
+    white-space: nowrap;
 }
 
 .tab-btn.active {
@@ -156,4 +218,26 @@ textarea {
 .pack-item-done {
     text-decoration: line-through;
     color: #777;
+}
+
+/* Zeitplan Reichen-Styling */
+.schedule-row {
+    display: flex;
+    align-items: center;
+    background: #1a1a1a;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid #333;
+    transition: all 0.2s;
+}
+
+.schedule-row.row-my-group {
+    border-left: 4px solid #FFD700;
+    background: #252212;
+}
+
+.schedule-row.row-active {
+    border-color: #4CAF50;
+    background: #102e12;
+    box-shadow: 0 0 10px rgba(76, 175, 80, 0.4);
 }
