@@ -16,6 +16,9 @@ function initApp() {
         onTrackChange();
         loadCupUrl();
         switchPage('setup');
+        if (typeof window.initScheduleModule === 'function') {
+            window.initScheduleModule();
+        }
     } catch (e) {
         console.error("Init Error:", e);
     }
@@ -53,7 +56,7 @@ function initMotorcycles() {
 
     let addOpt = document.createElement('option');
     addOpt.value = '__add_new__';
-    addOpt.textContent = '➕ Neues Motorrad...';
+    addOpt.textContent = '➕ Neues...';
     select.appendChild(addOpt);
 
     if (list.includes(current)) {
@@ -125,6 +128,10 @@ function switchPage(pageKey) {
             } else if (lowerKey === 'pack') {
                 if (typeof initPack === 'function') {
                     initPack();
+                }
+            } else if (lowerKey === 'schedule') {
+                if (typeof window.initScheduleModule === 'function') {
+                    window.initScheduleModule();
                 }
             }
         }
