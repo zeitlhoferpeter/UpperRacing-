@@ -38,10 +38,13 @@
                     <div id="weather-header-widget" title="Klicken für Wettervorhersage & Regenradar">
                         <span id="weather-icon">⏳</span> <span id="weather-temp">--°C</span>
                     </div>
+                    <!-- Neuer Live Turn Anzeige-Slot -->
+                    <div id="headerScheduleWidget" class="header-schedule-widget" onclick="switchPage('schedule')" title="Klicken für ausführlichen Zeitplan">
+                        <span style="opacity:0.8;">⏱️ Lade Zeitplan...</span>
+                    </div>
                 </div>
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
-                <!-- Platz für Punkt 2 -->
                 <div id="headerPoint2Slot"></div>
                 <div id="headerAllTime" onclick="confirmClearAllTimeBest()" style="text-align:right; background:#222; padding:6px 10px; border-radius:6px; border:1px solid #444; cursor:pointer;" title="Klicken zum Zurücksetzen der Bestzeit">
                     <div style="font-size:0.65rem; color:#FFD700;">🏆 Bestzeit 🗑️</div>
@@ -54,6 +57,7 @@
             <button type="button" class="tab-btn active" onclick="switchPage('setup')">Setup</button>
             <button type="button" class="tab-btn" onclick="switchPage('curves')">Kurven</button>
             <button type="button" class="tab-btn" onclick="switchPage('laps')">Runden</button>
+            <button type="button" class="tab-btn" onclick="switchPage('schedule')">Zeitplan</button>
             <button type="button" class="tab-btn" onclick="switchPage('cup')">Cup</button>
             <button type="button" class="tab-btn" onclick="switchPage('pack')">Packliste</button>
             <button type="button" class="tab-btn" onclick="switchPage('backup'); if(typeof initBackup==='function') initBackup();">Backup</button>
@@ -155,6 +159,9 @@
                 </div>
             </div>
 
+            <!-- NEUER REITER: ZEITPLAN -->
+            <div id="pageSchedule" class="page-content" style="display:none;"></div>
+
             <div id="pageCup" class="page-content" style="display:none;">
                 <div class="setup-box">
                     <h3>Cup-Reglement / Info</h3>
@@ -213,6 +220,7 @@
 
     <script src="pack.js"></script>
     <script src="backup.js"></script>
+    <script src="schedule.js"></script>
     <script src="app.js"></script>
     <script src="weather.js"></script>
     <script>
