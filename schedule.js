@@ -3,7 +3,7 @@
 (function() {
     const DEFAULT_SCHEDULE_DAY1 = [
         { start: "07:30", end: "08:15", title: "Anmeldung in der Box", group: "Orga" },
-        { start: "08:15", end: "08:35", title: "Anfängerkurs Theorie Teil 1", group: "Orga" },
+        { start: "08:15", end: "08:35", title: "Anfängerkurs Theorie", group: "Orga" },
         { start: "08:45", end: "08:50", title: "Fahrerbesprechung (Race Office)", group: "Orga" },
         { start: "08:50", end: "09:00", title: "Anfängerkurs Praxis (2 Besichtigungsrunden)", group: "Anfänger" },
         { start: "09:00", end: "09:15", title: "Freies Fahren Gruppe A", group: "A" },
@@ -91,14 +91,32 @@
         return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
     }
 
+    // Präzise Zuordnung der Kategorien
     function parseGroupFromTitle(title) {
         const t = title.toUpperCase();
+        
+        // Fahrerbesprechung, Anmeldung & Theorie gehören zu Orga
+        if (t.includes('FAHRERBESPRECHUNG') || t.includes('BRIEFING') || 
+            t.includes('ANMELDUNG') || t.includes('REGISTRATION') || 
+            t.includes('THEORIE') || t.includes('THEORY')) {
+            return 'Orga';
+        }
+        
+        // Anfängerkurs Praxis
+        if (t.includes('ANFÄNGERKURS PRAXIS') || t.includes('PRAXIS')) {
+            return 'Anfänger';
+        }
+
+        // Gruppen A, B, C, D
         if (t.includes('GRUPPE A') || t.includes('GROUP A')) return 'A';
         if (t.includes('GRUPPE B') || t.includes('GROUP B')) return 'B';
         if (t.includes('GRUPPE C') || t.includes('GROUP C')) return 'C';
         if (t.includes('GRUPPE D') || t.includes('GROUP D')) return 'D';
+        
+        // Pause & Rennen
         if (t.includes('MITTAG') || t.includes('LUNCH')) return 'Pause';
         if (t.includes('RACE') || t.includes('RENNEN')) return 'Rennen';
+        
         return 'Orga';
     }
 
@@ -264,11 +282,12 @@
                         <span>bis</span>
                         <input type="text" id="newTurnEnd" placeholder="09:20" style="width:60px; text-align:center;">
                         <input type="text" id="newTurnTitle" placeholder="Bezeichnung (z.B. Turn 1 Gruppe A)" style="flex:1; min-width:120px;">
-                        <select id="newTurnGroup" style="width:80px;">
+                        <select id="newTurnGroup" style="width:90px;">
                             <option value="A">Gruppe A</option>
                             <option value="B">Gruppe B</option>
                             <option value="C">Gruppe C</option>
                             <option value="D">Gruppe D</option>
+                            <option value="Anfänger">Anfänger</option>
                             <option value="Rennen">Rennen</option>
                             <option value="Pause">Pause</option>
                             <option value="Orga">Orga</option>
@@ -353,6 +372,7 @@
             else if (item.group === 'B') groupColor = '#2196F3';
             else if (item.group === 'C') groupColor = '#FF9800';
             else if (item.group === 'D') groupColor = '#E91E63';
+            else if (item.group === 'Anfänger') groupColor = '#00BCD4';
             else if (item.group === 'Rennen') groupColor = '#9C27B0';
             else if (item.group === 'Pause') groupColor = '#607D8B';
 
@@ -422,6 +442,7 @@
         }
     };
 
+    // Überarbeiteter Text-Parser mit deutscher Bevorzugung & Theorie-Deduplizierung
     window.parseScheduleText = function() {
         const raw = document.getElementById('scheduleRawText')?.value;
         if (!raw || raw.trim() === '') {
@@ -431,25 +452,58 @@
 
         const lines = raw.split('\n');
         const parsed = [];
+        const seenTheoryTimes = new Set();
         const timeRegex = /(\d{1,2}:\d{2})\s*(?:-|bis)?\s*(\d{1,2}:\d{2})?\s+(.+)/;
 
         lines.forEach(line => {
-            const match = line.trim().match(timeRegex);
+            const cleanLine = line.trim();
+            if (!cleanLine) return;
+
+            const match = cleanLine.match(timeRegex);
             if (match) {
                 const start = match[1].padStart(5, '0');
                 const end = match[2] ? match[2].padStart(5, '0') : minutesToTime(timeToMinutes(start) + 20);
-                const title = match[3].trim();
+                let title = match[3].trim();
+
+                // Bevorzuge bei zweisprachigen Zeilen (z.B. mit "/") den deutschen Teil
+                if (title.includes('/')) {
+                    const parts = title.split('/');
+                    const dePart = parts.find(p => /anfänger|fahrerbesprechung|anmeldung|gruppe|freies fahren|qualifying|rennen|theorie/i.test(p));
+                    title = dePart ? dePart.trim() : parts[0].trim();
+                }
+
+                const upperTitle = title.toUpperCase();
+
+                // Anfängerkurs Theorie nur 1x pro Startzeit zulassen
+                if (upperTitle.includes('THEORIE') || upperTitle.includes('THEORY')) {
+                    if (seenTheoryTimes.has(start)) return;
+                    seenTheoryTimes.add(start);
+                    title = "Anfängerkurs Theorie";
+                }
+
                 const group = parseGroupFromTitle(title);
                 parsed.push({ start, end, title, group });
             }
         });
 
-        if (parsed.length > 0) {
-            scheduleState.items = parsed;
+        // Doppelte Einträge zur exakt gleichen Startzeit säubern
+        const uniqueParsed = [];
+        const mapByTimeTitle = new Map();
+
+        parsed.forEach(item => {
+            const key = `${item.start}-${item.title}`;
+            if (!mapByTimeTitle.has(key)) {
+                mapByTimeTitle.set(key, item);
+                uniqueParsed.push(item);
+            }
+        });
+
+        if (uniqueParsed.length > 0) {
+            scheduleState.items = uniqueParsed;
             saveScheduleState();
             renderScheduleRows();
             updateScheduleTimer();
-            alert(`${parsed.length} Turns erfolgreich extrahiert!`);
+            alert(`${uniqueParsed.length} Turns & Programmpunkte erfolgreich extrahiert!`);
             window.togglePdfImportSection();
         } else {
             alert('Keine gültigen Uhrzeiten im Format "09:00-09:20 Titel" gefunden.');
@@ -463,7 +517,6 @@
         }, 600);
     };
 
-    // Dynamisches Laden der PDF.js Bibliothek
     function loadPdfJsLib() {
         return new Promise((resolve, reject) => {
             if (window.pdfjsLib) return resolve(window.pdfjsLib);
@@ -479,7 +532,6 @@
         });
     }
 
-    // Verbesserte PDF/TXT Upload-Funktion
     async function handlePdfFileUpload(e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -504,7 +556,6 @@
                     let pageText = '';
                     
                     textContent.items.forEach(item => {
-                        // Neue Zeile einfügen, wenn die vertikale Position (Y) sich ändert
                         if (lastY !== null && Math.abs(item.transform[5] - lastY) > 4) {
                             pageText += '\n';
                         } else if (pageText.length > 0 && !pageText.endsWith('\n')) {
@@ -523,10 +574,9 @@
                 }
             } catch (err) {
                 console.error('PDF Parse Fehler:', err);
-                alert('Fehler beim Lesen der PDF-Datei. Ist sie möglicherweise passwortgeschützt oder enthält nur Bilder?');
+                alert('Fehler beim Lesen der PDF-Datei.');
             }
         } else {
-            // Standard Textdatei (TXT) auslesen
             const reader = new FileReader();
             reader.onload = function(evt) {
                 if (textEl) {
