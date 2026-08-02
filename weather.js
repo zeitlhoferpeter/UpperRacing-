@@ -244,7 +244,7 @@
                     <div class="weather-modal-body">
                         <div class="weather-settings-bar">
                             <div class="weather-setting-row">
-                                <span>🔊 Akustischer Alarm (nur bei akuter Gefahr in < 1 Std):</span>
+                                <span>🔊 Akustischer Alarm (nur bei akuter Gefahr in &lt; 1 Std):</span>
                                 <label style="cursor:pointer; display:flex; align-items:center; gap:6px;">
                                     <input type="checkbox" id="weather-sound-toggle" onchange="toggleWeatherSound(this)"> Aktiviert
                                 </label>
