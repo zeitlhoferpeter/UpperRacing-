@@ -37,18 +37,6 @@
     const DEFAULT_SCHEDULE_DAY2 = [
         { start: "07:30", end: "08:15", title: "Anmeldung in der Box", group: "Orga" },
         { start: "08:45", end: "09:00", title: "Fahrerbesprechung (Race Office)", group: "Orga" },
-        { start: "09:00", end: "09:20", title: "Qualifying Gruppe A", group: "A" },
-        { start: "09:20", end: "09:40", title: "Qualifying Gruppe B", group: "B" },
-        { start: "09:40", end: "10:00", title: "Qualifying Gruppe C", group: "C" },
-        { start: "10:00", end: "10:20", title: "Qualifying Gruppe D", group: "D" },
-        { start: "10:20", end: "10:40", title: "Qualifying Gruppe A", group: "A" },
-        { start: "10:40", end: "11:00", title: "Qualifying Gruppe B", group: "B" },
-        { start: "11:00", end: "11:20", title: "Qualifying Gruppe C", group: "C" },
-        { start: "11:20", end: "11:40", title: "Qualifying Gruppe D", group: "D" },
-        { start: "11:40", end: "12:00", title: "Qualifying Gruppe A", group: "A" },
-        { start: "12:00", end: "12:20", title: "Qualifying Gruppe B", group: "B" },
-        { start: "12:20", end: "12:40", title: "Qualifying Gruppe C", group: "C" },
-        { start: "12:40", end: "13:00", title: "Qualifying Gruppe D", group: "D" },
         { start: "13:00", end: "13:40", title: "Mittagspause / Startaufstellung", group: "Pause" },
         { start: "13:10", end: "13:40", title: "Fahrerbesprechung Rennteilnehmer", group: "Orga" },
         { start: "13:40", end: "14:00", title: "Freies Fahren Gruppe A", group: "A" },
@@ -60,7 +48,7 @@
         { start: "16:00", end: "16:30", title: "SBK Race (6 Laps)", group: "Rennen" },
         { start: "16:30", end: "17:00", title: "SSP Race (6 Laps)", group: "Rennen" },
         { start: "17:00", end: "17:30", title: "B-Race (5 Laps)", group: "Rennen" },
-        { start: "17:30", end: "18:00", title: "Freies Fahren alle Gruppen A+B+C+D", group: "Alle" }
+        { start: "17:30", end: "18:00", title: "Freies Fahren alle Gruppen A+B+C+D", group: "ALL" }
     ];
 
     let scheduleState = {
@@ -91,14 +79,11 @@
         return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
     }
 
-    // Präzise Zuordnung der Kategorien
     function parseGroupFromTitle(title) {
         const t = title.toUpperCase();
         
-        // Fahrerbesprechung, Anmeldung & Theorie gehören zu Orga
-        if (t.includes('FAHRERBESPRECHUNG') || t.includes('BRIEFING') || 
-            t.includes('ANMELDUNG') || t.includes('REGISTRATION') || 
-            t.includes('THEORIE') || t.includes('THEORY')) {
+        // Orga: Fahrerbesprechung, Anmeldung & Theorie
+        if (t.includes('FAHRERBESPRECHUNG') || t.includes('ANMELDUNG') || t.includes('THEORIE')) {
             return 'Orga';
         }
         
@@ -442,7 +427,7 @@
         }
     };
 
-    // Überarbeiteter Text-Parser mit deutscher Bevorzugung & Theorie-Deduplizierung
+    // Text-Parser inkl. Filterung von Qualifying & Briefings
     window.parseScheduleText = function() {
         const raw = document.getElementById('scheduleRawText')?.value;
         if (!raw || raw.trim() === '') {
@@ -465,7 +450,7 @@
                 const end = match[2] ? match[2].padStart(5, '0') : minutesToTime(timeToMinutes(start) + 20);
                 let title = match[3].trim();
 
-                // Bevorzuge bei zweisprachigen Zeilen (z.B. mit "/") den deutschen Teil
+                // 1. Zweisprachige Zeilen auf Deutsch reduzieren (z.B. "Fahrerbesprechung / Briefing" -> "Fahrerbesprechung")
                 if (title.includes('/')) {
                     const parts = title.split('/');
                     const dePart = parts.find(p => /anfänger|fahrerbesprechung|anmeldung|gruppe|freies fahren|qualifying|rennen|theorie/i.test(p));
@@ -474,7 +459,15 @@
 
                 const upperTitle = title.toUpperCase();
 
-                // Anfängerkurs Theorie nur 1x pro Startzeit zulassen
+                // 2. Filter: Qualifying & Briefings ignorieren
+                if (upperTitle.includes('QUALIFYING') || upperTitle.includes('QUALI')) {
+                    return; // Qualifying komplett aussortieren
+                }
+                if (upperTitle.includes('BRIEFING') && !upperTitle.includes('FAHRERBESPRECHUNG')) {
+                    return; // Nur englische Briefings aussortieren
+                }
+
+                // 3. Anfängerkurs Theorie nur 1x pro Startzeit zulassen
                 if (upperTitle.includes('THEORIE') || upperTitle.includes('THEORY')) {
                     if (seenTheoryTimes.has(start)) return;
                     seenTheoryTimes.add(start);
