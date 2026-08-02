@@ -211,7 +211,7 @@
                     };
                     if (callback) callback();
                 },
-                (error) => {
+                () => {
                     updateActiveLocationByTrack();
                     if (callback) callback();
                 },
