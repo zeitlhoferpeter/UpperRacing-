@@ -1,111 +1,141 @@
 // schedule.js - UpperRacing Zeitplan & Live-Turn-Timer Modul
 
 (function() {
+    // 1. Sicheres Laden des LocalStorage-Zustands
+    let initialDays = { 'Montag': [] };
+    try {
+        const savedDays = localStorage.getItem('upper_schedule_days');
+        if (savedDays) {
+            const parsed = JSON.parse(savedDays);
+            if (parsed && typeof parsed === 'object') {
+                initialDays = parsed;
+            }
+        }
+    } catch (e) {
+        console.warn('[Schedule] Fehler beim Lesen von upper_schedule_days aus localStorage:', e);
+    }
+
     let scheduleState = {
         myGroup: localStorage.getItem('upper_schedule_mygroup') || 'A',
         alert10m: localStorage.getItem('upper_schedule_alert10m') !== 'false',
         alert5m: localStorage.getItem('upper_schedule_alert5m') !== 'false',
         activeDay: localStorage.getItem('upper_schedule_activeday') || 'Montag',
-        days: JSON.parse(localStorage.getItem('upper_schedule_days')) || {
-            'Montag': []
-        }
+        days: initialDays
     };
 
     let timerInterval = null;
 
+    // 2. Hilfsfunktionen (Defensiv & Fehlertolerant)
     function saveScheduleState() {
-        localStorage.setItem('upper_schedule_mygroup', scheduleState.myGroup);
-        localStorage.setItem('upper_schedule_alert10m', scheduleState.alert10m);
-        localStorage.setItem('upper_schedule_alert5m', scheduleState.alert5m);
-        localStorage.setItem('upper_schedule_activeday', scheduleState.activeDay);
-        localStorage.setItem('upper_schedule_days', JSON.stringify(scheduleState.days));
+        try {
+            localStorage.setItem('upper_schedule_mygroup', scheduleState.myGroup);
+            localStorage.setItem('upper_schedule_alert10m', scheduleState.alert10m);
+            localStorage.setItem('upper_schedule_alert5m', scheduleState.alert5m);
+            localStorage.setItem('upper_schedule_activeday', scheduleState.activeDay);
+            localStorage.setItem('upper_schedule_days', JSON.stringify(scheduleState.days));
+        } catch (e) {
+            console.error('[Schedule] Speichern fehlgeschlagen:', e);
+        }
     }
 
     function getCurrentItems() {
+        if (!scheduleState.days || typeof scheduleState.days !== 'object') {
+            scheduleState.days = { 'Montag': [] };
+        }
         if (!scheduleState.days[scheduleState.activeDay]) {
             const firstDay = Object.keys(scheduleState.days)[0];
-            if (firstDay) scheduleState.activeDay = firstDay;
-            else return [];
+            if (firstDay) {
+                scheduleState.activeDay = firstDay;
+            } else {
+                return [];
+            }
         }
         return scheduleState.days[scheduleState.activeDay] || [];
     }
 
     function timeToMinutes(timeStr) {
         if (!timeStr) return 0;
-        const normalized = timeStr.replace('.', ':');
-        const [h, m] = normalized.split(':').map(Number);
-        return h * 60 + (m || 0);
+        const normalized = String(timeStr).replace('.', ':');
+        const parts = normalized.split(':');
+        const h = Number(parts[0]) || 0;
+        const m = Number(parts[1]) || 0;
+        return h * 60 + m;
     }
 
     function minutesToTime(totalMins) {
-        const h = Math.floor(totalMins / 60) % 24;
-        const m = totalMins % 60;
-        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        const validMins = Math.max(0, Number(totalMins) || 0);
+        const h = Math.floor(validMins / 60) % 24;
+        const m = validMins % 60;
+        return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
     }
 
     function processLineTitle(rawTitle) {
-        let title = rawTitle.trim();
+        if (!rawTitle) return null;
+        let title = String(rawTitle).trim();
+        if (!title) return null;
         
-        if (title.includes('/')) {
+        if (title.indexOf('/') !== -1) {
             const parts = title.split('/');
-            const dePart = parts.find(p => /anmeldung|fahrerbesprechung|anfängerkurs|theorie|praxis|gruppe|freies fahren|rennen|mittag|pause|lunch|siegerehrung/i.test(p));
+            const dePart = parts.find(function(p) {
+                return /anmeldung|fahrerbesprechung|anfängerkurs|theorie|praxis|gruppe|freies fahren|rennen|mittag|pause|lunch|siegerehrung/i.test(p);
+            });
             title = dePart ? dePart.trim() : parts[0].trim();
         }
 
         const t = title.toUpperCase();
 
         // 1. Reine Info-Header & Vorab-Hinweise ignorieren
-        if (t.startsWith('QUALIFYING:') || t.startsWith('LETZTES QUALIFYING:') || t.includes('ANMELDUNG ZU DEN RENNEN') || t.includes('REGISTRATION FOR ALL') || t.includes('ZEITNAHME ENDE')) {
+        if (t.startsWith('QUALIFYING:') || t.startsWith('LETZTES QUALIFYING:') || t.indexOf('ANMELDUNG ZU DEN RENNEN') !== -1 || t.indexOf('REGISTRATION FOR ALL') !== -1 || t.indexOf('ZEITNAHME ENDE') !== -1) {
             return null;
         }
 
         // 2. Mittagspause / Lunch
-        if (t.includes('MITTAG') || t.includes('PAUSE') || t.includes('LUNCH') || t.includes('ESSEN')) {
+        if (t.indexOf('MITTAG') !== -1 || t.indexOf('PAUSE') !== -1 || t.indexOf('LUNCH') !== -1 || t.indexOf('ESSEN') !== -1) {
             return { title: 'Mittagspause', group: 'Pause' };
         }
 
         // 3. Fahrerbesprechung & Orga
-        if (t.includes('FAHRERBESPRECHUNG')) {
+        if (t.indexOf('FAHRERBESPRECHUNG') !== -1) {
             return { title: 'Fahrerbesprechung', group: 'Orga' };
         }
 
         // 4. Anfängerkurs
-        if (t.includes('ANFÄNGERKURS THEORIE') || (t.includes('THEORIE') && !t.includes('PRAXIS'))) {
+        if (t.indexOf('ANFÄNGERKURS THEORIE') !== -1 || (t.indexOf('THEORIE') !== -1 && t.indexOf('PRAXIS') === -1)) {
             return { title: 'Anfängerkurs Theorie', group: 'Anfänger' };
         }
-        if (t.includes('ANFÄNGERKURS PRAXIS') || t.includes('PRAXIS')) {
+        if (t.indexOf('ANFÄNGERKURS PRAXIS') !== -1 || t.indexOf('PRAXIS') !== -1) {
             return { title: 'Anfängerkurs Praxis', group: 'Anfänger' };
         }
 
         // 5. Siegerehrung
-        if (t.includes('SIEGEREHRUNG') || t.includes('PRICEGIVING')) {
+        if (t.indexOf('SIEGEREHRUNG') !== -1 || t.indexOf('PRICEGIVING') !== -1) {
             return { title: 'Siegerehrung', group: 'Orga' };
         }
 
         // 6. Freies Fahren / Gruppen A-D
-        if (t.includes('ALLE GRUPPEN') || t.includes('A+B+C+D')) {
+        if (t.indexOf('ALLE GRUPPEN') !== -1 || t.indexOf('A+B+C+D') !== -1) {
             return { title: 'Freies Fahren (Alle Gruppen)', group: 'A' };
         }
-        if (t.includes('GRUPPE A') || t.includes('GR. A') || t.includes('SLOWER GROUP A')) {
+        if (t.indexOf('GRUPPE A') !== -1 || t.indexOf('GR. A') !== -1 || t.indexOf('SLOWER GROUP A') !== -1) {
             return { title: 'Freies Fahren Gruppe A', group: 'A' };
         }
-        if (t.includes('GRUPPE B') || t.includes('GR. B') || t.includes('FASTER GROUP B')) {
+        if (t.indexOf('GRUPPE B') !== -1 || t.indexOf('GR. B') !== -1 || t.indexOf('FASTER GROUP B') !== -1) {
             return { title: 'Freies Fahren Gruppe B', group: 'B' };
         }
-        if (t.includes('GRUPPE C') || t.includes('GR. C') || t.includes('FAST GROUP C')) {
+        if (t.indexOf('GRUPPE C') !== -1 || t.indexOf('GR. C') !== -1 || t.indexOf('FAST GROUP C') !== -1) {
             return { title: 'Freies Fahren Gruppe C', group: 'C' };
         }
-        if (t.includes('GRUPPE D') || t.includes('GR. D') || t.includes('VERY FAST GROUP D')) {
+        if (t.indexOf('GRUPPE D') !== -1 || t.indexOf('GR. D') !== -1 || t.indexOf('VERY FAST GROUP D') !== -1) {
             return { title: 'Freies Fahren Gruppe D', group: 'D' };
         }
 
         // 7. Rennen
-        if (t.includes('CLASSIC')) return { title: 'Classic Race (7 Laps)', group: 'Rennen' };
-        if (t.includes('ROOKIE')) return { title: 'Sternchen Rookie Race', group: 'Rennen' };
-        if (t.includes('SBK')) return { title: 'SBK Race (6 Laps)', group: 'Rennen' };
-        if (t.includes('SSP')) return { title: 'SSP Race (6 Laps)', group: 'Rennen' };
-        if (t.includes('B-RACE')) return { title: 'B-Race (5 Laps)', group: 'Rennen' };
-        if (t.includes('RENNEN') || t.includes('RACE')) {
+        if (t.indexOf('CLASSIC') !== -1) return { title: 'Classic Race (7 Laps)', group: 'Rennen' };
+        if (t.indexOf('ROOKIE') !== -1) return { title: 'Sternchen Rookie Race', group: 'Rennen' };
+        if (t.indexOf('SBK') !== -1) return { title: 'SBK Race (6 Laps)', group: 'Rennen' };
+        if (t.indexOf('SSP') !== -1) return { title: 'SSP Race (6 Laps)', group: 'Rennen' };
+        if (t.indexOf('B-RACE') !== -1) return { title: 'B-Race (5 Laps)', group: 'Rennen' };
+        if (t.indexOf('RENNEN') !== -1 || t.indexOf('RACE') !== -1) {
             let clean = title.split(';')[0].split(',')[0].trim();
             return { title: clean, group: 'Rennen' };
         }
@@ -113,47 +143,7 @@
         return null;
     }
 
-    function updateScheduleTimer() {
-        const now = new Date();
-        const currentMins = now.getHours() * 60 + now.getMinutes();
-        const currentSecs = now.getSeconds();
-
-        let activeTurn = null;
-        let nextMyTurn = null;
-        let minsToNextMyTurn = Infinity;
-
-        const items = getCurrentItems();
-        const sorted = [...items].sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
-
-        for (let i = 0; i < sorted.length; i++) {
-            const item = sorted[i];
-            const startM = timeToMinutes(item.start);
-            let endM = timeToMinutes(item.end);
-            
-            if (!endM || endM <= startM) {
-                endM = (i < sorted.length - 1) ? timeToMinutes(sorted[i+1].start) : startM + 20;
-            }
-
-            if (currentMins >= startM && currentMins < endM) {
-                const remainingMins = endM - currentMins - 1;
-                const remainingSecs = 60 - currentSecs;
-                activeTurn = { ...item, remainingMins, remainingSecs, endM };
-            }
-
-            const isMyTurn = (scheduleState.myGroup === 'ALL' || item.group === scheduleState.myGroup || (item.group === 'Rennen' && scheduleState.myGroup !== 'Pause'));
-            if (isMyTurn && startM > currentMins) {
-                const diffMins = startM - currentMins;
-                if (diffMins < minsToNextMyTurn) {
-                    minsToNextMyTurn = diffMins;
-                    nextMyTurn = { ...item, startM, diffMins };
-                }
-            }
-        }
-
-        updateHeaderWidget(activeTurn, nextMyTurn, minsToNextMyTurn);
-        updateScheduleViewHighlight(activeTurn, currentMins);
-    }
-
+    // 3. UI-Highlighting & Live-Timer
     function updateHeaderWidget(activeTurn, nextMyTurn, minsToNextMyTurn) {
         const widget = document.getElementById('headerScheduleWidget');
         if (!widget) return;
@@ -163,14 +153,14 @@
         let isBlinking5m = false;
 
         if (activeTurn) {
-            const pad = (n) => String(n).padStart(2, '0');
-            const remStr = `${activeTurn.remainingMins}:${pad(activeTurn.remainingSecs)}`;
+            const pad = function(n) { return String(n).padStart(2, '0'); };
+            const remStr = activeTurn.remainingMins + ':' + pad(activeTurn.remainingSecs);
             const isMine = (activeTurn.group === scheduleState.myGroup);
-            label = `<span class="turn-group-badge ${isMine ? 'my-group' : ''}">Gr. ${activeTurn.group}</span> <span class="turn-time-rem">⏳ ${remStr}</span>`;
+            label = '<span class="turn-group-badge ' + (isMine ? 'my-group' : '') + '">Gr. ' + activeTurn.group + '</span> <span class="turn-time-rem">⏳ ' + remStr + '</span>';
         } else if (nextMyTurn) {
-            label = `<span class="turn-next-badge">Nächstes: Gr. ${nextMyTurn.group} in ${nextMyTurn.diffMins}m</span>`;
+            label = '<span class="turn-next-badge">Nächstes: Gr. ' + nextMyTurn.group + ' in ' + nextMyTurn.diffMins + 'm</span>';
         } else {
-            label = `<span style="opacity:0.8;">⏱️ Kein Turn</span>`;
+            label = '<span style="opacity:0.8;">⏱️ Kein Turn</span>';
         }
 
         if (nextMyTurn && minsToNextMyTurn <= 10 && minsToNextMyTurn > 5) {
@@ -194,7 +184,7 @@
         if (!container) return;
 
         const rows = container.querySelectorAll('.schedule-row');
-        rows.forEach(row => {
+        rows.forEach(function(row) {
             const startM = parseInt(row.dataset.startm, 10);
             const endM = parseInt(row.dataset.endm, 10);
 
@@ -209,170 +199,69 @@
         });
     }
 
-    function renderSchedulePage() {
-        const container = document.getElementById('pageSchedule');
-        if (!container) return;
+    function updateScheduleTimer() {
+        const now = new Date();
+        const currentMins = now.getHours() * 60 + now.getMinutes();
+        const currentSecs = now.getSeconds();
 
-        const dayKeys = Object.keys(scheduleState.days);
-        let dayButtonsHtml = '';
+        let activeTurn = null;
+        let nextMyTurn = null;
+        let minsToNextMyTurn = Infinity;
 
-        dayKeys.forEach(dayName => {
-            const isActive = dayName === scheduleState.activeDay;
-            dayButtonsHtml += `
-                <button type="button" onclick="window.switchScheduleDay('${dayName}')" 
-                    style="padding:6px 14px; border-radius:4px; font-weight:bold; font-size:0.8rem; cursor:pointer; 
-                    border:${isActive ? '2px solid #FFD700' : '1px solid #444'}; 
-                    background:${isActive ? '#FFD700' : '#222'}; 
-                    color:${isActive ? '#000' : '#fff'};">
-                    📅 ${dayName}
-                </button>
-            `;
+        const items = getCurrentItems();
+        const sorted = items.slice().sort(function(a, b) {
+            return timeToMinutes(a.start) - timeToMinutes(b.start);
         });
 
-        let html = `
-            <div class="setup-box">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <h3 style="margin:0; font-size:1.1rem; color:#FFD700;">⏱️ Live-Zeitplan & Alarm</h3>
-                </div>
+        for (let i = 0; i < sorted.length; i++) {
+            const item = sorted[i];
+            const startM = timeToMinutes(item.start);
+            let endM = timeToMinutes(item.end);
+            
+            if (!endM || endM <= startM) {
+                endM = (i < sorted.length - 1) ? timeToMinutes(sorted[i+1].start) : startM + 20;
+            }
 
-                <div style="background:#1e1e1e; padding:10px; border-radius:6px; margin-bottom:12px; border:1px solid #333;">
-                    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:8px;">
-                        <label style="font-size:0.85rem; font-weight:bold; color:#fff;">Meine Gruppe:</label>
-                        <select id="scheduleMyGroupSelect" style="width:auto; padding:4px 10px; font-weight:bold; background:#333; color:#FFD700; border-color:#FFD700;">
-                            <option value="A" ${scheduleState.myGroup==='A'?'selected':''}>Gruppe A (Langsamer)</option>
-                            <option value="B" ${scheduleState.myGroup==='B'?'selected':''}>Gruppe B (Schneller)</option>
-                            <option value="C" ${scheduleState.myGroup==='C'?'selected':''}>Gruppe C (Raser)</option>
-                            <option value="D" ${scheduleState.myGroup==='D'?'selected':''}>Gruppe D (Sehr Schnell)</option>
-                            <option value="ALL" ${scheduleState.myGroup==='ALL'?'selected':''}>Alle Turn-Erinnerungen</option>
-                        </select>
-                    </div>
+            if (currentMins >= startM && currentMins < endM) {
+                const remainingMins = endM - currentMins - 1;
+                const remainingSecs = 60 - currentSecs;
+                activeTurn = Object.assign({}, item, { remainingMins: remainingMins, remainingSecs: remainingSecs, endM: endM });
+            }
 
-                    <div style="display:flex; flex-direction:column; gap:6px; font-size:0.8rem; border-top:1px solid #333; padding-top:8px;">
-                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                            <input type="checkbox" id="alert10mToggle" ${scheduleState.alert10m ? 'checked' : ''} style="width:16px; height:16px; accent-color:#ff9800;">
-                            <span>✨ <strong>10 Min. vor eigenem Turn:</strong> Header-Anzeige leuchten lassen</span>
-                        </label>
-                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                            <input type="checkbox" id="alert5mToggle" ${scheduleState.alert5m ? 'checked' : ''} style="width:16px; height:16px; accent-color:#f44336;">
-                            <span>🚨 <strong>5 Min. vor eigenem Turn:</strong> Bildschirmrand ROT blinken</span>
-                        </label>
-                    </div>
-                </div>
+            const isMyTurn = (scheduleState.myGroup === 'ALL' || item.group === scheduleState.myGroup || (item.group === 'Rennen' && scheduleState.myGroup !== 'Pause'));
+            if (isMyTurn && startM > currentMins) {
+                const diffMins = startM - currentMins;
+                if (diffMins < minsToNextMyTurn) {
+                    minsToNextMyTurn = diffMins;
+                    nextMyTurn = Object.assign({}, item, { startM: startM, diffMins: diffMins });
+                }
+            }
+        }
 
-                <!-- TAGES-UMSCHALTER -->
-                <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; align-items:center;">
-                    ${dayButtonsHtml}
-                    <button type="button" onclick="window.togglePdfImportSection()" style="margin-left:auto; background:#2196F3; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:0.75rem; cursor:pointer;">📄 PDF Importieren</button>
-                </div>
-
-                <div id="pdfImportSection" style="display:none; background:#181818; padding:10px; border-radius:6px; margin-bottom:12px; border:1px dashed #2196F3;">
-                    <h4 style="margin:0 0 8px 0; font-size:0.85rem; color:#2196F3;">Zeitplan importieren</h4>
-                    <p style="font-size:0.75rem; color:#aaa; margin:0 0 8px 0;">Wähle die Stardesign PDF-Datei aus:</p>
-
-                    <div style="margin-bottom:8px;">
-                        <input type="file" id="schedulePdfFile" accept=".pdf,.txt" style="font-size:0.75rem;">
-                    </div>
-
-                    <textarea id="scheduleRawText" rows="4" placeholder="Oder kopierten Zeitplan-Text hier einfügen..." style="width:100%; font-size:0.8rem; margin-bottom:6px;"></textarea>
-
-                    <div style="display:flex; gap:6px;">
-                        <button type="button" onclick="window.parseScheduleText()" style="flex:1; background:#4CAF50; color:#fff; border:none; padding:8px; border-radius:4px; font-size:0.8rem; font-weight:bold; cursor:pointer;">⚡ Text analysieren & übernehmen</button>
-                    </div>
-                </div>
-
-                <div style="background:#222; padding:8px; border-radius:6px; margin-bottom:12px;">
-                    <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-                        <input type="text" id="newTurnStart" placeholder="09:00" style="width:60px; text-align:center;">
-                        <span>bis</span>
-                        <input type="text" id="newTurnEnd" placeholder="09:20" style="width:60px; text-align:center;">
-                        <input type="text" id="newTurnTitle" placeholder="Bezeichnung (z.B. Turn 1 Gruppe A)" style="flex:1; min-width:120px;">
-                        <select id="newTurnGroup" style="width:90px;">
-                            <option value="A">Gruppe A</option>
-                            <option value="B">Gruppe B</option>
-                            <option value="C">Gruppe C</option>
-                            <option value="D">Gruppe D</option>
-                            <option value="Anfänger">Anfänger</option>
-                            <option value="Rennen">Rennen</option>
-                            <option value="Pause">Pause</option>
-                            <option value="Orga">Orga</option>
-                        </select>
-                        <button type="button" onclick="window.addCustomTurn()" style="background:#4CAF50; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer; font-size:0.8rem;">+ Turn</button>
-                    </div>
-                </div>
-
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                    <h4 style="margin:0; font-size:0.9rem;">Tagesplan (${scheduleState.activeDay}): <span id="scheduleCount">0</span> Turns</h4>
-                    <button type="button" onclick="window.clearSchedule()" style="background:none; border:none; color:#f44336; cursor:pointer; font-size:0.8rem;">Alle Tage leeren</button>
-                </div>
-
-                <div id="scheduleItemsContainer" style="display:flex; flex-direction:column; gap:6px;"></div>
-            </div>
-        `;
-
-        container.innerHTML = html;
-        bindScheduleEvents();
-        renderScheduleRows();
-        updateScheduleTimer();
+        updateHeaderWidget(activeTurn, nextMyTurn, minsToNextMyTurn);
+        updateScheduleViewHighlight(activeTurn, currentMins);
     }
 
-    function bindScheduleEvents() {
-        const groupSel = document.getElementById('scheduleMyGroupSelect');
-        if (groupSel) {
-            groupSel.onchange = (e) => {
-                scheduleState.myGroup = e.target.value;
-                saveScheduleState();
-                renderScheduleRows();
-                updateScheduleTimer();
-            };
-        }
-
-        const alert10mEl = document.getElementById('alert10mToggle');
-        if (alert10mEl) {
-            alert10mEl.onchange = (e) => {
-                scheduleState.alert10m = e.target.checked;
-                saveScheduleState();
-                updateScheduleTimer();
-            };
-        }
-
-        const alert5mEl = document.getElementById('alert5mToggle');
-        if (alert5mEl) {
-            alert5mEl.onchange = (e) => {
-                scheduleState.alert5m = e.target.checked;
-                saveScheduleState();
-                updateScheduleTimer();
-            };
-        }
-
-        const pdfFileEl = document.getElementById('schedulePdfFile');
-        if (pdfFileEl) {
-            pdfFileEl.onchange = handlePdfFileUpload;
-        }
-    }
-
-    window.switchScheduleDay = function(dayName) {
-        scheduleState.activeDay = dayName;
-        saveScheduleState();
-        renderSchedulePage();
-    };
-
+    // 4. Rendering
     function renderScheduleRows() {
         const container = document.getElementById('scheduleItemsContainer');
         const countEl = document.getElementById('scheduleCount');
         if (!container) return;
 
         const currentItems = getCurrentItems();
-        if (countEl) countEl.textContent = currentItems.length;
+        if (countEl) countEl.textContent = String(currentItems.length);
 
         if (currentItems.length === 0) {
-            container.innerHTML = `<p style="font-size:0.8rem; color:#888; text-align:center; padding:15px;">Kein Zeitplan für ${scheduleState.activeDay} geladen. Bitte PDF importieren.</p>`;
+            container.innerHTML = '<p style="font-size:0.8rem; color:#888; text-align:center; padding:15px;">Kein Zeitplan für ' + scheduleState.activeDay + ' geladen. Bitte PDF importieren.</p>';
             return;
         }
 
-        const sorted = [...currentItems].sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
+        const sorted = currentItems.slice().sort(function(a, b) {
+            return timeToMinutes(a.start) - timeToMinutes(b.start);
+        });
         let html = '';
 
-        sorted.forEach((item, index) => {
+        sorted.forEach(function(item, index) {
             const startM = timeToMinutes(item.start);
             let endM = timeToMinutes(item.end);
             if (!endM || endM <= startM) endM = startM + 20;
@@ -387,31 +276,267 @@
             else if (item.group === 'Rennen') groupColor = '#9C27B0';
             else if (item.group === 'Pause') groupColor = '#607D8B';
 
-            html += `
-                <div class="schedule-row ${isMyGroup ? 'row-my-group' : ''}" data-startm="${startM}" data-endm="${endM}" data-group="${item.group}">
-                    <div style="font-weight:bold; width:85px; font-size:0.85rem; color:#fff;">${item.start} - ${item.end || minutesToTime(endM)}</div>
-                    <div style="flex:1; font-size:0.85rem; padding:0 6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                        ${item.title}
-                    </div>
-                    <span style="background:${groupColor}; color:#fff; font-size:0.7rem; font-weight:bold; padding:2px 6px; border-radius:3px; margin-right:6px;">${item.group}</span>
-                    <button type="button" onclick="window.deleteTurn(${index})" style="background:none; border:none; color:#f44336; cursor:pointer; font-size:0.85rem;">🗑️</button>
-                </div>
-            `;
+            html += '<div class="schedule-row ' + (isMyGroup ? 'row-my-group' : '') + '" data-startm="' + startM + '" data-endm="' + endM + '" data-group="' + item.group + '">' +
+                '<div style="font-weight:bold; width:85px; font-size:0.85rem; color:#fff;">' + item.start + ' - ' + (item.end || minutesToTime(endM)) + '</div>' +
+                '<div style="flex:1; font-size:0.85rem; padding:0 6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + item.title + '</div>' +
+                '<span style="background:' + groupColor + '; color:#fff; font-size:0.7rem; font-weight:bold; padding:2px 6px; border-radius:3px; margin-right:6px;">' + item.group + '</span>' +
+                '<button type="button" onclick="window.deleteTurn(' + index + ')" style="background:none; border:none; color:#f44336; cursor:pointer; font-size:0.85rem;">🗑️</button>' +
+                '</div>';
         });
 
         container.innerHTML = html;
     }
 
+    function bindScheduleEvents() {
+        const groupSel = document.getElementById('scheduleMyGroupSelect');
+        if (groupSel) {
+            groupSel.onchange = function(e) {
+                scheduleState.myGroup = e.target.value;
+                saveScheduleState();
+                renderScheduleRows();
+                updateScheduleTimer();
+            };
+        }
+
+        const alert10mEl = document.getElementById('alert10mToggle');
+        if (alert10mEl) {
+            alert10mEl.onchange = function(e) {
+                scheduleState.alert10m = e.target.checked;
+                saveScheduleState();
+                updateScheduleTimer();
+            };
+        }
+
+        const alert5mEl = document.getElementById('alert5mToggle');
+        if (alert5mEl) {
+            alert5mEl.onchange = function(e) {
+                scheduleState.alert5m = e.target.checked;
+                saveScheduleState();
+                updateScheduleTimer();
+            };
+        }
+
+        const pdfFileEl = document.getElementById('schedulePdfFile');
+        if (pdfFileEl) {
+            pdfFileEl.onchange = handlePdfFileUpload;
+        }
+    }
+
+    function renderSchedulePage() {
+        const container = document.getElementById('pageSchedule');
+        if (!container) return;
+
+        const dayKeys = Object.keys(scheduleState.days);
+        let dayButtonsHtml = '';
+
+        dayKeys.forEach(function(dayName) {
+            const isActive = dayName === scheduleState.activeDay;
+            dayButtonsHtml += '<button type="button" onclick="window.switchScheduleDay(\'' + dayName + '\')" ' +
+                'style="padding:6px 14px; border-radius:4px; font-weight:bold; font-size:0.8rem; cursor:pointer; ' +
+                'border:' + (isActive ? '2px solid #FFD700' : '1px solid #444') + '; ' +
+                'background:' + (isActive ? '#FFD700' : '#222') + '; ' +
+                'color:' + (isActive ? '#000' : '#fff') + ';">' +
+                '📅 ' + dayName +
+                '</button> ';
+        });
+
+        let html = '<div class="setup-box">' +
+            '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">' +
+                '<h3 style="margin:0; font-size:1.1rem; color:#FFD700;">⏱️ Live-Zeitplan & Alarm</h3>' +
+            '</div>' +
+
+            '<div style="background:#1e1e1e; padding:10px; border-radius:6px; margin-bottom:12px; border:1px solid #333;">' +
+                '<div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:8px;">' +
+                    '<label style="font-size:0.85rem; font-weight:bold; color:#fff;">Meine Gruppe:</label>' +
+                    '<select id="scheduleMyGroupSelect" style="width:auto; padding:4px 10px; font-weight:bold; background:#333; color:#FFD700; border-color:#FFD700;">' +
+                        '<option value="A" ' + (scheduleState.myGroup==='A'?'selected':'') + '>Gruppe A (Langsamer)</option>' +
+                        '<option value="B" ' + (scheduleState.myGroup==='B'?'selected':'') + '>Gruppe B (Schneller)</option>' +
+                        '<option value="C" ' + (scheduleState.myGroup==='C'?'selected':'') + '>Gruppe C (Raser)</option>' +
+                        '<option value="D" ' + (scheduleState.myGroup==='D'?'selected':'') + '>Gruppe D (Sehr Schnell)</option>' +
+                        '<option value="ALL" ' + (scheduleState.myGroup==='ALL'?'selected':'') + '>Alle Turn-Erinnerungen</option>' +
+                    '</select>' +
+                '</div>' +
+
+                '<div style="display:flex; flex-direction:column; gap:6px; font-size:0.8rem; border-top:1px solid #333; padding-top:8px;">' +
+                    '<label style="display:flex; align-items:center; gap:8px; cursor:pointer;">' +
+                        '<input type="checkbox" id="alert10mToggle" ' + (scheduleState.alert10m ? 'checked' : '') + ' style="width:16px; height:16px; accent-color:#ff9800;">' +
+                        '<span>✨ <strong>10 Min. vor eigenem Turn:</strong> Header-Anzeige leuchten lassen</span>' +
+                    '</label>' +
+                    '<label style="display:flex; align-items:center; gap:8px; cursor:pointer;">' +
+                        '<input type="checkbox" id="alert5mToggle" ' + (scheduleState.alert5m ? 'checked' : '') + ' style="width:16px; height:16px; accent-color:#f44336;">' +
+                        '<span>🚨 <strong>5 Min. vor eigenem Turn:</strong> Bildschirmrand ROT blinken</span>' +
+                    '</label>' +
+                '</div>' +
+            '</div>' +
+
+            '<div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; align-items:center;">' +
+                dayButtonsHtml +
+                '<button type="button" onclick="window.togglePdfImportSection()" style="margin-left:auto; background:#2196F3; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:0.75rem; cursor:pointer;">📄 PDF Importieren</button>' +
+            '</div>' +
+
+            '<div id="pdfImportSection" style="display:none; background:#181818; padding:10px; border-radius:6px; margin-bottom:12px; border:1px dashed #2196F3;">' +
+                '<h4 style="margin:0 0 8px 0; font-size:0.85rem; color:#2196F3;">Zeitplan importieren</h4>' +
+                '<p style="font-size:0.75rem; color:#aaa; margin:0 0 8px 0;">Wähle die Stardesign PDF-Datei aus:</p>' +
+
+                '<div style="margin-bottom:8px;">' +
+                    '<input type="file" id="schedulePdfFile" accept=".pdf,.txt" style="font-size:0.75rem;">' +
+                '</div>' +
+
+                '<textarea id="scheduleRawText" rows="4" placeholder="Oder kopierten Zeitplan-Text hier einfügen..." style="width:100%; font-size:0.8rem; margin-bottom:6px;"></textarea>' +
+
+                '<div style="display:flex; gap:6px;">' +
+                    '<button type="button" onclick="window.parseScheduleText()" style="flex:1; background:#4CAF50; color:#fff; border:none; padding:8px; border-radius:4px; font-size:0.8rem; font-weight:bold; cursor:pointer;">⚡ Text analysieren & übernehmen</button>' +
+                '</div>' +
+            '</div>' +
+
+            '<div style="background:#222; padding:8px; border-radius:6px; margin-bottom:12px;">' +
+                '<div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">' +
+                    '<input type="text" id="newTurnStart" placeholder="09:00" style="width:60px; text-align:center;">' +
+                    '<span>bis</span>' +
+                    '<input type="text" id="newTurnEnd" placeholder="09:20" style="width:60px; text-align:center;">' +
+                    '<input type="text" id="newTurnTitle" placeholder="Bezeichnung (z.B. Turn 1 Gruppe A)" style="flex:1; min-width:120px;">' +
+                    '<select id="newTurnGroup" style="width:90px;">' +
+                        '<option value="A">Gruppe A</option>' +
+                        '<option value="B">Gruppe B</option>' +
+                        '<option value="C">Gruppe C</option>' +
+                        '<option value="D">Gruppe D</option>' +
+                        '<option value="Anfänger">Anfänger</option>' +
+                        '<option value="Rennen">Rennen</option>' +
+                        '<option value="Pause">Pause</option>' +
+                        '<option value="Orga">Orga</option>' +
+                    '</select>' +
+                    '<button type="button" onclick="window.addCustomTurn()" style="background:#4CAF50; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer; font-size:0.8rem;">+ Turn</button>' +
+                '</div>' +
+            '</div>' +
+
+            '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">' +
+                '<h4 style="margin:0; font-size:0.9rem;">Tagesplan (' + scheduleState.activeDay + '): <span id="scheduleCount">0</span> Turns</h4>' +
+                '<button type="button" onclick="window.clearSchedule()" style="background:none; border:none; color:#f44336; cursor:pointer; font-size:0.8rem;">Alle Tage leeren</button>' +
+            '</div>' +
+
+            '<div id="scheduleItemsContainer" style="display:flex; flex-direction:column; gap:6px;"></div>' +
+        '</div>';
+
+        container.innerHTML = html;
+        bindScheduleEvents();
+        renderScheduleRows();
+        updateScheduleTimer();
+    }
+
+    // 5. PDF & Text Importer Funktionen
+    function loadPdfJsLib() {
+        return new Promise(function(resolve, reject) {
+            if (window.pdfjsLib) return resolve(window.pdfjsLib);
+
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+            script.onload = function() {
+                window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                resolve(window.pdfjsLib);
+            };
+            script.onerror = function() {
+                reject(new Error('PDF.js Bibliothek konnte nicht geladen werden.'));
+            };
+            document.head.appendChild(script);
+        });
+    }
+
+    function handlePdfFileUpload(e) {
+        const file = e.target && e.target.files ? e.target.files[0] : null;
+        if (!file) return;
+
+        const textEl = document.getElementById('scheduleRawText');
+
+        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+            if (typeof showNotice === 'function') {
+                showNotice('saveNotice', 'Lese PDF-Datei aus...');
+            }
+
+            loadPdfJsLib().then(function(pdfjsLib) {
+                return file.arrayBuffer().then(function(arrayBuffer) {
+                    return pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                });
+            }).then(function(pdf) {
+                let pagePromises = [];
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    pagePromises.push(pdf.getPage(i).then(function(page) {
+                        return page.getTextContent().then(function(textContent) {
+                            const linesMap = [];
+                            textContent.items.forEach(function(item) {
+                                const text = item.str ? item.str.trim() : '';
+                                if (!text) return;
+                                const x = item.transform[4];
+                                const y = item.transform[5];
+
+                                let line = linesMap.find(function(l) { return Math.abs(l.y - y) <= 8; });
+                                if (!line) {
+                                    line = { y: y, items: [] };
+                                    linesMap.push(line);
+                                }
+                                line.items.push({ x: x, text: text });
+                            });
+
+                            linesMap.sort(function(a, b) { return b.y - a.y; });
+
+                            let pageText = '\n--- PAGE ' + i + ' ---\n';
+                            linesMap.forEach(function(line) {
+                                line.items.sort(function(a, b) { return a.x - b.x; });
+                                const lineStr = line.items.map(function(it) { return it.text; }).join(' ').trim();
+                                if (lineStr) {
+                                    pageText += lineStr + '\n';
+                                }
+                            });
+                            return pageText;
+                        });
+                    }));
+                }
+                return Promise.all(pagePromises);
+            }).then(function(pagesTextArray) {
+                const fullText = pagesTextArray.join('\n');
+                if (textEl) {
+                    textEl.value = fullText.trim();
+                    window.parseScheduleText();
+                }
+            }).catch(function(err) {
+                console.error('[Schedule] PDF Parse Fehler:', err);
+                alert('Fehler beim Lesen der PDF-Datei.');
+            });
+        } else {
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                if (textEl && evt.target) {
+                    textEl.value = evt.target.result;
+                    window.parseScheduleText();
+                }
+            };
+            reader.readAsText(file);
+        }
+    }
+
+    // 6. Global freigegebene Fenster-Methoden
+    window.switchScheduleDay = function(dayName) {
+        scheduleState.activeDay = dayName;
+        saveScheduleState();
+        renderSchedulePage();
+    };
+
     window.togglePdfImportSection = function() {
         const sec = document.getElementById('pdfImportSection');
-        if (sec) sec.style.display = (sec.style.display === 'none') ? 'block' : 'none';
+        if (sec) {
+            sec.style.display = (sec.style.display === 'none' || !sec.style.display) ? 'block' : 'none';
+        }
     };
 
     window.addCustomTurn = function() {
-        const start = document.getElementById('newTurnStart')?.value.trim();
-        const end = document.getElementById('newTurnEnd')?.value.trim();
-        const title = document.getElementById('newTurnTitle')?.value.trim();
-        const group = document.getElementById('newTurnGroup')?.value;
+        const startEl = document.getElementById('newTurnStart');
+        const endEl = document.getElementById('newTurnEnd');
+        const titleEl = document.getElementById('newTurnTitle');
+        const groupEl = document.getElementById('newTurnGroup');
+
+        const start = startEl ? startEl.value.trim() : '';
+        const end = endEl ? endEl.value.trim() : '';
+        const title = titleEl ? titleEl.value.trim() : '';
+        const group = groupEl ? groupEl.value : 'A';
 
         if (!start || !title) {
             alert('Bitte Startzeit und Bezeichnung eingeben!');
@@ -422,14 +547,19 @@
             scheduleState.days[scheduleState.activeDay] = [];
         }
 
-        scheduleState.days[scheduleState.activeDay].push({ start, end: end || minutesToTime(timeToMinutes(start)+20), title, group });
+        scheduleState.days[scheduleState.activeDay].push({
+            start: start,
+            end: end || minutesToTime(timeToMinutes(start) + 20),
+            title: title,
+            group: group
+        });
         saveScheduleState();
         renderScheduleRows();
         updateScheduleTimer();
 
-        document.getElementById('newTurnStart').value = '';
-        document.getElementById('newTurnEnd').value = '';
-        document.getElementById('newTurnTitle').value = '';
+        if (startEl) startEl.value = '';
+        if (endEl) endEl.value = '';
+        if (titleEl) titleEl.value = '';
     };
 
     window.deleteTurn = function(index) {
@@ -452,7 +582,8 @@
     };
 
     window.parseScheduleText = function() {
-        const raw = document.getElementById('scheduleRawText')?.value;
+        const textEl = document.getElementById('scheduleRawText');
+        const raw = textEl ? textEl.value : '';
         if (!raw || raw.trim() === '') {
             alert('Bitte Zeitplan-Text einfügen!');
             return;
@@ -466,19 +597,17 @@
         parsedDays[currentDayKey] = [];
 
         const dayRegex = /(?:Program:\s*)?(MONTAG|DIENSTAG|MITTWOCH|DONNERSTAG|FREITAG|SAMSTAG|SONNTAG|TAG\s*\d+|DAY\s*\d+)/i;
-        
         const rangeTimeRegex = /^(\d{1,2}[:.]\d{2})\s*(?:-|bis)\s*(\d{1,2}[:.]\d{2})\s+(.+)/i;
         const singleTimeRegex = /^(\d{1,2}[:.]\d{2})\s+(.+)/i;
         const nextTimeRegex = /^(next\s*Race|next\s*-\s*(\d{1,2}[:.]\d{2})|next)\s+(.+)/i;
 
-        let lastEndMins = 540; // Default 09:00 in Minuten
+        let lastEndMins = 540; // 09:00 Uhr
         let seenInDay = new Set(); 
 
-        lines.forEach(line => {
+        lines.forEach(function(line) {
             const cleanLine = line.trim();
             if (!cleanLine) return;
 
-            // Erkennung des Wochentags
             const dayMatch = cleanLine.match(dayRegex);
             if (dayMatch && !cleanLine.includes('freies Fahren') && !cleanLine.includes('Anmeldung')) {
                 let detectedStr = dayMatch[1].toUpperCase();
@@ -490,7 +619,7 @@
                 else if (detectedStr.includes('FREITAG')) dayName = 'Freitag';
                 else if (detectedStr.includes('SAMSTAG')) dayName = 'Samstag';
                 else if (detectedStr.includes('SONNTAG')) dayName = 'Sonntag';
-                else dayName = `Tag ${dayCounter++}`;
+                else dayName = 'Tag ' + (dayCounter++);
 
                 currentDayKey = dayName;
                 if (!parsedDays[currentDayKey]) {
@@ -531,12 +660,12 @@
             let endMins = end ? timeToMinutes(end) : (startMins + 20);
             if (endMins <= startMins) endMins = startMins + 20;
 
-            const uniqKey = `${start}_${itemData.group}_${itemData.title}`;
+            const uniqKey = start + '_' + itemData.group + '_' + itemData.title;
             if (seenInDay.has(uniqKey)) return;
             seenInDay.add(uniqKey);
 
             parsedDays[currentDayKey].push({
-                start,
+                start: start,
                 end: end || minutesToTime(endMins),
                 title: itemData.title,
                 group: itemData.group
@@ -545,108 +674,25 @@
             lastEndMins = endMins;
         });
 
-        const validDayKeys = Object.keys(parsedDays).filter(k => parsedDays[k].length > 0);
+        const validDayKeys = Object.keys(parsedDays).filter(function(k) {
+            return parsedDays[k].length > 0;
+        });
 
         if (validDayKeys.length > 0) {
             const cleanDaysObj = {};
-            validDayKeys.forEach(k => cleanDaysObj[k] = parsedDays[k]);
+            validDayKeys.forEach(function(k) { cleanDaysObj[k] = parsedDays[k]; });
 
             scheduleState.days = cleanDaysObj;
             scheduleState.activeDay = validDayKeys[0];
             saveScheduleState();
             renderSchedulePage();
             updateScheduleTimer();
-            alert(`Zeitplan erfolgreich importiert! Erfasste Tage: ${validDayKeys.join(', ')}`);
+            alert('Zeitplan erfolgreich importiert! Erfasste Tage: ' + validDayKeys.join(', '));
             window.togglePdfImportSection();
         } else {
             alert('Keine passenden Turns oder Pausen gefunden. Bitte Datei prüfen.');
         }
     };
-
-    function loadPdfJsLib() {
-        return new Promise((resolve, reject) => {
-            if (window.pdfjsLib) return resolve(window.pdfjsLib);
-
-            const script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-            script.onload = () => {
-                window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-                resolve(window.pdfjsLib);
-            };
-            script.onerror = () => reject(new Error('PDF.js Bibliothek konnte nicht geladen werden.'));
-            document.head.appendChild(script);
-        });
-    }
-
-    async function handlePdfFileUpload(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const textEl = document.getElementById('scheduleRawText');
-
-        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-            try {
-                if (typeof showNotice === 'function') showNotice('saveNotice', 'Lese PDF-Datei aus...');
-                
-                const pdfjsLib = await loadPdfJsLib();
-                const arrayBuffer = await file.arrayBuffer();
-                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                
-                let fullText = '';
-                
-                for (let i = 1; i <= pdf.numPages; i++) {
-                    const page = await pdf.getPage(i);
-                    const textContent = await page.getTextContent();
-                    
-                    // Gruppierung von Textzeilen basierend auf Y-Koordinaten (Toleranz 8px)
-                    const linesMap = [];
-                    textContent.items.forEach(item => {
-                        const text = item.str.trim();
-                        if (!text) return;
-                        const x = item.transform[4];
-                        const y = item.transform[5];
-
-                        let line = linesMap.find(l => Math.abs(l.y - y) <= 8);
-                        if (!line) {
-                            line = { y: y, items: [] };
-                            linesMap.push(line);
-                        }
-                        line.items.push({ x, text });
-                    });
-
-                    linesMap.sort((a, b) => b.y - a.y);
-
-                    let pageText = `\n--- PAGE ${i} ---\n`;
-                    linesMap.forEach(line => {
-                        line.items.sort((a, b) => a.x - b.x);
-                        const lineStr = line.items.map(it => it.text).join(' ').trim();
-                        if (lineStr) {
-                            pageText += lineStr + '\n';
-                        }
-                    });
-                    
-                    fullText += pageText + '\n';
-                }
-
-                if (textEl) {
-                    textEl.value = fullText.trim();
-                    window.parseScheduleText();
-                }
-            } catch (err) {
-                console.error('PDF Parse Fehler:', err);
-                alert('Fehler beim Lesen der PDF-Datei.');
-            }
-        } else {
-            const reader = new FileReader();
-            reader.onload = function(evt) {
-                if (textEl) {
-                    textEl.value = evt.target.result;
-                    window.parseScheduleText();
-                }
-            };
-            reader.readAsText(file);
-        }
-    }
 
     window.initScheduleModule = function() {
         renderSchedulePage();
@@ -656,11 +702,12 @@
         updateScheduleTimer();
     };
 
-    document.addEventListener('DOMContentLoaded', () => {
-        window.initScheduleModule();
-    });
-
+    // 7. Auto-Init beim Laden der Seite
     if (document.readyState === 'complete' || document.readyState === 'interactive') {
-        setTimeout(window.initScheduleModule, 300);
+        setTimeout(window.initScheduleModule, 100);
+    } else {
+        document.addEventListener('DOMContentLoaded', function() {
+            window.initScheduleModule();
+        });
     }
 })();
