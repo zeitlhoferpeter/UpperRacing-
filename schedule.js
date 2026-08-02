@@ -5,9 +5,9 @@
         myGroup: localStorage.getItem('upper_schedule_mygroup') || 'A',
         alert10m: localStorage.getItem('upper_schedule_alert10m') !== 'false',
         alert5m: localStorage.getItem('upper_schedule_alert5m') !== 'false',
-        activeDay: localStorage.getItem('upper_schedule_activeday') || 'Tag 1',
+        activeDay: localStorage.getItem('upper_schedule_activeday') || 'Montag',
         days: JSON.parse(localStorage.getItem('upper_schedule_days')) || {
-            'Tag 1': []
+            'Montag': []
         }
     };
 
@@ -48,23 +48,28 @@
         
         if (title.includes('/')) {
             const parts = title.split('/');
-            const dePart = parts.find(p => /anmeldung|fahrerbesprechung|anfängerkurs|theorie|praxis|gruppe|freies fahren|rennen|mittag|pause|lunch/i.test(p));
+            const dePart = parts.find(p => /anmeldung|fahrerbesprechung|anfängerkurs|theorie|praxis|gruppe|freies fahren|rennen|mittag|pause|lunch|siegerehrung/i.test(p));
             title = dePart ? dePart.trim() : parts[0].trim();
         }
 
         const t = title.toUpperCase();
 
+        // 1. Reine Info-Header & Vorab-Hinweise ignorieren
+        if (t.startsWith('QUALIFYING:') || t.startsWith('LETZTES QUALIFYING:') || t.includes('ANMELDUNG ZU DEN RENNEN') || t.includes('REGISTRATION FOR ALL') || t.includes('ZEITNAHME ENDE')) {
+            return null;
+        }
+
+        // 2. Mittagspause / Lunch
         if (t.includes('MITTAG') || t.includes('PAUSE') || t.includes('LUNCH') || t.includes('ESSEN')) {
             return { title: 'Mittagspause', group: 'Pause' };
         }
 
-        if (t.includes('FREE PRACTICE') || t.includes('QUALIFYING') || (t.includes('BRIEFING') && !t.includes('FAHRERBESPRECHUNG')) || t.includes('RACE OFFICE')) {
-            return null;
+        // 3. Fahrerbesprechung & Orga
+        if (t.includes('FAHRERBESPRECHUNG')) {
+            return { title: 'Fahrerbesprechung', group: 'Orga' };
         }
 
-        if (t.includes('ANMELDUNG')) return { title: 'Anmeldung in der Box', group: 'Orga' };
-        if (t.includes('FAHRERBESPRECHUNG')) return { title: title, group: 'Orga' };
-
+        // 4. Anfängerkurs
         if (t.includes('ANFÄNGERKURS THEORIE') || (t.includes('THEORIE') && !t.includes('PRAXIS'))) {
             return { title: 'Anfängerkurs Theorie', group: 'Anfänger' };
         }
@@ -72,14 +77,38 @@
             return { title: 'Anfängerkurs Praxis', group: 'Anfänger' };
         }
 
-        if (t.includes('RENNEN') || t.includes('CLASSIC') || t.includes('ROOKIE') || t.includes('SBK') || t.includes('SSP') || t.includes('B-RACE')) {
-            return { title: title, group: 'Rennen' };
+        // 5. Siegerehrung
+        if (t.includes('SIEGEREHRUNG') || t.includes('PRICEGIVING')) {
+            return { title: 'Siegerehrung', group: 'Orga' };
         }
 
-        if (t.includes('GRUPPE A') || t.includes('GR. A')) return { title: 'Freies Fahren Gruppe A', group: 'A' };
-        if (t.includes('GRUPPE B') || t.includes('GR. B')) return { title: 'Freies Fahren Gruppe B', group: 'B' };
-        if (t.includes('GRUPPE C') || t.includes('GR. C')) return { title: 'Freies Fahren Gruppe C', group: 'C' };
-        if (t.includes('GRUPPE D') || t.includes('GR. D')) return { title: 'Freies Fahren Gruppe D', group: 'D' };
+        // 6. Freies Fahren / Gruppen A-D
+        if (t.includes('ALLE GRUPPEN') || t.includes('A+B+C+D')) {
+            return { title: 'Freies Fahren (Alle Gruppen)', group: 'A' };
+        }
+        if (t.includes('GRUPPE A') || t.includes('GR. A') || t.includes('SLOWER GROUP A')) {
+            return { title: 'Freies Fahren Gruppe A', group: 'A' };
+        }
+        if (t.includes('GRUPPE B') || t.includes('GR. B') || t.includes('FASTER GROUP B')) {
+            return { title: 'Freies Fahren Gruppe B', group: 'B' };
+        }
+        if (t.includes('GRUPPE C') || t.includes('GR. C') || t.includes('FAST GROUP C')) {
+            return { title: 'Freies Fahren Gruppe C', group: 'C' };
+        }
+        if (t.includes('GRUPPE D') || t.includes('GR. D') || t.includes('VERY FAST GROUP D')) {
+            return { title: 'Freies Fahren Gruppe D', group: 'D' };
+        }
+
+        // 7. Rennen
+        if (t.includes('CLASSIC')) return { title: 'Classic Race (7 Laps)', group: 'Rennen' };
+        if (t.includes('ROOKIE')) return { title: 'Sternchen Rookie Race', group: 'Rennen' };
+        if (t.includes('SBK')) return { title: 'SBK Race (6 Laps)', group: 'Rennen' };
+        if (t.includes('SSP')) return { title: 'SSP Race (6 Laps)', group: 'Rennen' };
+        if (t.includes('B-RACE')) return { title: 'B-Race (5 Laps)', group: 'Rennen' };
+        if (t.includes('RENNEN') || t.includes('RACE')) {
+            let clean = title.split(';')[0].split(',')[0].trim();
+            return { title: clean, group: 'Rennen' };
+        }
 
         return null;
     }
@@ -414,8 +443,8 @@
 
     window.clearSchedule = function() {
         if (confirm("Möchtest du den Zeitplan für ALLE Tage komplett leeren?")) {
-            scheduleState.days = { 'Tag 1': [] };
-            scheduleState.activeDay = 'Tag 1';
+            scheduleState.days = { 'Montag': [] };
+            scheduleState.activeDay = 'Montag';
             saveScheduleState();
             renderSchedulePage();
             updateScheduleTimer();
@@ -433,70 +462,87 @@
         const parsedDays = {};
         
         let dayCounter = 1;
-        let currentDayKey = "Tag 1";
+        let currentDayKey = "Montag";
         parsedDays[currentDayKey] = [];
 
-        const dayRegex = /(?:^|\s)(TAG\s*\d+|DAY\s*\d+|MONTAG|DIENSTAG|MITTWOCH|DONNERSTAG|FREITAG|SAMSTAG|SONNTAG|--- PAGE \d+ ---)(?:\s|$)/i;
-        const timeRegex = /(\d{1,2}[:.]\d{2})\s*(?:-|bis)?\s*(\d{1,2}[:.]\d{2})?\s+(.+)/;
+        const dayRegex = /(?:Program:\s*)?(MONTAG|DIENSTAG|MITTWOCH|DONNERSTAG|FREITAG|SAMSTAG|SONNTAG|TAG\s*\d+|DAY\s*\d+)/i;
         
-        let lastStartMins = -1;
+        const rangeTimeRegex = /^(\d{1,2}[:.]\d{2})\s*(?:-|bis)\s*(\d{1,2}[:.]\d{2})\s+(.+)/i;
+        const singleTimeRegex = /^(\d{1,2}[:.]\d{2})\s+(.+)/i;
+        const nextTimeRegex = /^(next\s*Race|next\s*-\s*(\d{1,2}[:.]\d{2})|next)\s+(.+)/i;
+
+        let lastEndMins = 540; // Default 09:00 in Minuten
         let seenInDay = new Set(); 
 
         lines.forEach(line => {
             const cleanLine = line.trim();
             if (!cleanLine) return;
 
+            // Erkennung des Wochentags
             const dayMatch = cleanLine.match(dayRegex);
-            if (dayMatch) {
+            if (dayMatch && !cleanLine.includes('freies Fahren') && !cleanLine.includes('Anmeldung')) {
                 let detectedStr = dayMatch[1].toUpperCase();
-                if (detectedStr.includes('PAGE') || detectedStr.includes('TAG') || detectedStr.includes('DAY')) {
-                    dayCounter = Object.keys(parsedDays).length + (parsedDays[currentDayKey].length > 0 ? 1 : 0);
-                    currentDayKey = `Tag ${dayCounter}`;
-                } else {
-                    currentDayKey = detectedStr;
-                }
-                
+                let dayName = detectedStr;
+                if (detectedStr.includes('MONTAG')) dayName = 'Montag';
+                else if (detectedStr.includes('DIENSTAG')) dayName = 'Dienstag';
+                else if (detectedStr.includes('MITTWOCH')) dayName = 'Mittwoch';
+                else if (detectedStr.includes('DONNERSTAG')) dayName = 'Donnerstag';
+                else if (detectedStr.includes('FREITAG')) dayName = 'Freitag';
+                else if (detectedStr.includes('SAMSTAG')) dayName = 'Samstag';
+                else if (detectedStr.includes('SONNTAG')) dayName = 'Sonntag';
+                else dayName = `Tag ${dayCounter++}`;
+
+                currentDayKey = dayName;
                 if (!parsedDays[currentDayKey]) {
                     parsedDays[currentDayKey] = [];
                 }
-                lastStartMins = -1;
+                lastEndMins = 540;
                 seenInDay.clear();
                 return;
             }
 
-            const match = cleanLine.match(timeRegex);
-            if (match) {
-                const start = match[1].replace('.', ':').padStart(5, '0');
-                const end = match[2] ? match[2].replace('.', ':').padStart(5, '0') : minutesToTime(timeToMinutes(start) + 20);
-                const rawTitle = match[3].trim();
-                const startMins = timeToMinutes(start);
+            let start = '', end = '', rawTitle = '';
 
-                if (lastStartMins > 0 && (lastStartMins - startMins) > 180) {
-                    dayCounter++;
-                    currentDayKey = `Tag ${dayCounter}`;
-                    if (!parsedDays[currentDayKey]) parsedDays[currentDayKey] = [];
-                    lastStartMins = -1;
-                    seenInDay.clear();
+            const rangeMatch = cleanLine.match(rangeTimeRegex);
+            const singleMatch = cleanLine.match(singleTimeRegex);
+            const nextMatch = cleanLine.match(nextTimeRegex);
+
+            if (rangeMatch) {
+                start = rangeMatch[1].replace('.', ':').padStart(5, '0');
+                end = rangeMatch[2].replace('.', ':').padStart(5, '0');
+                rawTitle = rangeMatch[3].trim();
+            } else if (singleMatch) {
+                start = singleMatch[1].replace('.', ':').padStart(5, '0');
+                rawTitle = singleMatch[2].trim();
+            } else if (nextMatch) {
+                start = minutesToTime(lastEndMins);
+                if (nextMatch[2]) {
+                    end = nextMatch[2].replace('.', ':').padStart(5, '0');
                 }
-
-                const itemData = processLineTitle(rawTitle);
-                if (itemData) {
-                    const uniqKey = `${start}_${itemData.group}_${itemData.title}`;
-                    if (seenInDay.has(uniqKey)) {
-                        return;
-                    }
-                    seenInDay.add(uniqKey);
-
-                    parsedDays[currentDayKey].push({
-                        start,
-                        end,
-                        title: itemData.title,
-                        group: itemData.group
-                    });
-
-                    lastStartMins = startMins;
-                }
+                rawTitle = nextMatch[3].trim();
+            } else {
+                return;
             }
+
+            const itemData = processLineTitle(rawTitle);
+            if (!itemData) return;
+
+            const startMins = timeToMinutes(start);
+            let endMins = end ? timeToMinutes(end) : (startMins + 20);
+            if (endMins <= startMins) endMins = startMins + 20;
+
+            const uniqKey = `${start}_${itemData.group}_${itemData.title}`;
+            if (seenInDay.has(uniqKey)) return;
+            seenInDay.add(uniqKey);
+
+            parsedDays[currentDayKey].push({
+                start,
+                end: end || minutesToTime(endMins),
+                title: itemData.title,
+                group: itemData.group
+            });
+
+            lastEndMins = endMins;
         });
 
         const validDayKeys = Object.keys(parsedDays).filter(k => parsedDays[k].length > 0);
@@ -552,27 +598,31 @@
                     const page = await pdf.getPage(i);
                     const textContent = await page.getTextContent();
                     
-                    const items = textContent.items.sort((a, b) => {
-                        const yA = a.transform[5];
-                        const yB = b.transform[5];
-                        if (Math.abs(yA - yB) > 4) {
-                            return yB - yA;
+                    // Gruppierung von Textzeilen basierend auf Y-Koordinaten (Toleranz 8px)
+                    const linesMap = [];
+                    textContent.items.forEach(item => {
+                        const text = item.str.trim();
+                        if (!text) return;
+                        const x = item.transform[4];
+                        const y = item.transform[5];
+
+                        let line = linesMap.find(l => Math.abs(l.y - y) <= 8);
+                        if (!line) {
+                            line = { y: y, items: [] };
+                            linesMap.push(line);
                         }
-                        return a.transform[4] - b.transform[4];
+                        line.items.push({ x, text });
                     });
 
-                    let lastY = null;
+                    linesMap.sort((a, b) => b.y - a.y);
+
                     let pageText = `\n--- PAGE ${i} ---\n`;
-                    
-                    items.forEach(item => {
-                        const y = item.transform[5];
-                        if (lastY !== null && Math.abs(y - lastY) > 4) {
-                            pageText += '\n';
-                        } else if (pageText.length > 0 && !pageText.endsWith('\n')) {
-                            pageText += ' ';
+                    linesMap.forEach(line => {
+                        line.items.sort((a, b) => a.x - b.x);
+                        const lineStr = line.items.map(it => it.text).join(' ').trim();
+                        if (lineStr) {
+                            pageText += lineStr + '\n';
                         }
-                        pageText += item.str;
-                        lastY = y;
                     });
                     
                     fullText += pageText + '\n';
