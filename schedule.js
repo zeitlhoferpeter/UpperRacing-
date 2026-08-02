@@ -46,7 +46,6 @@
     function processLineTitle(rawTitle) {
         let title = rawTitle.trim();
         
-        // 1. Falls bilingual in einer Zeile (z.B. "Freies Fahren / Free Practice") -> erst Relevantes filtern
         if (title.includes('/')) {
             const parts = title.split('/');
             const dePart = parts.find(p => /anmeldung|fahrerbesprechung|anfängerkurs|theorie|praxis|gruppe|freies fahren|rennen|mittag|pause|lunch/i.test(p));
@@ -55,17 +54,14 @@
 
         const t = title.toUpperCase();
 
-        // 2. PAUSEN & MITTAG (Priorisiert vor Englisch-Blockern, um "LUNCH BREAK" zu erwischen)
         if (t.includes('MITTAG') || t.includes('PAUSE') || t.includes('LUNCH') || t.includes('ESSEN')) {
             return { title: 'Mittagspause', group: 'Pause' };
         }
 
-        // 3. Reine englische Zeilen rigoros verwerfen
         if (t.includes('FREE PRACTICE') || t.includes('QUALIFYING') || (t.includes('BRIEFING') && !t.includes('FAHRERBESPRECHUNG')) || t.includes('RACE OFFICE')) {
             return null;
         }
 
-        // 4. Positiv-Liste
         if (t.includes('ANMELDUNG')) return { title: 'Anmeldung in der Box', group: 'Orga' };
         if (t.includes('FAHRERBESPRECHUNG')) return { title: title, group: 'Orga' };
 
@@ -80,7 +76,6 @@
             return { title: title, group: 'Rennen' };
         }
 
-        // Reine DEUTSCHE Gruppen-Erkennung
         if (t.includes('GRUPPE A') || t.includes('GR. A')) return { title: 'Freies Fahren Gruppe A', group: 'A' };
         if (t.includes('GRUPPE B') || t.includes('GR. B')) return { title: 'Freies Fahren Gruppe B', group: 'B' };
         if (t.includes('GRUPPE C') || t.includes('GR. C')) return { title: 'Freies Fahren Gruppe C', group: 'C' };
@@ -278,7 +273,7 @@
 
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
                     <h4 style="margin:0; font-size:0.9rem;">Tagesplan (${scheduleState.activeDay}): <span id="scheduleCount">0</span> Turns</h4>
-                    <button type="button" onclick="window.clearSchedule()" style="background:none; border:none; color:#f44336; cursor:pointer; font-size:0.8rem;">Tag leeren</button>
+                    <button type="button" onclick="window.clearSchedule()" style="background:none; border:none; color:#f44336; cursor:pointer; font-size:0.8rem;">Alle Tage leeren</button>
                 </div>
 
                 <div id="scheduleItemsContainer" style="display:flex; flex-direction:column; gap:6px;"></div>
@@ -417,16 +412,17 @@
         }
     };
 
+    // Geändert: Löscht nun den Zeitplan über alle Tage hinweg
     window.clearSchedule = function() {
-        if (confirm(`Zeitplan für ${scheduleState.activeDay} leeren?`)) {
-            scheduleState.days[scheduleState.activeDay] = [];
+        if (confirm("Möchtest du den Zeitplan für ALLE Tage komplett leeren?")) {
+            scheduleState.days = { 'Tag 1': [] };
+            scheduleState.activeDay = 'Tag 1';
             saveScheduleState();
-            renderScheduleRows();
+            renderSchedulePage();
             updateScheduleTimer();
         }
     };
 
-    // PARSER MIT ERWEITERTER PAUSEN- & ZEITERKENNUNG
     window.parseScheduleText = function() {
         const raw = document.getElementById('scheduleRawText')?.value;
         if (!raw || raw.trim() === '') {
@@ -442,7 +438,6 @@
         parsedDays[currentDayKey] = [];
 
         const dayRegex = /(?:^|\s)(TAG\s*\d+|DAY\s*\d+|MONTAG|DIENSTAG|MITTWOCH|DONNERSTAG|FREITAG|SAMSTAG|SONNTAG|--- PAGE \d+ ---)(?:\s|$)/i;
-        // Erlaubt sowohl Doppelpunkte (12:00) als auch Punkte (12.00)
         const timeRegex = /(\d{1,2}[:.]\d{2})\s*(?:-|bis)?\s*(\d{1,2}[:.]\d{2})?\s+(.+)/;
         
         let lastStartMins = -1;
@@ -452,7 +447,6 @@
             const cleanLine = line.trim();
             if (!cleanLine) return;
 
-            // 1. Tagesüberschrift oder Seitenumbruch prüfen
             const dayMatch = cleanLine.match(dayRegex);
             if (dayMatch) {
                 let detectedStr = dayMatch[1].toUpperCase();
@@ -467,11 +461,10 @@
                     parsedDays[currentDayKey] = [];
                 }
                 lastStartMins = -1;
-                seenInDay.clear(); // Reset Duplikat-Filter für den neuen Tag
+                seenInDay.clear();
                 return;
             }
 
-            // 2. Uhrzeit und Betreff verarbeiten
             const match = cleanLine.match(timeRegex);
             if (match) {
                 const start = match[1].replace('.', ':').padStart(5, '0');
@@ -479,7 +472,6 @@
                 const rawTitle = match[3].trim();
                 const startMins = timeToMinutes(start);
 
-                // AUTOMATISCHE TAGES-UMSCHALTUNG: Wenn die Zeit plötzlich zurückspringt
                 if (lastStartMins > 0 && (lastStartMins - startMins) > 180) {
                     dayCounter++;
                     currentDayKey = `Tag ${dayCounter}`;
@@ -490,7 +482,6 @@
 
                 const itemData = processLineTitle(rawTitle);
                 if (itemData) {
-                    // DUPLIKAT-SPERRE pro Tag
                     const uniqKey = `${start}_${itemData.group}_${itemData.title}`;
                     if (seenInDay.has(uniqKey)) {
                         return;
@@ -562,17 +553,28 @@
                     const page = await pdf.getPage(i);
                     const textContent = await page.getTextContent();
                     
+                    // Korrekte Sortierung nach Y (von oben nach unten) und X (von links nach rechts)
+                    const items = textContent.items.sort((a, b) => {
+                        const yA = a.transform[5];
+                        const yB = b.transform[5];
+                        if (Math.abs(yA - yB) > 4) {
+                            return yB - yA;
+                        }
+                        return a.transform[4] - b.transform[4];
+                    });
+
                     let lastY = null;
                     let pageText = `\n--- PAGE ${i} ---\n`;
                     
-                    textContent.items.forEach(item => {
-                        if (lastY !== null && Math.abs(item.transform[5] - lastY) > 4) {
+                    items.forEach(item => {
+                        const y = item.transform[5];
+                        if (lastY !== null && Math.abs(y - lastY) > 4) {
                             pageText += '\n';
                         } else if (pageText.length > 0 && !pageText.endsWith('\n')) {
                             pageText += ' ';
                         }
                         pageText += item.str;
-                        lastY = item.transform[5];
+                        lastY = y;
                     });
                     
                     fullText += pageText + '\n';
