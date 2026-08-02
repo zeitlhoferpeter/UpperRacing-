@@ -5,17 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>UpperRacing - Trackday App</title>
     <link rel="stylesheet" href="style.css">
-
-    <!-- Web App Manifest (für Android & Chrome) -->
     <link rel="manifest" href="manifest.json">
-
-    <!-- iOS / iPhone Spezial-Einstellungen -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="UpperRacing">
     <link rel="apple-touch-icon" href="icon.png">
-
-    <!-- Theme-Farbe für die Browser-Leiste -->
     <meta name="theme-color" content="#1f1f1f">
 </head>
 <body onload="initApp()">
@@ -32,13 +26,10 @@
                         <option value="most">Most</option>
                         <option value="grobnik">Grobnik</option>
                     </select>
-                    <select id="motorcycleSelect" onchange="onMotorcycleChange()">
-                        <!-- Wird dynamisch gefüllt -->
-                    </select>
+                    <select id="motorcycleSelect" onchange="onMotorcycleChange()"></select>
                     <div id="weather-header-widget" title="Klicken für Wettervorhersage & Regenradar">
                         <span id="weather-icon">⏳</span> <span id="weather-temp">--°C</span>
                     </div>
-                    <!-- Neuer Live Turn Anzeige-Slot -->
                     <div id="headerScheduleWidget" class="header-schedule-widget" onclick="switchPage('schedule')" title="Klicken für ausführlichen Zeitplan">
                         <span style="opacity:0.8;">⏱️ Lade Zeitplan...</span>
                     </div>
@@ -46,9 +37,9 @@
             </div>
             <div style="display: flex; align-items: center; gap: 8px;">
                 <div id="headerPoint2Slot"></div>
-                <div id="headerAllTime" onclick="confirmClearAllTimeBest()" style="text-align:right; background:#222; padding:6px 10px; border-radius:6px; border:1px solid #444; cursor:pointer;" title="Klicken zum Zurücksetzen der Bestzeit">
-                    <div style="font-size:0.65rem; color:#FFD700;">🏆 Bestzeit 🗑️</div>
-                    <div id="headerAllTimeValue" style="font-size:0.85rem; font-weight:bold; color:#fff;">--:--.---</div>
+                <div id="headerAllTime" onclick="confirmClearAllTimeBest()" style="text-align:right; background:#222222; padding:6px 10px; border-radius:6px; border:1px solid #444444; cursor:pointer;" title="Klicken zum Zurücksetzen der Bestzeit">
+                    <div style="font-size:0.65rem; color:#ffd700;">🏆 Bestzeit 🗑️</div>
+                    <div id="headerAllTimeValue" style="font-size:0.85rem; font-weight:bold; color:#ffffff;">--:--.---</div>
                 </div>
             </div>
         </header>
@@ -68,11 +59,11 @@
                 <div class="setup-box">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                         <h3 style="margin:0;">Session-Eintrag</h3>
-                        <select id="sessionSelect" onchange="onSessionChange()" style="padding:4px; background:#222; color:#fff; border:1px solid #444; border-radius:4px;"></select>
+                        <select id="sessionSelect" onchange="onSessionChange()" style="padding:4px; background:#222222; color:#ffffff; border:1px solid #444444; border-radius:4px;"></select>
                     </div>
                     <div style="display:flex; gap:6px; margin-bottom:10px;">
-                        <button type="button" onclick="newSession()" style="flex:1; background:#4CAF50; color:#fff; border:none; padding:8px; border-radius:4px; cursor:pointer;">+ Neue Session</button>
-                        <button type="button" onclick="deleteCurrentSession()" style="background:#f44336; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer;" title="Löschen">🗑️</button>
+                        <button type="button" onclick="newSession()" style="flex:1; background:#4caf50; color:#ffffff; border:none; padding:8px; border-radius:4px; cursor:pointer;">+ Neue Session</button>
+                        <button type="button" onclick="deleteCurrentSession()" style="background:#f44336; color:#ffffff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer;" title="Löschen">🗑️</button>
                     </div>
                     
                     <div class="grid-2">
@@ -108,22 +99,22 @@
                 </div>
 
                 <div style="display:flex; gap:8px; margin-bottom:15px;">
-                    <button type="button" onclick="saveData()" style="flex:2; background:#4CAF50; color:#fff; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer;">💾 Speichern</button>
-                    <button type="button" onclick="saveAsBaseline()" style="flex:1; background:#2196F3; color:#fff; border:none; padding:12px; border-radius:6px; font-size:0.85rem; cursor:pointer;">Als Basis</button>
-                    <button type="button" onclick="loadBaseline()" style="flex:1; background:#FF9800; color:#fff; border:none; padding:12px; border-radius:6px; font-size:0.85rem; cursor:pointer;">Lade Basis</button>
+                    <button type="button" onclick="saveData()" style="flex:2; background:#4caf50; color:#ffffff; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer;">💾 Speichern</button>
+                    <button type="button" onclick="saveAsBaseline()" style="flex:1; background:#2196f3; color:#ffffff; border:none; padding:12px; border-radius:6px; font-size:0.85rem; cursor:pointer;">Als Basis</button>
+                    <button type="button" onclick="loadBaseline()" style="flex:1; background:#ff9800; color:#ffffff; border:none; padding:12px; border-radius:6px; font-size:0.85rem; cursor:pointer;">Lade Basis</button>
                 </div>
-                <div id="saveNotice" style="display:none; background:#4CAF50; color:#fff; text-align:center; padding:8px; border-radius:4px; margin-bottom:15px; font-size:0.85rem;"></div>
+                <div id="saveNotice" style="display:none; background:#4caf50; color:#ffffff; text-align:center; padding:8px; border-radius:4px; margin-bottom:15px; font-size:0.85rem;"></div>
             </div>
 
             <div id="pageCurves" class="page-content" style="display:none;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                     <h2 style="margin:0; font-size:1.1rem;">Kurven-Guide</h2>
                     <div style="display:flex; gap:6px;">
-                        <button type="button" onclick="shareCurves()" style="background:#2196F3; color:#fff; border:none; padding:6px 10px; border-radius:4px; cursor:pointer; font-size:0.8rem;">📤 Teilen</button>
-                        <button type="button" onclick="saveCurvesData()" style="background:#4CAF50; color:#fff; border:none; padding:6px 10px; border-radius:4px; cursor:pointer; font-size:0.8rem;">💾 Speichern</button>
+                        <button type="button" onclick="shareCurves()" style="background:#2196f3; color:#ffffff; border:none; padding:6px 10px; border-radius:4px; cursor:pointer; font-size:0.8rem;">📤 Teilen</button>
+                        <button type="button" onclick="saveCurvesData()" style="background:#4caf50; color:#ffffff; border:none; padding:6px 10px; border-radius:4px; cursor:pointer; font-size:0.8rem;">💾 Speichern</button>
                     </div>
                 </div>
-                <div id="saveNoticeCurves" style="display:none; background:#4CAF50; color:#fff; text-align:center; padding:6px; border-radius:4px; margin-bottom:10px; font-size:0.8rem;"></div>
+                <div id="saveNoticeCurves" style="display:none; background:#4caf50; color:#ffffff; text-align:center; padding:6px; border-radius:4px; margin-bottom:10px; font-size:0.8rem;"></div>
                 <div id="curvesContainer"></div>
             </div>
 
@@ -131,24 +122,24 @@
                 <div class="setup-box">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                         <h3 style="margin:0;">Rundenzeiten / Stint</h3>
-                        <select id="lapSessionSelect" onchange="onLapSessionChange()" style="padding:4px; background:#222; color:#fff; border:1px solid #444; border-radius:4px;"></select>
+                        <select id="lapSessionSelect" onchange="onLapSessionChange()" style="padding:4px; background:#222222; color:#ffffff; border:1px solid #444444; border-radius:4px;"></select>
                     </div>
                     <div style="display:flex; gap:6px; margin-bottom:12px;">
-                        <button type="button" onclick="startNewLapSession()" style="flex:1; background:#4CAF50; color:#fff; border:none; padding:8px; border-radius:4px; cursor:pointer; font-size:0.85rem;">+ Neuer Stint</button>
-                        <button type="button" onclick="deleteCurrentLapSession()" style="background:#f44336; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer;" title="Stint löschen">🗑️</button>
+                        <button type="button" onclick="startNewLapSession()" style="flex:1; background:#4caf50; color:#ffffff; border:none; padding:8px; border-radius:4px; cursor:pointer; font-size:0.85rem;">+ Neuer Stint</button>
+                        <button type="button" onclick="deleteCurrentLapSession()" style="background:#f44336; color:#ffffff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer;" title="Stint löschen">🗑️</button>
                     </div>
 
-                    <div style="background:#222; padding:10px; border-radius:6px; margin-bottom:12px;">
-                        <h4 style="margin:0 0 8px 0; font-size:0.9rem; color:#aaa;">Runde hinzufügen</h4>
+                    <div style="background:#222222; padding:10px; border-radius:6px; margin-bottom:12px;">
+                        <h4 style="margin:0 0 8px 0; font-size:0.9rem; color:#aaaaaa;">Runde hinzufügen</h4>
                         <div style="display:flex; gap:6px; align-items:center; margin-bottom:8px;">
-                            <input type="number" id="manualMin" placeholder="Min" style="width:50px; padding:6px; background:#111; border:1px solid #444; color:#fff; text-align:center; border-radius:4px;">
+                            <input type="number" id="manualMin" placeholder="Min" style="width:50px; padding:6px; background:#111111; border:1px solid #444444; color:#ffffff; text-align:center; border-radius:4px;">
                             <span>:</span>
-                            <input type="number" id="manualSec" placeholder="Sek" style="width:50px; padding:6px; background:#111; border:1px solid #444; color:#fff; text-align:center; border-radius:4px;">
+                            <input type="number" id="manualSec" placeholder="Sek" style="width:50px; padding:6px; background:#111111; border:1px solid #444444; color:#ffffff; text-align:center; border-radius:4px;">
                             <span>.</span>
-                            <input type="number" id="manualMs" placeholder="ms" style="width:60px; padding:6px; background:#111; border:1px solid #444; color:#fff; text-align:center; border-radius:4px;">
-                            <input type="number" id="manualLapNum" placeholder="Nr." style="width:45px; padding:6px; background:#111; border:1px solid #444; color:#fff; text-align:center; border-radius:4px;" title="Rundennummer">
+                            <input type="number" id="manualMs" placeholder="ms" style="width:60px; padding:6px; background:#111111; border:1px solid #444444; color:#ffffff; text-align:center; border-radius:4px;">
+                            <input type="number" id="manualLapNum" placeholder="Nr." style="width:45px; padding:6px; background:#111111; border:1px solid #444444; color:#ffffff; text-align:center; border-radius:4px;" title="Rundennummer">
                         </div>
-                        <button type="button" onclick="addManualLap()" style="width:100%; background:#2196F3; color:#fff; border:none; padding:8px; border-radius:4px; cursor:pointer; font-weight:bold;">Runde eintragen</button>
+                        <button type="button" onclick="addManualLap()" style="width:100%; background:#2196f3; color:#ffffff; border:none; padding:8px; border-radius:4px; cursor:pointer; font-weight:bold;">Runde eintragen</button>
                     </div>
 
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
@@ -159,20 +150,19 @@
                 </div>
             </div>
 
-            <!-- NEUER REITER: ZEITPLAN -->
             <div id="pageSchedule" class="page-content" style="display:none;"></div>
 
             <div id="pageCup" class="page-content" style="display:none;">
                 <div class="setup-box">
                     <h3>Cup-Reglement / Info</h3>
-                    <p style="font-size:0.85rem; color:#ccc; margin-bottom:12px;">Offizieller Cup-Link oder PDF.</p>
+                    <p style="font-size:0.85rem; color:#cccccc; margin-bottom:12px;">Offizieller Cup-Link oder PDF.</p>
                     <div style="margin-bottom:10px;">
                         <label style="font-size:0.75rem">Cup Link / PDF URL</label>
-                        <input type="text" id="cupUrlInput" placeholder="https://..." style="width:100%; padding:8px; background:#222; border:1px solid #444; color:#fff; border-radius:4px; margin-top:4px;">
+                        <input type="text" id="cupUrlInput" placeholder="https://..." style="width:100%; padding:8px; background:#222222; border:1px solid #444444; color:#ffffff; border-radius:4px; margin-top:4px;">
                     </div>
                     <div style="display:flex; gap:8px;">
-                        <button type="button" onclick="saveCupUrl()" style="flex:1; background:#4CAF50; color:#fff; border:none; padding:10px; border-radius:4px; cursor:pointer;">Link speichern</button>
-                        <button type="button" onclick="openCupInBrowser()" style="flex:1; background:#2196F3; color:#fff; border:none; padding:10px; border-radius:4px; cursor:pointer;">Cup öffnen ↗</button>
+                        <button type="button" onclick="saveCupUrl()" style="flex:1; background:#4caf50; color:#ffffff; border:none; padding:10px; border-radius:4px; cursor:pointer;">Link speichern</button>
+                        <button type="button" onclick="openCupInBrowser()" style="flex:1; background:#2196f3; color:#ffffff; border:none; padding:10px; border-radius:4px; cursor:pointer;">Cup öffnen ↗</button>
                     </div>
                 </div>
             </div>
@@ -180,7 +170,7 @@
             <div id="pagePack" class="page-content" style="display:none;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                     <h2 style="margin:0; font-size:1.1rem;">Packliste</h2>
-                    <button type="button" onclick="resetPackList()" style="background:#f44336; color:#fff; border:none; padding:6px 10px; border-radius:4px; cursor:pointer; font-size:0.75rem;">Standard Reset</button>
+                    <button type="button" onclick="resetPackList()" style="background:#f44336; color:#ffffff; border:none; padding:6px 10px; border-radius:4px; cursor:pointer; font-size:0.75rem;">Standard Reset</button>
                 </div>
                 <div id="packContainer"></div>
             </div>
@@ -188,33 +178,32 @@
             <div id="pageBackup" class="page-content" style="display:none;">
                 <div class="setup-box">
                     <h3>Daten & Backup</h3>
-                    <p style="font-size:0.85rem; color:#ccc; margin-bottom:12px;">Sichere deine Sessions, Rundenzeiten und Einstellungen.</p>
+                    <p style="font-size:0.85rem; color:#cccccc; margin-bottom:12px;">Sichere deine Sessions, Rundenzeiten und Einstellungen.</p>
                     
-                    <div id="backupReminderBanner" style="display:none; background:#ff9800; color:#000; padding:10px; border-radius:6px; margin-bottom:12px; font-weight:bold; font-size:0.85rem; text-align:center;">
+                    <div id="backupReminderBanner" style="display:none; background:#ff9800; color:#000000; padding:10px; border-radius:6px; margin-bottom:12px; font-weight:bold; font-size:0.85rem; text-align:center;">
                         ⚠️ Es gibt ungesicherte Änderungen von heute!
                     </div>
 
                     <div style="display:flex; flex-direction:column; gap:10px;">
-                        <button type="button" onclick="exportBackup()" style="background:#4CAF50; color:#fff; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer;">💾 Backup erstellen & herunterladen</button>
+                        <button type="button" onclick="exportBackup()" style="background:#4caf50; color:#ffffff; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer;">💾 Backup erstellen & herunterladen</button>
                         
-                        <div style="background:#222; padding:10px; border-radius:6px; border:1px solid #444; margin-top:5px;">
+                        <div style="background:#222222; padding:10px; border-radius:6px; border:1px solid #444444; margin-top:5px;">
                             <label style="font-size:0.8rem; margin-bottom:6px; display:block;">Backup von Datei wiederherstellen (Import)</label>
                             <input type="file" accept=".json" onchange="importBackup(event)" style="font-size:0.8rem;">
                         </div>
                     </div>
-                    <div id="saveNoticeBackup" style="display:none; background:#4CAF50; color:#fff; text-align:center; padding:8px; border-radius:4px; margin-top:12px; font-size:0.85rem;"></div>
+                    <div id="saveNoticeBackup" style="display:none; background:#4caf50; color:#ffffff; text-align:center; padding:8px; border-radius:4px; margin-top:12px; font-size:0.85rem;"></div>
                 </div>
             </div>
         </main>
     </div>
 
-    <!-- PWA Installations-Popup -->
-    <div id="pwa-install-banner" style="display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 400px; background: #222; border: 2px solid #FFD700; border-radius: 12px; padding: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.8); z-index: 10000; text-align: center; font-family: sans-serif;">
-        <div style="font-size: 1.1rem; font-weight: bold; color: #fff; margin-bottom: 5px;">🏎️ UpperRacing installieren</div>
-        <div id="pwa-install-text" style="font-size: 0.85rem; color: #ccc; margin-bottom: 12px;">Füge die App zum Startbildschirm hinzu für den besten Offline-Zugriff auf der Rennstrecke.</div>
+    <div id="pwa-install-banner" style="display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 400px; background: #222222; border: 2px solid #ffd700; border-radius: 12px; padding: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.8); z-index: 10000; text-align: center; font-family: sans-serif;">
+        <div style="font-size: 1.1rem; font-weight: bold; color: #ffffff; margin-bottom: 5px;">🏎️ UpperRacing installieren</div>
+        <div id="pwa-install-text" style="font-size: 0.85rem; color: #cccccc; margin-bottom: 12px;">Füge die App zum Startbildschirm hinzu für den besten Offline-Zugriff auf der Rennstrecke.</div>
         <div style="display: flex; gap: 10px; justify-content: center;">
-            <button id="pwa-install-btn" style="flex: 1; background: #4CAF50; color: white; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer;">Installieren</button>
-            <button id="pwa-close-btn" style="background: #444; color: #aaa; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer;">Später</button>
+            <button id="pwa-install-btn" style="flex: 1; background: #4caf50; color: white; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer;">Installieren</button>
+            <button id="pwa-close-btn" style="background: #444444; color: #aaaaaa; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer;">Später</button>
         </div>
     </div>
 
@@ -224,7 +213,6 @@
     <script src="app.js"></script>
     <script src="weather.js"></script>
     <script>
-      // Service Worker registrieren
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('./sw.js')
@@ -233,7 +221,6 @@
         });
       }
 
-      // Installations-Banner Steuerung
       let deferredPrompt;
       const installBanner = document.getElementById('pwa-install-banner');
       const installBtn = document.getElementById('pwa-install-btn');
