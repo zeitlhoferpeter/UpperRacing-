@@ -1,4 +1,4 @@
-// schedule.js - UpperRacing Zeitplan & Live-Turn-Timer Modul[cite: 13]
+// schedule.js - UpperRacing Zeitplan & Live-Turn-Timer Modul
 
 (function() {
     const DEFAULT_SCHEDULE_DAY1 = [
@@ -463,20 +463,79 @@
         }, 600);
     };
 
-    function handlePdfFileUpload(e) {
+    // Dynamisches Laden der PDF.js Bibliothek
+    function loadPdfJsLib() {
+        return new Promise((resolve, reject) => {
+            if (window.pdfjsLib) return resolve(window.pdfjsLib);
+
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+            script.onload = () => {
+                window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                resolve(window.pdfjsLib);
+            };
+            script.onerror = () => reject(new Error('PDF.js Bibliothek konnte nicht geladen werden.'));
+            document.head.appendChild(script);
+        });
+    }
+
+    // Verbesserte PDF/TXT Upload-Funktion
+    async function handlePdfFileUpload(e) {
         const file = e.target.files[0];
         if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-            const text = evt.target.result;
-            const textEl = document.getElementById('scheduleRawText');
-            if (textEl) {
-                textEl.value = text;
-                window.parseScheduleText();
+        const textEl = document.getElementById('scheduleRawText');
+
+        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+            try {
+                if (typeof showNotice === 'function') showNotice('saveNotice', 'Lese PDF-Datei aus...');
+                
+                const pdfjsLib = await loadPdfJsLib();
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                
+                let fullText = '';
+                
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent();
+                    
+                    let lastY = null;
+                    let pageText = '';
+                    
+                    textContent.items.forEach(item => {
+                        // Neue Zeile einfügen, wenn die vertikale Position (Y) sich ändert
+                        if (lastY !== null && Math.abs(item.transform[5] - lastY) > 4) {
+                            pageText += '\n';
+                        } else if (pageText.length > 0 && !pageText.endsWith('\n')) {
+                            pageText += ' ';
+                        }
+                        pageText += item.str;
+                        lastY = item.transform[5];
+                    });
+                    
+                    fullText += pageText + '\n';
+                }
+
+                if (textEl) {
+                    textEl.value = fullText.trim();
+                    window.parseScheduleText();
+                }
+            } catch (err) {
+                console.error('PDF Parse Fehler:', err);
+                alert('Fehler beim Lesen der PDF-Datei. Ist sie möglicherweise passwortgeschützt oder enthält nur Bilder?');
             }
-        };
-        reader.readAsText(file);
+        } else {
+            // Standard Textdatei (TXT) auslesen
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                if (textEl) {
+                    textEl.value = evt.target.result;
+                    window.parseScheduleText();
+                }
+            };
+            reader.readAsText(file);
+        }
     }
 
     window.initScheduleModule = function() {
