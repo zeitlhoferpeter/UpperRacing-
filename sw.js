@@ -1,5 +1,5 @@
 // sw.js - Service Worker für GitHub Pages & Offline-Caching
-const CACHE_NAME = 'upperracing-v7.9';
+const CACHE_NAME = 'upperracing-v8.0';
 const assetsToCache = [
   './',
   './index.html',
