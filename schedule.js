@@ -412,7 +412,6 @@
         }
     };
 
-    // Geändert: Löscht nun den Zeitplan über alle Tage hinweg
     window.clearSchedule = function() {
         if (confirm("Möchtest du den Zeitplan für ALLE Tage komplett leeren?")) {
             scheduleState.days = { 'Tag 1': [] };
@@ -553,7 +552,6 @@
                     const page = await pdf.getPage(i);
                     const textContent = await page.getTextContent();
                     
-                    // Korrekte Sortierung nach Y (von oben nach unten) und X (von links nach rechts)
                     const items = textContent.items.sort((a, b) => {
                         const yA = a.transform[5];
                         const yB = b.transform[5];
