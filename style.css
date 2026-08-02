@@ -22,88 +22,149 @@ body {
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
 }
 
+/* Header Container & Branding */
 .app-header {
-    background-color: #1f1f1f;
-    padding: 12px 15px;
-    border-bottom: 1px solid #333333;
+    background-color: #121214;
+    padding: 8px 12px;
+    border-bottom: 2px solid #e10600;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
-.app-header h1 {
+.header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.brand-title {
     margin: 0;
-    font-size: 1.1rem;
-    color: #4caf50;
+    font-size: 1rem;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: #ffffff;
+    line-height: 1;
 }
 
-.track-selector-wrapper select {
+.accent-text {
+    color: #e10600;
+}
+
+.track-selector-wrapper select,
+.moto-selector-wrapper select {
     background: #2a2a2a;
     color: #ffffff;
     border: 1px solid #444444;
-    padding: 4px 6px;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    max-width: 85px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    max-width: 110px;
     text-overflow: ellipsis;
     white-space: nowrap;
     overflow: hidden;
 }
 
-.header-schedule-widget {
-    display: inline-flex;
+.header-widgets {
+    display: flex;
+    gap: 6px;
     align-items: center;
-    gap: 5px;
-    background: #222222;
+}
+
+/* 1:1 Racing Badge Design System */
+.racing-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
     padding: 4px 8px;
-    border-radius: 14px;
-    border: 1px solid #444444;
+    min-width: 88px; 
+    box-sizing: border-box;
     cursor: pointer;
-    font-size: 0.75rem;
-    transition: all 0.3s ease;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+}
+
+.racing-badge:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.badge-label {
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    color: #9ca3af;
+    text-transform: uppercase;
     white-space: nowrap;
 }
 
-.turn-group-badge {
-    background: #555555;
+.badge-value {
+    font-size: 0.95rem;
+    font-weight: 800;
     color: #ffffff;
-    padding: 2px 5px;
-    border-radius: 3px;
-    font-weight: bold;
-    font-size: 0.7rem;
+    line-height: 1.2;
 }
 
-.turn-group-badge.my-group {
-    background: #ffd700;
-    color: #000000;
+/* Tabular Nums Verhindert Verrutschen bei laufendem Countdown */
+.tabular-nums {
+    font-variant-numeric: tabular-nums;
+    font-family: 'Consolas', 'Courier New', monospace;
 }
 
-.turn-time-rem {
-    font-weight: bold;
-    color: #4caf50;
+/* Bestzeit Badge Style */
+.badge-besttime .badge-value {
+    color: #38bdf8;
 }
 
-@keyframes schedule-pulse-glow {
-    0% { transform: scale(1); box-shadow: 0 0 4px #ff9800; border-color: #ff9800; }
-    100% { transform: scale(1.05); box-shadow: 0 0 16px #ff9800; border-color: #ffd700; background: #3a2500; }
+/* Smart Alert State: 10 Minuten vor Turn (Orangener Glow) */
+.badge-schedule.alert-warning {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.15);
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+}
+.badge-schedule.alert-warning .badge-label {
+    color: #f59e0b;
 }
 
-.schedule-glow-10m {
-    animation: schedule-pulse-glow 0.8s infinite alternate;
+/* Smart Alert State: 5 Minuten vor Turn (Rotes Blinken) */
+.badge-schedule.alert-danger {
+    border-color: #ef4444;
+    background: rgba(239, 68, 68, 0.2);
+    animation: pulse-danger-glow 0.9s infinite alternate;
+}
+.badge-schedule.alert-danger .badge-label {
+    color: #ef4444;
 }
 
+@keyframes pulse-danger-glow {
+    0% {
+        box-shadow: 0 0 4px rgba(239, 68, 68, 0.4);
+        border-color: rgba(239, 68, 68, 0.6);
+    }
+    100% {
+        box-shadow: 0 0 14px rgba(239, 68, 68, 0.95);
+        border-color: #ef4444;
+    }
+}
+
+/* Vollbild-Warnung Rot-Blinken für 5m Alarm */
 @keyframes red-screen-border-blink {
     0%, 100% { box-shadow: inset 0 0 0 0 transparent; }
-    50% { box-shadow: inset 0 0 25px 8px rgba(244, 67, 54, 0.95); }
+    50% { box-shadow: inset 0 0 25px 8px rgba(239, 68, 68, 0.9); }
 }
 
 body.screen-alert-red {
     animation: red-screen-border-blink 1s infinite;
 }
 
+/* Navigation Tabs */
 .nav-tabs {
     display: flex;
-    background-color: #222222;
+    background-color: #1a1a1c;
     border-bottom: 1px solid #333333;
     overflow-x: auto;
 }
@@ -114,7 +175,7 @@ body.screen-alert-red {
     background: none;
     border: none;
     color: #aaaaaa;
-    padding: 12px 2px;
+    padding: 10px 2px;
     font-size: 0.72rem;
     cursor: pointer;
     text-align: center;
@@ -124,30 +185,40 @@ body.screen-alert-red {
 }
 
 .tab-btn.active {
-    color: #4caf50;
-    border-bottom-color: #4caf50;
-    background-color: #1a1a1a;
+    color: #e10600;
+    border-bottom-color: #e10600;
+    background-color: #242424;
     font-weight: bold;
 }
 
 main {
-    padding: 15px;
+    padding: 12px;
     flex-grow: 1;
     overflow-y: auto;
+}
+
+.save-notice {
+    background: #4caf50;
+    color: #fff;
+    padding: 6px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    text-align: center;
+    margin-bottom: 10px;
 }
 
 .setup-box {
     background-color: #242424;
     border: 1px solid #333333;
     border-radius: 8px;
-    padding: 12px;
-    margin-bottom: 15px;
+    padding: 10px;
+    margin-bottom: 12px;
 }
 
 .setup-box h3 {
     margin-top: 0;
-    margin-bottom: 10px;
-    font-size: 0.95rem;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
     color: #ffffff;
 }
 
@@ -159,24 +230,24 @@ main {
 
 label {
     display: block;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     color: #aaaaaa;
-    margin-bottom: 3px;
+    margin-bottom: 2px;
 }
 
 input[type="text"], input[type="number"], textarea, select {
     width: 100%;
-    padding: 8px;
+    padding: 6px 8px;
     background-color: #141414;
     border: 1px solid #3d3d3d;
     color: #ffffff;
     border-radius: 4px;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
 }
 
 input:focus, textarea:focus, select:focus {
     outline: none;
-    border-color: #4caf50;
+    border-color: #e10600;
 }
 
 textarea {
@@ -187,9 +258,9 @@ textarea {
     background: #333333;
     border: 1px solid #444444;
     border-radius: 4px;
-    padding: 4px 6px;
+    padding: 3px 6px;
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     opacity: 0.5;
 }
 
@@ -209,11 +280,6 @@ textarea {
     background: #e8f5e9;
     opacity: 1;
     border-color: #4caf50;
-}
-
-.pack-item-done {
-    text-decoration: line-through;
-    color: #777777;
 }
 
 .schedule-row {
