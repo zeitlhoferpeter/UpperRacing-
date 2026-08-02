@@ -1,64 +1,13 @@
 // schedule.js - UpperRacing Zeitplan & Live-Turn-Timer Modul
 
 (function() {
-    const DEFAULT_SCHEDULE_DAY1 = [
-        { start: "07:30", end: "08:15", title: "Anmeldung in der Box", group: "Orga" },
-        { start: "08:15", end: "08:35", title: "Anfängerkurs Theorie", group: "Anfänger" },
-        { start: "08:45", end: "08:50", title: "Fahrerbesprechung (Race Office)", group: "Orga" },
-        { start: "08:50", end: "09:00", title: "Anfängerkurs Praxis (2 Besichtigungsrunden)", group: "Anfänger" },
-        { start: "09:00", end: "09:15", title: "Freies Fahren Gruppe A", group: "A" },
-        { start: "09:15", end: "09:30", title: "Freies Fahren Gruppe B", group: "B" },
-        { start: "09:30", end: "09:45", title: "Freies Fahren Gruppe C", group: "C" },
-        { start: "09:45", end: "10:00", title: "Freies Fahren Gruppe D", group: "D" },
-        { start: "10:00", end: "10:20", title: "Freies Fahren Gruppe A", group: "A" },
-        { start: "10:20", end: "10:40", title: "Freies Fahren Gruppe B", group: "B" },
-        { start: "10:40", end: "11:00", title: "Freies Fahren Gruppe C", group: "C" },
-        { start: "11:00", end: "11:20", title: "Freies Fahren Gruppe D", group: "D" },
-        { start: "11:20", end: "11:40", title: "Freies Fahren Gruppe A", group: "A" },
-        { start: "11:40", end: "12:00", title: "Freies Fahren Gruppe B", group: "B" },
-        { start: "12:00", end: "12:20", title: "Freies Fahren Gruppe C", group: "C" },
-        { start: "12:20", end: "12:40", title: "Freies Fahren Gruppe D", group: "D" },
-        { start: "12:40", end: "13:40", title: "Mittagspause / Lunch Break", group: "Pause" },
-        { start: "13:10", end: "13:40", title: "Fahrerbesprechung Rennteilnehmer", group: "Orga" },
-        { start: "13:40", end: "14:00", title: "Freies Fahren Gruppe A", group: "A" },
-        { start: "14:00", end: "14:20", title: "Freies Fahren Gruppe B", group: "B" },
-        { start: "14:20", end: "14:40", title: "Freies Fahren Gruppe C", group: "C" },
-        { start: "14:40", end: "15:00", title: "Freies Fahren Gruppe D", group: "D" },
-        { start: "15:00", end: "15:20", title: "Freies Fahren Gruppe A", group: "A" },
-        { start: "15:20", end: "15:40", title: "Freies Fahren Gruppe B", group: "B" },
-        { start: "15:40", end: "16:00", title: "Freies Fahren Gruppe C", group: "C" },
-        { start: "16:00", end: "16:20", title: "Freies Fahren Gruppe D", group: "D" },
-        { start: "16:20", end: "16:40", title: "Freies Fahren Gruppe A", group: "A" },
-        { start: "16:40", end: "17:00", title: "Freies Fahren Gruppe B", group: "B" },
-        { start: "17:00", end: "17:20", title: "Freies Fahren Gruppe C", group: "C" },
-        { start: "17:20", end: "17:40", title: "Freies Fahren Gruppe D", group: "D" }
-    ];
-
-    const DEFAULT_SCHEDULE_DAY2 = [
-        { start: "07:30", end: "08:15", title: "Anmeldung in der Box", group: "Orga" },
-        { start: "08:45", end: "09:00", title: "Fahrerbesprechung (Race Office)", group: "Orga" },
-        { start: "13:00", end: "13:40", title: "Mittagspause / Startaufstellung", group: "Pause" },
-        { start: "13:10", end: "13:40", title: "Fahrerbesprechung Rennteilnehmer", group: "Orga" },
-        { start: "13:40", end: "14:00", title: "Freies Fahren Gruppe A", group: "A" },
-        { start: "14:00", end: "14:20", title: "Freies Fahren Gruppe B", group: "B" },
-        { start: "14:20", end: "14:40", title: "Freies Fahren Gruppe C", group: "C" },
-        { start: "14:40", end: "15:00", title: "Freies Fahren Gruppe D", group: "D" },
-        { start: "15:03", end: "15:30", title: "Classic Race (7 Laps)", group: "Rennen" },
-        { start: "15:30", end: "16:00", title: "Sternchen Rookie Race (5 Laps)", group: "Rennen" },
-        { start: "16:00", end: "16:30", title: "SBK Race (6 Laps)", group: "Rennen" },
-        { start: "16:30", end: "17:00", title: "SSP Race (6 Laps)", group: "Rennen" },
-        { start: "17:00", end: "17:30", title: "B-Race (5 Laps)", group: "Rennen" },
-        { start: "17:30", end: "18:00", title: "Freies Fahren alle Gruppen A+B+C+D", group: "ALL" }
-    ];
-
     let scheduleState = {
         myGroup: localStorage.getItem('upper_schedule_mygroup') || 'A',
         alert10m: localStorage.getItem('upper_schedule_alert10m') !== 'false',
         alert5m: localStorage.getItem('upper_schedule_alert5m') !== 'false',
         activeDay: localStorage.getItem('upper_schedule_activeday') || 'Tag 1',
         days: JSON.parse(localStorage.getItem('upper_schedule_days')) || {
-            'Tag 1': DEFAULT_SCHEDULE_DAY1,
-            'Tag 2': DEFAULT_SCHEDULE_DAY2
+            'Tag 1': []
         }
     };
 
@@ -93,11 +42,11 @@
         return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
     }
 
-    // Präziser Filter: Gibt Objekt mit { title, group } zurück oder null wenn nicht gewünscht
+    // STRIKTE DEUTSCHE FILTERUNG: Alles Englische fliegt raus
     function processLineTitle(rawTitle) {
         let title = rawTitle.trim();
         
-        // Zweisprachige Trennung (z.B. "Fahrerbesprechung / Briefing")
+        // 1. Falls bilingual in einer Zeile (z.B. "Freies Fahren / Free Practice") -> nur Deutsch behalten
         if (title.includes('/')) {
             const parts = title.split('/');
             const dePart = parts.find(p => /anmeldung|fahrerbesprechung|anfängerkurs|theorie|praxis|gruppe|freies fahren|rennen|mittag/i.test(p));
@@ -106,35 +55,36 @@
 
         const t = title.toUpperCase();
 
-        // 1. Orga: Anmeldung & Fahrerbesprechung
+        // 2. Reine englische Zeilen rigoros verwerfen
+        if (t.includes('FREE PRACTICE') || t.includes('QUALIFYING') || (t.includes('BRIEFING') && !t.includes('FAHRERBESPRECHUNG')) || t.includes('RACE OFFICE')) {
+            return null;
+        }
+
+        // 3. Positiv-Liste (Nur erlaubte deutsche Punkte)
         if (t.includes('ANMELDUNG')) return { title: 'Anmeldung in der Box', group: 'Orga' };
         if (t.includes('FAHRERBESPRECHUNG')) return { title: title, group: 'Orga' };
 
-        // 2. Anfänger: Anfängerkurs Theorie & Praxis
         if (t.includes('ANFÄNGERKURS THEORIE') || (t.includes('THEORIE') && !t.includes('PRAXIS'))) {
             return { title: 'Anfängerkurs Theorie', group: 'Anfänger' };
         }
         if (t.includes('ANFÄNGERKURS PRAXIS') || t.includes('PRAXIS')) {
-            return { title: title, group: 'Anfänger' };
+            return { title: 'Anfängerkurs Praxis', group: 'Anfänger' };
         }
 
-        // 3. Pause
-        if (t.includes('MITTAG') || t.includes('LUNCH') || t.includes('PAUSE')) {
+        if (t.includes('MITTAG') || t.includes('PAUSE')) {
             return { title: 'Mittagspause', group: 'Pause' };
         }
 
-        // 4. Rennen
-        if (t.includes('RENNEN') || t.includes('RACE')) {
+        if (t.includes('RENNEN') || t.includes('CLASSIC') || t.includes('ROOKIE') || t.includes('SBK') || t.includes('SSP') || t.includes('B-RACE')) {
             return { title: title, group: 'Rennen' };
         }
 
-        // 5. Gruppen A, B, C, D Turns
-        if (t.includes('GRUPPE A') || t.includes('GROUP A')) return { title: title, group: 'A' };
-        if (t.includes('GRUPPE B') || t.includes('GROUP B')) return { title: title, group: 'B' };
-        if (t.includes('GRUPPE C') || t.includes('GROUP C')) return { title: title, group: 'C' };
-        if (t.includes('GRUPPE D') || t.includes('GROUP D')) return { title: title, group: 'D' };
+        // Reine DEUTSCHE Gruppen-Erkennung (GROUP A/B/C/D wird ignoriert)
+        if (t.includes('GRUPPE A') || t.includes('GR. A')) return { title: 'Freies Fahren Gruppe A', group: 'A' };
+        if (t.includes('GRUPPE B') || t.includes('GR. B')) return { title: 'Freies Fahren Gruppe B', group: 'B' };
+        if (t.includes('GRUPPE C') || t.includes('GR. C')) return { title: 'Freies Fahren Gruppe C', group: 'C' };
+        if (t.includes('GRUPPE D') || t.includes('GR. D')) return { title: 'Freies Fahren Gruppe D', group: 'D' };
 
-        // Alles andere (Qualifying, englische Briefings etc.) wird ignoriert
         return null;
     }
 
@@ -207,17 +157,11 @@
 
         widget.innerHTML = label;
 
-        if (isGlowing10m) {
-            widget.classList.add('schedule-glow-10m');
-        } else {
-            widget.classList.remove('schedule-glow-10m');
-        }
+        if (isGlowing10m) widget.classList.add('schedule-glow-10m');
+        else widget.classList.remove('schedule-glow-10m');
 
-        if (isBlinking5m) {
-            document.body.classList.add('screen-alert-red');
-        } else {
-            document.body.classList.remove('screen-alert-red');
-        }
+        if (isBlinking5m) document.body.classList.add('screen-alert-red');
+        else document.body.classList.remove('screen-alert-red');
     }
 
     function updateScheduleViewHighlight(activeTurn, currentMins) {
@@ -264,7 +208,6 @@
             <div class="setup-box">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                     <h3 style="margin:0; font-size:1.1rem; color:#FFD700;">⏱️ Live-Zeitplan & Alarm</h3>
-                    <span style="font-size:0.75rem; color:#aaa;">Veranstalter: <strong>Stardesign-Racing</strong></span>
                 </div>
 
                 <div style="background:#1e1e1e; padding:10px; border-radius:6px; margin-bottom:12px; border:1px solid #333;">
@@ -298,18 +241,17 @@
                 </div>
 
                 <div id="pdfImportSection" style="display:none; background:#181818; padding:10px; border-radius:6px; margin-bottom:12px; border:1px dashed #2196F3;">
-                    <h4 style="margin:0 0 8px 0; font-size:0.85rem; color:#2196F3;">Zeitplan importieren / Scrapen</h4>
-                    <p style="font-size:0.75rem; color:#aaa; margin:0 0 8px 0;">Wähle die Stardesign PDF-Datei aus (Mehrere Tage werden automatisch erkannt):</p>
+                    <h4 style="margin:0 0 8px 0; font-size:0.85rem; color:#2196F3;">Zeitplan importieren</h4>
+                    <p style="font-size:0.75rem; color:#aaa; margin:0 0 8px 0;">Wähle die Stardesign PDF-Datei aus:</p>
 
                     <div style="margin-bottom:8px;">
                         <input type="file" id="schedulePdfFile" accept=".pdf,.txt" style="font-size:0.75rem;">
                     </div>
 
-                    <textarea id="scheduleRawText" rows="4" placeholder="Oder kopierten Zeitplan-Text hier einfügen... (z.B. Tag 1 \n 09:00-09:20 freies Fahren Gruppe A)" style="width:100%; font-size:0.8rem; margin-bottom:6px;"></textarea>
+                    <textarea id="scheduleRawText" rows="4" placeholder="Oder kopierten Zeitplan-Text hier einfügen..." style="width:100%; font-size:0.8rem; margin-bottom:6px;"></textarea>
 
                     <div style="display:flex; gap:6px;">
-                        <button type="button" onclick="window.parseScheduleText()" style="flex:2; background:#4CAF50; color:#fff; border:none; padding:8px; border-radius:4px; font-size:0.8rem; font-weight:bold; cursor:pointer;">⚡ Text analysieren & übernehmen</button>
-                        <button type="button" onclick="window.fetchStardesignWeb()" style="flex:1; background:#FF9800; color:#fff; border:none; padding:8px; border-radius:4px; font-size:0.8rem; cursor:pointer;">🌐 Vorlagen laden</button>
+                        <button type="button" onclick="window.parseScheduleText()" style="flex:1; background:#4CAF50; color:#fff; border:none; padding:8px; border-radius:4px; font-size:0.8rem; font-weight:bold; cursor:pointer;">⚡ Text analysieren & übernehmen</button>
                     </div>
                 </div>
 
@@ -398,7 +340,7 @@
         if (countEl) countEl.textContent = currentItems.length;
 
         if (currentItems.length === 0) {
-            container.innerHTML = `<p style="font-size:0.8rem; color:#888; text-align:center; padding:15px;">Kein Zeitplan für ${scheduleState.activeDay} geladen. Lade ein PDF hoch oder füge eigene Turns hinzu.</p>`;
+            container.innerHTML = `<p style="font-size:0.8rem; color:#888; text-align:center; padding:15px;">Kein Zeitplan für ${scheduleState.activeDay} geladen. Bitte PDF importieren.</p>`;
             return;
         }
 
@@ -483,7 +425,7 @@
         }
     };
 
-    // Erweiterter Parser mit automatischer Tages-Erkennung & Strikter Whitelist
+    // INTELLIGENTER TEXT-PARSER MIT AUTOMATISCHER TAGES- & DUPLIKAT-ERKENNUNG
     window.parseScheduleText = function() {
         const raw = document.getElementById('scheduleRawText')?.value;
         if (!raw || raw.trim() === '') {
@@ -493,41 +435,63 @@
 
         const lines = raw.split('\n');
         const parsedDays = {};
+        
+        let dayCounter = 1;
         let currentDayKey = "Tag 1";
         parsedDays[currentDayKey] = [];
 
-        const dayRegex = /(?:^|\s)(TAG\s*\d+|DAY\s*\d+|MONTAG|DIENSTAG|MITTWOCH|DONNERSTAG|FREITAG|SAMSTAG|SONNTAG)(?:\s|$)/i;
+        const dayRegex = /(?:^|\s)(TAG\s*\d+|DAY\s*\d+|MONTAG|DIENSTAG|MITTWOCH|DONNERSTAG|FREITAG|SAMSTAG|SONNTAG|--- PAGE \d+ ---)(?:\s|$)/i;
         const timeRegex = /(\d{1,2}:\d{2})\s*(?:-|bis)?\s*(\d{1,2}:\d{2})?\s+(.+)/;
-        const seenTheoryTimes = new Set();
+        
+        let lastStartMins = -1;
+        const seenInDay = new Set(); // Verhindert doppelte Turns mit gleicher Startzeit + Gruppe am selben Tag
 
         lines.forEach(line => {
             const cleanLine = line.trim();
             if (!cleanLine) return;
 
-            // Prüfe auf Tages-Überschrift (z.B. TAG 1, TAG 2, FREITAG etc.)
+            // 1. Tagesüberschrift oder Seitenumbruch prüfen
             const dayMatch = cleanLine.match(dayRegex);
             if (dayMatch) {
-                let detectedDay = dayMatch[1].toUpperCase();
-                if (detectedDay.startsWith('DAY')) detectedDay = detectedDay.replace('DAY', 'Tag');
-                currentDayKey = detectedDay;
-                if (!parsedDays[currentDayKey]) parsedDays[currentDayKey] = [];
+                let detectedStr = dayMatch[1].toUpperCase();
+                if (detectedStr.includes('PAGE') || detectedStr.includes('TAG') || detectedStr.includes('DAY')) {
+                    dayCounter = Object.keys(parsedDays).length + (parsedDays[currentDayKey].length > 0 ? 1 : 0);
+                    currentDayKey = `Tag ${dayCounter}`;
+                } else {
+                    currentDayKey = detectedStr;
+                }
+                
+                if (!parsedDays[currentDayKey]) {
+                    parsedDays[currentDayKey] = [];
+                }
+                lastStartMins = -1;
+                return;
             }
 
-            // Prüfe auf Uhrzeiten
+            // 2. Uhrzeit und Betreff verarbeiten
             const match = cleanLine.match(timeRegex);
             if (match) {
                 const start = match[1].padStart(5, '0');
                 const end = match[2] ? match[2].padStart(5, '0') : minutesToTime(timeToMinutes(start) + 20);
                 const rawTitle = match[3].trim();
+                const startMins = timeToMinutes(start);
+
+                // AUTOMATISCHE TAGES-UMSCHALTUNG: Wenn die Zeit von z.B. 17:00 zurück auf 08:00 springt
+                if (lastStartMins > 0 && (lastStartMins - startMins) > 180) {
+                    dayCounter++;
+                    currentDayKey = `Tag ${dayCounter}`;
+                    if (!parsedDays[currentDayKey]) parsedDays[currentDayKey] = [];
+                    lastStartMins = -1;
+                }
 
                 const itemData = processLineTitle(rawTitle);
                 if (itemData) {
-                    // Theorie nur 1x pro Uhrzeit & Tag zulassen
-                    if (itemData.group === 'Anfänger' && itemData.title === 'Anfängerkurs Theorie') {
-                        const theoryKey = `${currentDayKey}-${start}`;
-                        if (seenTheoryTimes.has(theoryKey)) return;
-                        seenTheoryTimes.add(theoryKey);
+                    // DUPLIKAT-SPERRE: Gleicher Startzeitpunkt + gleiche Gruppe am selben Tag blocken
+                    const uniqKey = `${currentDayKey}_${start}_${itemData.group}`;
+                    if (seenInDay.has(uniqKey)) {
+                        return; // Doppelt ausgelesene PDF-Zeile ignorieren
                     }
+                    seenInDay.add(uniqKey);
 
                     parsedDays[currentDayKey].push({
                         start,
@@ -535,11 +499,13 @@
                         title: itemData.title,
                         group: itemData.group
                     });
+
+                    lastStartMins = startMins;
                 }
             }
         });
 
-        // Tage ohne Turns herausfiltern
+        // Tage ohne Turns aussortieren
         const validDayKeys = Object.keys(parsedDays).filter(k => parsedDays[k].length > 0);
 
         if (validDayKeys.length > 0) {
@@ -551,22 +517,11 @@
             saveScheduleState();
             renderSchedulePage();
             updateScheduleTimer();
-            alert(`Zeitplan erfolgreich importiert! Erfasste Tage: ${validDayKeys.join(', ')}`);
+            alert(`Zeitplan sauber importiert! Erfasste Tage: ${validDayKeys.join(', ')}`);
             window.togglePdfImportSection();
         } else {
-            alert('Keine passenden Einträge gefunden. Stelle sicher, dass Uhrzeiten und Betreffs wie "Fahrerbesprechung", "Anmeldung" oder "Gruppe A" enthalten sind.');
+            alert('Keine passenden deutschen Turns gefunden. Bitte überprüfe die Datei.');
         }
-    };
-
-    window.fetchStardesignWeb = function() {
-        if (typeof showNotice === 'function') showNotice('saveNotice', 'Stardesign Vorlagen geladen!');
-        scheduleState.days = {
-            'Tag 1': [...DEFAULT_SCHEDULE_DAY1],
-            'Tag 2': [...DEFAULT_SCHEDULE_DAY2]
-        };
-        scheduleState.activeDay = 'Tag 1';
-        saveScheduleState();
-        renderSchedulePage();
     };
 
     function loadPdfJsLib() {
@@ -605,7 +560,7 @@
                     const textContent = await page.getTextContent();
                     
                     let lastY = null;
-                    let pageText = '';
+                    let pageText = `\n--- PAGE ${i} ---\n`;
                     
                     textContent.items.forEach(item => {
                         if (lastY !== null && Math.abs(item.transform[5] - lastY) > 4) {
