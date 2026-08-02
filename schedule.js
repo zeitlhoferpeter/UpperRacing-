@@ -32,7 +32,8 @@
 
     function timeToMinutes(timeStr) {
         if (!timeStr) return 0;
-        const [h, m] = timeStr.split(':').map(Number);
+        const normalized = timeStr.replace('.', ':');
+        const [h, m] = normalized.split(':').map(Number);
         return h * 60 + (m || 0);
     }
 
@@ -42,25 +43,29 @@
         return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
     }
 
-    // STRIKTE DEUTSCHE FILTERUNG: Alles Englische fliegt raus
     function processLineTitle(rawTitle) {
         let title = rawTitle.trim();
         
-        // 1. Falls bilingual in einer Zeile (z.B. "Freies Fahren / Free Practice") -> nur Deutsch behalten
+        // 1. Falls bilingual in einer Zeile (z.B. "Freies Fahren / Free Practice") -> erst Relevantes filtern
         if (title.includes('/')) {
             const parts = title.split('/');
-            const dePart = parts.find(p => /anmeldung|fahrerbesprechung|anfängerkurs|theorie|praxis|gruppe|freies fahren|rennen|mittag/i.test(p));
+            const dePart = parts.find(p => /anmeldung|fahrerbesprechung|anfängerkurs|theorie|praxis|gruppe|freies fahren|rennen|mittag|pause|lunch/i.test(p));
             title = dePart ? dePart.trim() : parts[0].trim();
         }
 
         const t = title.toUpperCase();
 
-        // 2. Reine englische Zeilen rigoros verwerfen
+        // 2. PAUSEN & MITTAG (Priorisiert vor Englisch-Blockern, um "LUNCH BREAK" zu erwischen)
+        if (t.includes('MITTAG') || t.includes('PAUSE') || t.includes('LUNCH') || t.includes('ESSEN')) {
+            return { title: 'Mittagspause', group: 'Pause' };
+        }
+
+        // 3. Reine englische Zeilen rigoros verwerfen
         if (t.includes('FREE PRACTICE') || t.includes('QUALIFYING') || (t.includes('BRIEFING') && !t.includes('FAHRERBESPRECHUNG')) || t.includes('RACE OFFICE')) {
             return null;
         }
 
-        // 3. Positiv-Liste (Nur erlaubte deutsche Punkte)
+        // 4. Positiv-Liste
         if (t.includes('ANMELDUNG')) return { title: 'Anmeldung in der Box', group: 'Orga' };
         if (t.includes('FAHRERBESPRECHUNG')) return { title: title, group: 'Orga' };
 
@@ -71,15 +76,11 @@
             return { title: 'Anfängerkurs Praxis', group: 'Anfänger' };
         }
 
-        if (t.includes('MITTAG') || t.includes('PAUSE')) {
-            return { title: 'Mittagspause', group: 'Pause' };
-        }
-
         if (t.includes('RENNEN') || t.includes('CLASSIC') || t.includes('ROOKIE') || t.includes('SBK') || t.includes('SSP') || t.includes('B-RACE')) {
             return { title: title, group: 'Rennen' };
         }
 
-        // Reine DEUTSCHE Gruppen-Erkennung (GROUP A/B/C/D wird ignoriert)
+        // Reine DEUTSCHE Gruppen-Erkennung
         if (t.includes('GRUPPE A') || t.includes('GR. A')) return { title: 'Freies Fahren Gruppe A', group: 'A' };
         if (t.includes('GRUPPE B') || t.includes('GR. B')) return { title: 'Freies Fahren Gruppe B', group: 'B' };
         if (t.includes('GRUPPE C') || t.includes('GR. C')) return { title: 'Freies Fahren Gruppe C', group: 'C' };
@@ -425,7 +426,7 @@
         }
     };
 
-    // INTELLIGENTER TEXT-PARSER MIT AUTOMATISCHER TAGES- & DUPLIKAT-ERKENNUNG
+    // PARSER MIT ERWEITERTER PAUSEN- & ZEITERKENNUNG
     window.parseScheduleText = function() {
         const raw = document.getElementById('scheduleRawText')?.value;
         if (!raw || raw.trim() === '') {
@@ -441,10 +442,11 @@
         parsedDays[currentDayKey] = [];
 
         const dayRegex = /(?:^|\s)(TAG\s*\d+|DAY\s*\d+|MONTAG|DIENSTAG|MITTWOCH|DONNERSTAG|FREITAG|SAMSTAG|SONNTAG|--- PAGE \d+ ---)(?:\s|$)/i;
-        const timeRegex = /(\d{1,2}:\d{2})\s*(?:-|bis)?\s*(\d{1,2}:\d{2})?\s+(.+)/;
+        // Erlaubt sowohl Doppelpunkte (12:00) als auch Punkte (12.00)
+        const timeRegex = /(\d{1,2}[:.]\d{2})\s*(?:-|bis)?\s*(\d{1,2}[:.]\d{2})?\s+(.+)/;
         
         let lastStartMins = -1;
-        const seenInDay = new Set(); // Verhindert doppelte Turns mit gleicher Startzeit + Gruppe am selben Tag
+        let seenInDay = new Set(); 
 
         lines.forEach(line => {
             const cleanLine = line.trim();
@@ -465,31 +467,33 @@
                     parsedDays[currentDayKey] = [];
                 }
                 lastStartMins = -1;
+                seenInDay.clear(); // Reset Duplikat-Filter für den neuen Tag
                 return;
             }
 
             // 2. Uhrzeit und Betreff verarbeiten
             const match = cleanLine.match(timeRegex);
             if (match) {
-                const start = match[1].padStart(5, '0');
-                const end = match[2] ? match[2].padStart(5, '0') : minutesToTime(timeToMinutes(start) + 20);
+                const start = match[1].replace('.', ':').padStart(5, '0');
+                const end = match[2] ? match[2].replace('.', ':').padStart(5, '0') : minutesToTime(timeToMinutes(start) + 20);
                 const rawTitle = match[3].trim();
                 const startMins = timeToMinutes(start);
 
-                // AUTOMATISCHE TAGES-UMSCHALTUNG: Wenn die Zeit von z.B. 17:00 zurück auf 08:00 springt
+                // AUTOMATISCHE TAGES-UMSCHALTUNG: Wenn die Zeit plötzlich zurückspringt
                 if (lastStartMins > 0 && (lastStartMins - startMins) > 180) {
                     dayCounter++;
                     currentDayKey = `Tag ${dayCounter}`;
                     if (!parsedDays[currentDayKey]) parsedDays[currentDayKey] = [];
                     lastStartMins = -1;
+                    seenInDay.clear();
                 }
 
                 const itemData = processLineTitle(rawTitle);
                 if (itemData) {
-                    // DUPLIKAT-SPERRE: Gleicher Startzeitpunkt + gleiche Gruppe am selben Tag blocken
-                    const uniqKey = `${currentDayKey}_${start}_${itemData.group}`;
+                    // DUPLIKAT-SPERRE pro Tag
+                    const uniqKey = `${start}_${itemData.group}_${itemData.title}`;
                     if (seenInDay.has(uniqKey)) {
-                        return; // Doppelt ausgelesene PDF-Zeile ignorieren
+                        return;
                     }
                     seenInDay.add(uniqKey);
 
@@ -505,7 +509,6 @@
             }
         });
 
-        // Tage ohne Turns aussortieren
         const validDayKeys = Object.keys(parsedDays).filter(k => parsedDays[k].length > 0);
 
         if (validDayKeys.length > 0) {
@@ -517,10 +520,10 @@
             saveScheduleState();
             renderSchedulePage();
             updateScheduleTimer();
-            alert(`Zeitplan sauber importiert! Erfasste Tage: ${validDayKeys.join(', ')}`);
+            alert(`Zeitplan erfolgreich importiert! Erfasste Tage: ${validDayKeys.join(', ')}`);
             window.togglePdfImportSection();
         } else {
-            alert('Keine passenden deutschen Turns gefunden. Bitte überprüfe die Datei.');
+            alert('Keine passenden Turns oder Pausen gefunden. Bitte Datei prüfen.');
         }
     };
 
