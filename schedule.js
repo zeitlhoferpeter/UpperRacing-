@@ -3,7 +3,7 @@
 (function() {
     const DEFAULT_SCHEDULE_DAY1 = [
         { start: "07:30", end: "08:15", title: "Anmeldung in der Box", group: "Orga" },
-        { start: "08:15", end: "08:35", title: "Anfängerkurs Theorie", group: "Orga" },
+        { start: "08:15", end: "08:35", title: "Anfängerkurs Theorie", group: "Anfänger" },
         { start: "08:45", end: "08:50", title: "Fahrerbesprechung (Race Office)", group: "Orga" },
         { start: "08:50", end: "09:00", title: "Anfängerkurs Praxis (2 Besichtigungsrunden)", group: "Anfänger" },
         { start: "09:00", end: "09:15", title: "Freies Fahren Gruppe A", group: "A" },
@@ -55,7 +55,11 @@
         myGroup: localStorage.getItem('upper_schedule_mygroup') || 'A',
         alert10m: localStorage.getItem('upper_schedule_alert10m') !== 'false',
         alert5m: localStorage.getItem('upper_schedule_alert5m') !== 'false',
-        items: JSON.parse(localStorage.getItem('upper_schedule_items')) || DEFAULT_SCHEDULE_DAY1
+        activeDay: localStorage.getItem('upper_schedule_activeday') || 'Tag 1',
+        days: JSON.parse(localStorage.getItem('upper_schedule_days')) || {
+            'Tag 1': DEFAULT_SCHEDULE_DAY1,
+            'Tag 2': DEFAULT_SCHEDULE_DAY2
+        }
     };
 
     let timerInterval = null;
@@ -64,7 +68,17 @@
         localStorage.setItem('upper_schedule_mygroup', scheduleState.myGroup);
         localStorage.setItem('upper_schedule_alert10m', scheduleState.alert10m);
         localStorage.setItem('upper_schedule_alert5m', scheduleState.alert5m);
-        localStorage.setItem('upper_schedule_items', JSON.stringify(scheduleState.items));
+        localStorage.setItem('upper_schedule_activeday', scheduleState.activeDay);
+        localStorage.setItem('upper_schedule_days', JSON.stringify(scheduleState.days));
+    }
+
+    function getCurrentItems() {
+        if (!scheduleState.days[scheduleState.activeDay]) {
+            const firstDay = Object.keys(scheduleState.days)[0];
+            if (firstDay) scheduleState.activeDay = firstDay;
+            else return [];
+        }
+        return scheduleState.days[scheduleState.activeDay] || [];
     }
 
     function timeToMinutes(timeStr) {
@@ -79,30 +93,49 @@
         return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
     }
 
-    function parseGroupFromTitle(title) {
-        const t = title.toUpperCase();
+    // Präziser Filter: Gibt Objekt mit { title, group } zurück oder null wenn nicht gewünscht
+    function processLineTitle(rawTitle) {
+        let title = rawTitle.trim();
         
-        // Orga: Fahrerbesprechung, Anmeldung & Theorie
-        if (t.includes('FAHRERBESPRECHUNG') || t.includes('ANMELDUNG') || t.includes('THEORIE')) {
-            return 'Orga';
-        }
-        
-        // Anfängerkurs Praxis
-        if (t.includes('ANFÄNGERKURS PRAXIS') || t.includes('PRAXIS')) {
-            return 'Anfänger';
+        // Zweisprachige Trennung (z.B. "Fahrerbesprechung / Briefing")
+        if (title.includes('/')) {
+            const parts = title.split('/');
+            const dePart = parts.find(p => /anmeldung|fahrerbesprechung|anfängerkurs|theorie|praxis|gruppe|freies fahren|rennen|mittag/i.test(p));
+            title = dePart ? dePart.trim() : parts[0].trim();
         }
 
-        // Gruppen A, B, C, D
-        if (t.includes('GRUPPE A') || t.includes('GROUP A')) return 'A';
-        if (t.includes('GRUPPE B') || t.includes('GROUP B')) return 'B';
-        if (t.includes('GRUPPE C') || t.includes('GROUP C')) return 'C';
-        if (t.includes('GRUPPE D') || t.includes('GROUP D')) return 'D';
-        
-        // Pause & Rennen
-        if (t.includes('MITTAG') || t.includes('LUNCH')) return 'Pause';
-        if (t.includes('RACE') || t.includes('RENNEN')) return 'Rennen';
-        
-        return 'Orga';
+        const t = title.toUpperCase();
+
+        // 1. Orga: Anmeldung & Fahrerbesprechung
+        if (t.includes('ANMELDUNG')) return { title: 'Anmeldung in der Box', group: 'Orga' };
+        if (t.includes('FAHRERBESPRECHUNG')) return { title: title, group: 'Orga' };
+
+        // 2. Anfänger: Anfängerkurs Theorie & Praxis
+        if (t.includes('ANFÄNGERKURS THEORIE') || (t.includes('THEORIE') && !t.includes('PRAXIS'))) {
+            return { title: 'Anfängerkurs Theorie', group: 'Anfänger' };
+        }
+        if (t.includes('ANFÄNGERKURS PRAXIS') || t.includes('PRAXIS')) {
+            return { title: title, group: 'Anfänger' };
+        }
+
+        // 3. Pause
+        if (t.includes('MITTAG') || t.includes('LUNCH') || t.includes('PAUSE')) {
+            return { title: 'Mittagspause', group: 'Pause' };
+        }
+
+        // 4. Rennen
+        if (t.includes('RENNEN') || t.includes('RACE')) {
+            return { title: title, group: 'Rennen' };
+        }
+
+        // 5. Gruppen A, B, C, D Turns
+        if (t.includes('GRUPPE A') || t.includes('GROUP A')) return { title: title, group: 'A' };
+        if (t.includes('GRUPPE B') || t.includes('GROUP B')) return { title: title, group: 'B' };
+        if (t.includes('GRUPPE C') || t.includes('GROUP C')) return { title: title, group: 'C' };
+        if (t.includes('GRUPPE D') || t.includes('GROUP D')) return { title: title, group: 'D' };
+
+        // Alles andere (Qualifying, englische Briefings etc.) wird ignoriert
+        return null;
     }
 
     function updateScheduleTimer() {
@@ -114,7 +147,8 @@
         let nextMyTurn = null;
         let minsToNextMyTurn = Infinity;
 
-        const sorted = [...scheduleState.items].sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
+        const items = getCurrentItems();
+        const sorted = [...items].sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
 
         for (let i = 0; i < sorted.length; i++) {
             const item = sorted[i];
@@ -210,6 +244,22 @@
         const container = document.getElementById('pageSchedule');
         if (!container) return;
 
+        const dayKeys = Object.keys(scheduleState.days);
+        let dayButtonsHtml = '';
+
+        dayKeys.forEach(dayName => {
+            const isActive = dayName === scheduleState.activeDay;
+            dayButtonsHtml += `
+                <button type="button" onclick="window.switchScheduleDay('${dayName}')" 
+                    style="padding:6px 14px; border-radius:4px; font-weight:bold; font-size:0.8rem; cursor:pointer; 
+                    border:${isActive ? '2px solid #FFD700' : '1px solid #444'}; 
+                    background:${isActive ? '#FFD700' : '#222'}; 
+                    color:${isActive ? '#000' : '#fff'};">
+                    📅 ${dayName}
+                </button>
+            `;
+        });
+
         let html = `
             <div class="setup-box">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
@@ -241,23 +291,25 @@
                     </div>
                 </div>
 
-                <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;">
-                    <button type="button" onclick="window.togglePdfImportSection()" style="flex:1; background:#2196F3; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-size:0.75rem; cursor:pointer;">📄 PDF / Web-Import</button>
+                <!-- TAGES-UMSCHALTER -->
+                <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; align-items:center;">
+                    ${dayButtonsHtml}
+                    <button type="button" onclick="window.togglePdfImportSection()" style="margin-left:auto; background:#2196F3; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:0.75rem; cursor:pointer;">📄 PDF Importieren</button>
                 </div>
 
                 <div id="pdfImportSection" style="display:none; background:#181818; padding:10px; border-radius:6px; margin-bottom:12px; border:1px dashed #2196F3;">
                     <h4 style="margin:0 0 8px 0; font-size:0.85rem; color:#2196F3;">Zeitplan importieren / Scrapen</h4>
-                    <p style="font-size:0.75rem; color:#aaa; margin:0 0 8px 0;">Füge hier den Text aus dem Stardesign PDF ein oder wähle eine PDF-Datei:</p>
+                    <p style="font-size:0.75rem; color:#aaa; margin:0 0 8px 0;">Wähle die Stardesign PDF-Datei aus (Mehrere Tage werden automatisch erkannt):</p>
 
                     <div style="margin-bottom:8px;">
                         <input type="file" id="schedulePdfFile" accept=".pdf,.txt" style="font-size:0.75rem;">
                     </div>
 
-                    <textarea id="scheduleRawText" rows="4" placeholder="Oder kopierten Zeitplan-Text hier einfügen... (z.B. 09:00-09:20 freies Fahren Gruppe A)" style="width:100%; font-size:0.8rem; margin-bottom:6px;"></textarea>
+                    <textarea id="scheduleRawText" rows="4" placeholder="Oder kopierten Zeitplan-Text hier einfügen... (z.B. Tag 1 \n 09:00-09:20 freies Fahren Gruppe A)" style="width:100%; font-size:0.8rem; margin-bottom:6px;"></textarea>
 
                     <div style="display:flex; gap:6px;">
                         <button type="button" onclick="window.parseScheduleText()" style="flex:2; background:#4CAF50; color:#fff; border:none; padding:8px; border-radius:4px; font-size:0.8rem; font-weight:bold; cursor:pointer;">⚡ Text analysieren & übernehmen</button>
-                        <button type="button" onclick="window.fetchStardesignWeb()" style="flex:1; background:#FF9800; color:#fff; border:none; padding:8px; border-radius:4px; font-size:0.8rem; cursor:pointer;">🌐 Web-Scrape Sync</button>
+                        <button type="button" onclick="window.fetchStardesignWeb()" style="flex:1; background:#FF9800; color:#fff; border:none; padding:8px; border-radius:4px; font-size:0.8rem; cursor:pointer;">🌐 Vorlagen laden</button>
                     </div>
                 </div>
 
@@ -282,8 +334,8 @@
                 </div>
 
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                    <h4 style="margin:0; font-size:0.9rem;">Tagesplan (<span id="scheduleCount">0</span> Turns)</h4>
-                    <button type="button" onclick="window.clearSchedule()" style="background:none; border:none; color:#f44336; cursor:pointer; font-size:0.8rem;">Zeitplan leeren</button>
+                    <h4 style="margin:0; font-size:0.9rem;">Tagesplan (${scheduleState.activeDay}): <span id="scheduleCount">0</span> Turns</h4>
+                    <button type="button" onclick="window.clearSchedule()" style="background:none; border:none; color:#f44336; cursor:pointer; font-size:0.8rem;">Tag leeren</button>
                 </div>
 
                 <div id="scheduleItemsContainer" style="display:flex; flex-direction:column; gap:6px;"></div>
@@ -331,19 +383,26 @@
         }
     }
 
+    window.switchScheduleDay = function(dayName) {
+        scheduleState.activeDay = dayName;
+        saveScheduleState();
+        renderSchedulePage();
+    };
+
     function renderScheduleRows() {
         const container = document.getElementById('scheduleItemsContainer');
         const countEl = document.getElementById('scheduleCount');
         if (!container) return;
 
-        if (countEl) countEl.textContent = scheduleState.items.length;
+        const currentItems = getCurrentItems();
+        if (countEl) countEl.textContent = currentItems.length;
 
-        if (scheduleState.items.length === 0) {
-            container.innerHTML = `<p style="font-size:0.8rem; color:#888; text-align:center; padding:15px;">Kein Zeitplan geladen. Lade ein PDF hoch oder füge eigene Turns hinzu.</p>`;
+        if (currentItems.length === 0) {
+            container.innerHTML = `<p style="font-size:0.8rem; color:#888; text-align:center; padding:15px;">Kein Zeitplan für ${scheduleState.activeDay} geladen. Lade ein PDF hoch oder füge eigene Turns hinzu.</p>`;
             return;
         }
 
-        const sorted = [...scheduleState.items].sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
+        const sorted = [...currentItems].sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
         let html = '';
 
         sorted.forEach((item, index) => {
@@ -376,15 +435,6 @@
         container.innerHTML = html;
     }
 
-    window.loadSchedulePreset = function(type) {
-        if (type === 'day1') scheduleState.items = [...DEFAULT_SCHEDULE_DAY1];
-        else if (type === 'day2') scheduleState.items = [...DEFAULT_SCHEDULE_DAY2];
-        saveScheduleState();
-        renderScheduleRows();
-        updateScheduleTimer();
-        if (typeof showNotice === 'function') showNotice('saveNotice', 'Stardesign Vorlage geladen!');
-    };
-
     window.togglePdfImportSection = function() {
         const sec = document.getElementById('pdfImportSection');
         if (sec) sec.style.display = (sec.style.display === 'none') ? 'block' : 'none';
@@ -401,7 +451,11 @@
             return;
         }
 
-        scheduleState.items.push({ start, end: end || minutesToTime(timeToMinutes(start)+20), title, group });
+        if (!scheduleState.days[scheduleState.activeDay]) {
+            scheduleState.days[scheduleState.activeDay] = [];
+        }
+
+        scheduleState.days[scheduleState.activeDay].push({ start, end: end || minutesToTime(timeToMinutes(start)+20), title, group });
         saveScheduleState();
         renderScheduleRows();
         updateScheduleTimer();
@@ -412,22 +466,24 @@
     };
 
     window.deleteTurn = function(index) {
-        scheduleState.items.splice(index, 1);
-        saveScheduleState();
-        renderScheduleRows();
-        updateScheduleTimer();
-    };
-
-    window.clearSchedule = function() {
-        if (confirm('Zeitplan komplett leeren?')) {
-            scheduleState.items = [];
+        if (scheduleState.days[scheduleState.activeDay]) {
+            scheduleState.days[scheduleState.activeDay].splice(index, 1);
             saveScheduleState();
             renderScheduleRows();
             updateScheduleTimer();
         }
     };
 
-    // Text-Parser inkl. Filterung von Qualifying & Briefings
+    window.clearSchedule = function() {
+        if (confirm(`Zeitplan für ${scheduleState.activeDay} leeren?`)) {
+            scheduleState.days[scheduleState.activeDay] = [];
+            saveScheduleState();
+            renderScheduleRows();
+            updateScheduleTimer();
+        }
+    };
+
+    // Erweiterter Parser mit automatischer Tages-Erkennung & Strikter Whitelist
     window.parseScheduleText = function() {
         const raw = document.getElementById('scheduleRawText')?.value;
         if (!raw || raw.trim() === '') {
@@ -436,78 +492,81 @@
         }
 
         const lines = raw.split('\n');
-        const parsed = [];
-        const seenTheoryTimes = new Set();
+        const parsedDays = {};
+        let currentDayKey = "Tag 1";
+        parsedDays[currentDayKey] = [];
+
+        const dayRegex = /(?:^|\s)(TAG\s*\d+|DAY\s*\d+|MONTAG|DIENSTAG|MITTWOCH|DONNERSTAG|FREITAG|SAMSTAG|SONNTAG)(?:\s|$)/i;
         const timeRegex = /(\d{1,2}:\d{2})\s*(?:-|bis)?\s*(\d{1,2}:\d{2})?\s+(.+)/;
+        const seenTheoryTimes = new Set();
 
         lines.forEach(line => {
             const cleanLine = line.trim();
             if (!cleanLine) return;
 
+            // Prüfe auf Tages-Überschrift (z.B. TAG 1, TAG 2, FREITAG etc.)
+            const dayMatch = cleanLine.match(dayRegex);
+            if (dayMatch) {
+                let detectedDay = dayMatch[1].toUpperCase();
+                if (detectedDay.startsWith('DAY')) detectedDay = detectedDay.replace('DAY', 'Tag');
+                currentDayKey = detectedDay;
+                if (!parsedDays[currentDayKey]) parsedDays[currentDayKey] = [];
+            }
+
+            // Prüfe auf Uhrzeiten
             const match = cleanLine.match(timeRegex);
             if (match) {
                 const start = match[1].padStart(5, '0');
                 const end = match[2] ? match[2].padStart(5, '0') : minutesToTime(timeToMinutes(start) + 20);
-                let title = match[3].trim();
+                const rawTitle = match[3].trim();
 
-                // 1. Zweisprachige Zeilen auf Deutsch reduzieren (z.B. "Fahrerbesprechung / Briefing" -> "Fahrerbesprechung")
-                if (title.includes('/')) {
-                    const parts = title.split('/');
-                    const dePart = parts.find(p => /anfänger|fahrerbesprechung|anmeldung|gruppe|freies fahren|qualifying|rennen|theorie/i.test(p));
-                    title = dePart ? dePart.trim() : parts[0].trim();
+                const itemData = processLineTitle(rawTitle);
+                if (itemData) {
+                    // Theorie nur 1x pro Uhrzeit & Tag zulassen
+                    if (itemData.group === 'Anfänger' && itemData.title === 'Anfängerkurs Theorie') {
+                        const theoryKey = `${currentDayKey}-${start}`;
+                        if (seenTheoryTimes.has(theoryKey)) return;
+                        seenTheoryTimes.add(theoryKey);
+                    }
+
+                    parsedDays[currentDayKey].push({
+                        start,
+                        end,
+                        title: itemData.title,
+                        group: itemData.group
+                    });
                 }
-
-                const upperTitle = title.toUpperCase();
-
-                // 2. Filter: Qualifying & Briefings ignorieren
-                if (upperTitle.includes('QUALIFYING') || upperTitle.includes('QUALI')) {
-                    return; // Qualifying komplett aussortieren
-                }
-                if (upperTitle.includes('BRIEFING') && !upperTitle.includes('FAHRERBESPRECHUNG')) {
-                    return; // Nur englische Briefings aussortieren
-                }
-
-                // 3. Anfängerkurs Theorie nur 1x pro Startzeit zulassen
-                if (upperTitle.includes('THEORIE') || upperTitle.includes('THEORY')) {
-                    if (seenTheoryTimes.has(start)) return;
-                    seenTheoryTimes.add(start);
-                    title = "Anfängerkurs Theorie";
-                }
-
-                const group = parseGroupFromTitle(title);
-                parsed.push({ start, end, title, group });
             }
         });
 
-        // Doppelte Einträge zur exakt gleichen Startzeit säubern
-        const uniqueParsed = [];
-        const mapByTimeTitle = new Map();
+        // Tage ohne Turns herausfiltern
+        const validDayKeys = Object.keys(parsedDays).filter(k => parsedDays[k].length > 0);
 
-        parsed.forEach(item => {
-            const key = `${item.start}-${item.title}`;
-            if (!mapByTimeTitle.has(key)) {
-                mapByTimeTitle.set(key, item);
-                uniqueParsed.push(item);
-            }
-        });
+        if (validDayKeys.length > 0) {
+            const cleanDaysObj = {};
+            validDayKeys.forEach(k => cleanDaysObj[k] = parsedDays[k]);
 
-        if (uniqueParsed.length > 0) {
-            scheduleState.items = uniqueParsed;
+            scheduleState.days = cleanDaysObj;
+            scheduleState.activeDay = validDayKeys[0];
             saveScheduleState();
-            renderScheduleRows();
+            renderSchedulePage();
             updateScheduleTimer();
-            alert(`${uniqueParsed.length} Turns & Programmpunkte erfolgreich extrahiert!`);
+            alert(`Zeitplan erfolgreich importiert! Erfasste Tage: ${validDayKeys.join(', ')}`);
             window.togglePdfImportSection();
         } else {
-            alert('Keine gültigen Uhrzeiten im Format "09:00-09:20 Titel" gefunden.');
+            alert('Keine passenden Einträge gefunden. Stelle sicher, dass Uhrzeiten und Betreffs wie "Fahrerbesprechung", "Anmeldung" oder "Gruppe A" enthalten sind.');
         }
     };
 
     window.fetchStardesignWeb = function() {
-        if (typeof showNotice === 'function') showNotice('saveNotice', 'Synchronisiere Stardesign Web-Zeitplan...');
-        setTimeout(() => {
-            window.loadSchedulePreset('day1');
-        }, 600);
+        if (typeof showNotice === 'function') showNotice('saveNotice', 'Stardesign Vorlagen geladen!');
+        scheduleState.days = {
+            'Tag 1': [...DEFAULT_SCHEDULE_DAY1],
+            'Tag 2': [...DEFAULT_SCHEDULE_DAY2]
+        };
+        scheduleState.activeDay = 'Tag 1';
+        saveScheduleState();
+        renderSchedulePage();
     };
 
     function loadPdfJsLib() {
