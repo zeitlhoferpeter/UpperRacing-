@@ -728,4 +728,11 @@ function showNotice(elementId, text) {
     el.textContent = text;
     el.style.display = 'block';
     setTimeout(() => { el.style.display = 'none'; }, 2500);
-}
+function loadCupUrl() {
+    const urlInput = document.getElementById('cupUrlInput');
+    const savedUrl = localStorage.getItem('cupUrl') || DEFAULT_CUP_URL;
+    if (urlInput) {
+        urlInput.value = savedUrl;
+    }
+
+
