@@ -1,4 +1,4 @@
-// schedule.js - UpperRacing Zeitplan & Live-Turn-Timer Modul
+// schedule.js - UpperRacing Zeitplan & Live-Turn-Timer Modul[cite: 13]
 
 (function() {
     const DEFAULT_SCHEDULE_DAY1 = [
@@ -239,9 +239,7 @@
                 </div>
 
                 <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;">
-                    <button type="button" onclick="window.loadSchedulePreset('day1')" style="flex:1; background:#333; color:#fff; border:1px solid #555; padding:6px; border-radius:4px; font-size:0.75rem; cursor:pointer;">📋 Stardesign Tag 1 (Mo/Mi)</button>
-                    <button type="button" onclick="window.loadSchedulePreset('day2')" style="flex:1; background:#333; color:#fff; border:1px solid #555; padding:6px; border-radius:4px; font-size:0.75rem; cursor:pointer;">🏁 Stardesign Tag 2 (Di/Do)</button>
-                    <button type="button" onclick="window.togglePdfImportSection()" style="background:#2196F3; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-size:0.75rem; cursor:pointer;">📄 PDF / Web-Import</button>
+                    <button type="button" onclick="window.togglePdfImportSection()" style="flex:1; background:#2196F3; color:#fff; border:none; padding:6px 10px; border-radius:4px; font-size:0.75rem; cursor:pointer;">📄 PDF / Web-Import</button>
                 </div>
 
                 <div id="pdfImportSection" style="display:none; background:#181818; padding:10px; border-radius:6px; margin-bottom:12px; border:1px dashed #2196F3;">
@@ -337,7 +335,7 @@
         if (countEl) countEl.textContent = scheduleState.items.length;
 
         if (scheduleState.items.length === 0) {
-            container.innerHTML = `<p style="font-size:0.8rem; color:#888; text-align:center; padding:15px;">Kein Zeitplan geladen. Wähle oben eine Stardesign-Vorlage oder lade ein PDF hoch.</p>`;
+            container.innerHTML = `<p style="font-size:0.8rem; color:#888; text-align:center; padding:15px;">Kein Zeitplan geladen. Lade ein PDF hoch oder füge eigene Turns hinzu.</p>`;
             return;
         }
 
