@@ -1,7 +1,7 @@
-// schedule.js - UpperRacing Zeitplan & Smart Live-Turn-Timer Modul
+// schedule.js - UpperRacing Zeitplan & Live-Turn-Timer Modul
 
 (function() {
-    // 1. LocalStorage Initialisierung
+    // 1. Sicheres Laden des LocalStorage-Zustands
     let initialDays = { 'Montag': [] };
     try {
         const savedDays = localStorage.getItem('upper_schedule_days');
@@ -12,7 +12,7 @@
             }
         }
     } catch (e) {
-        console.warn('[Schedule] Fehler beim Lesen von upper_schedule_days:', e);
+        console.warn('[Schedule] Fehler beim Lesen von upper_schedule_days aus localStorage:', e);
     }
 
     let scheduleState = {
@@ -25,7 +25,7 @@
 
     let timerInterval = null;
 
-    // 2. Hilfsfunktionen
+    // 2. Hilfsfunktionen (Defensiv & Fehlertolerant)
     function saveScheduleState() {
         try {
             localStorage.setItem('upper_schedule_mygroup', scheduleState.myGroup);
@@ -84,27 +84,37 @@
 
         const t = title.toUpperCase();
 
+        // 1. Reine Info-Header & Vorab-Hinweise ignorieren
         if (t.startsWith('QUALIFYING:') || t.startsWith('LETZTES QUALIFYING:') || t.indexOf('ANMELDUNG ZU DEN RENNEN') !== -1 || t.indexOf('REGISTRATION FOR ALL') !== -1 || t.indexOf('ZEITNAHME ENDE') !== -1) {
             return null;
         }
 
+        // 2. Mittagspause / Lunch
         if (t.indexOf('MITTAG') !== -1 || t.indexOf('PAUSE') !== -1 || t.indexOf('LUNCH') !== -1 || t.indexOf('ESSEN') !== -1) {
             return { title: 'Mittagspause', group: 'Pause' };
         }
+
+        // 3. Fahrerbesprechung & Orga
         if (t.indexOf('FAHRERBESPRECHUNG') !== -1) {
             return { title: 'Fahrerbesprechung', group: 'Orga' };
         }
+
+        // 4. Anfängerkurs
         if (t.indexOf('ANFÄNGERKURS THEORIE') !== -1 || (t.indexOf('THEORIE') !== -1 && t.indexOf('PRAXIS') === -1)) {
             return { title: 'Anfängerkurs Theorie', group: 'Anfänger' };
         }
         if (t.indexOf('ANFÄNGERKURS PRAXIS') !== -1 || t.indexOf('PRAXIS') !== -1) {
             return { title: 'Anfängerkurs Praxis', group: 'Anfänger' };
         }
+
+        // 5. Siegerehrung
         if (t.indexOf('SIEGEREHRUNG') !== -1 || t.indexOf('PRICEGIVING') !== -1) {
             return { title: 'Siegerehrung', group: 'Orga' };
         }
+
+        // 6. Freies Fahren / Gruppen A-D
         if (t.indexOf('ALLE GRUPPEN') !== -1 || t.indexOf('A+B+C+D') !== -1) {
-            return { title: 'Freies Fahren (Alle)', group: 'A' };
+            return { title: 'Freies Fahren (Alle Gruppen)', group: 'A' };
         }
         if (t.indexOf('GRUPPE A') !== -1 || t.indexOf('GR. A') !== -1 || t.indexOf('SLOWER GROUP A') !== -1) {
             return { title: 'Freies Fahren Gruppe A', group: 'A' };
@@ -118,11 +128,13 @@
         if (t.indexOf('GRUPPE D') !== -1 || t.indexOf('GR. D') !== -1 || t.indexOf('VERY FAST GROUP D') !== -1) {
             return { title: 'Freies Fahren Gruppe D', group: 'D' };
         }
-        if (t.indexOf('CLASSIC') !== -1) return { title: 'Classic Race', group: 'Rennen' };
-        if (t.indexOf('ROOKIE') !== -1) return { title: 'Rookie Race', group: 'Rennen' };
-        if (t.indexOf('SBK') !== -1) return { title: 'SBK Race', group: 'Rennen' };
-        if (t.indexOf('SSP') !== -1) return { title: 'SSP Race', group: 'Rennen' };
-        if (t.indexOf('B-RACE') !== -1) return { title: 'B-Race', group: 'Rennen' };
+
+        // 7. Rennen
+        if (t.indexOf('CLASSIC') !== -1) return { title: 'Classic Race (7 Laps)', group: 'Rennen' };
+        if (t.indexOf('ROOKIE') !== -1) return { title: 'Sternchen Rookie Race', group: 'Rennen' };
+        if (t.indexOf('SBK') !== -1) return { title: 'SBK Race (6 Laps)', group: 'Rennen' };
+        if (t.indexOf('SSP') !== -1) return { title: 'SSP Race (6 Laps)', group: 'Rennen' };
+        if (t.indexOf('B-RACE') !== -1) return { title: 'B-Race (5 Laps)', group: 'Rennen' };
         if (t.indexOf('RENNEN') !== -1 || t.indexOf('RACE') !== -1) {
             let clean = title.split(';')[0].split(',')[0].trim();
             return { title: clean, group: 'Rennen' };
@@ -131,39 +143,40 @@
         return null;
     }
 
-    // 3. Smart Header Alerting & Live-Countdown Update
-    function updateHeaderWidget(activeTurn, nextTurn, minsToNextMyTurn) {
-        const badgeEl = document.getElementById('headerScheduleBadge');
-        const groupLabelEl = document.getElementById('currentGroupLabel');
-        const countdownEl = document.getElementById('currentTurnCountdown');
+    // 3. UI-Highlighting & Live-Timer
+    function updateHeaderWidget(activeTurn, nextMyTurn, minsToNextMyTurn) {
+        const widget = document.getElementById('headerScheduleWidget');
+        if (!widget) return;
 
-        if (!badgeEl || !groupLabelEl || !countdownEl) return;
-
-        const pad = function(n) { return String(n).padStart(2, '0'); };
+        let label = '';
+        let isGlowing10m = false;
+        let isBlinking5m = false;
 
         if (activeTurn) {
-            groupLabelEl.textContent = `TURN ${activeTurn.group}`;
-            countdownEl.textContent = `${pad(activeTurn.remainingMins)}:${pad(activeTurn.remainingSecs)}`;
-        } else if (nextTurn) {
-            groupLabelEl.textContent = `NÄCHSTER: ${nextTurn.group}`;
-            const remainingMins = Math.floor(nextTurn.diffMins);
-            const remainingSecs = 60 - (new Date().getSeconds());
-            countdownEl.textContent = `${pad(remainingMins)}:${pad(remainingSecs % 60)}`;
+            const pad = function(n) { return String(n).padStart(2, '0'); };
+            const remStr = activeTurn.remainingMins + ':' + pad(activeTurn.remainingSecs);
+            const isMine = (activeTurn.group === scheduleState.myGroup);
+            label = '<span class="turn-group-badge ' + (isMine ? 'my-group' : '') + '">Gr. ' + activeTurn.group + '</span> <span class="turn-time-rem">⏳ ' + remStr + '</span>';
+        } else if (nextMyTurn) {
+            label = '<span class="turn-next-badge">Nächstes: Gr. ' + nextMyTurn.group + ' in ' + nextMyTurn.diffMins + 'm</span>';
         } else {
-            groupLabelEl.textContent = 'TURN --';
-            countdownEl.textContent = '--:--';
+            label = '<span style="opacity:0.8;">⏱️ Kein Turn</span>';
         }
 
-        // Smart Alerting Zustände (Orange Glow / Rotes Blinken)
-        badgeEl.classList.remove('alert-warning', 'alert-danger');
-        document.body.classList.remove('screen-alert-red');
-
-        if (minsToNextMyTurn <= 5 && minsToNextMyTurn > 0) {
-            if (scheduleState.alert10m) badgeEl.classList.add('alert-danger');
-            if (scheduleState.alert5m) document.body.classList.add('screen-alert-red');
-        } else if (minsToNextMyTurn <= 10 && minsToNextMyTurn > 5) {
-            if (scheduleState.alert10m) badgeEl.classList.add('alert-warning');
+        if (nextMyTurn && minsToNextMyTurn <= 10 && minsToNextMyTurn > 5) {
+            if (scheduleState.alert10m) isGlowing10m = true;
+        } else if (nextMyTurn && minsToNextMyTurn <= 5 && minsToNextMyTurn > 0) {
+            if (scheduleState.alert10m) isGlowing10m = true;
+            if (scheduleState.alert5m) isBlinking5m = true;
         }
+
+        widget.innerHTML = label;
+
+        if (isGlowing10m) widget.classList.add('schedule-glow-10m');
+        else widget.classList.remove('schedule-glow-10m');
+
+        if (isBlinking5m) document.body.classList.add('screen-alert-red');
+        else document.body.classList.remove('screen-alert-red');
     }
 
     function updateScheduleViewHighlight(activeTurn, currentMins) {
@@ -192,7 +205,7 @@
         const currentSecs = now.getSeconds();
 
         let activeTurn = null;
-        let nextTurn = null;
+        let nextMyTurn = null;
         let minsToNextMyTurn = Infinity;
 
         const items = getCurrentItems();
@@ -215,25 +228,21 @@
                 activeTurn = Object.assign({}, item, { remainingMins: remainingMins, remainingSecs: remainingSecs, endM: endM });
             }
 
-            if (startM > currentMins && !nextTurn) {
-                const diffMins = startM - currentMins;
-                nextTurn = Object.assign({}, item, { startM: startM, diffMins: diffMins });
-            }
-
             const isMyTurn = (scheduleState.myGroup === 'ALL' || item.group === scheduleState.myGroup || (item.group === 'Rennen' && scheduleState.myGroup !== 'Pause'));
             if (isMyTurn && startM > currentMins) {
-                const diffM = startM - currentMins;
-                if (diffM < minsToNextMyTurn) {
-                    minsToNextMyTurn = diffM;
+                const diffMins = startM - currentMins;
+                if (diffMins < minsToNextMyTurn) {
+                    minsToNextMyTurn = diffMins;
+                    nextMyTurn = Object.assign({}, item, { startM: startM, diffMins: diffMins });
                 }
             }
         }
 
-        updateHeaderWidget(activeTurn, nextTurn, minsToNextMyTurn);
+        updateHeaderWidget(activeTurn, nextMyTurn, minsToNextMyTurn);
         updateScheduleViewHighlight(activeTurn, currentMins);
     }
 
-    // 4. Rendering & Event Binding
+    // 4. Rendering
     function renderScheduleRows() {
         const container = document.getElementById('scheduleItemsContainer');
         const countEl = document.getElementById('scheduleCount');
@@ -243,7 +252,7 @@
         if (countEl) countEl.textContent = String(currentItems.length);
 
         if (currentItems.length === 0) {
-            container.innerHTML = '<p style="font-size:0.8rem; color:#888; text-align:center; padding:15px;">Kein Zeitplan geladen. Bitte PDF oder Text importieren.</p>';
+            container.innerHTML = '<p style="font-size:0.8rem; color:#888; text-align:center; padding:15px;">Kein Zeitplan für ' + scheduleState.activeDay + ' geladen. Bitte PDF importieren.</p>';
             return;
         }
 
@@ -351,11 +360,11 @@
                 '<div style="display:flex; flex-direction:column; gap:6px; font-size:0.8rem; border-top:1px solid #333; padding-top:8px;">' +
                     '<label style="display:flex; align-items:center; gap:8px; cursor:pointer;">' +
                         '<input type="checkbox" id="alert10mToggle" ' + (scheduleState.alert10m ? 'checked' : '') + ' style="width:16px; height:16px; accent-color:#ff9800;">' +
-                        '<span>✨ <strong>10 Min. vor eigenem Turn:</strong> Badge im Header orangener Glow</span>' +
+                        '<span>✨ <strong>10 Min. vor eigenem Turn:</strong> Header-Anzeige leuchten lassen</span>' +
                     '</label>' +
                     '<label style="display:flex; align-items:center; gap:8px; cursor:pointer;">' +
                         '<input type="checkbox" id="alert5mToggle" ' + (scheduleState.alert5m ? 'checked' : '') + ' style="width:16px; height:16px; accent-color:#f44336;">' +
-                        '<span>🚨 <strong>5 Min. vor eigenem Turn:</strong> Badge & Bildschirmrand ROT blinken</span>' +
+                        '<span>🚨 <strong>5 Min. vor eigenem Turn:</strong> Bildschirmrand ROT blinken</span>' +
                     '</label>' +
                 '</div>' +
             '</div>' +
@@ -367,10 +376,14 @@
 
             '<div id="pdfImportSection" style="display:none; background:#181818; padding:10px; border-radius:6px; margin-bottom:12px; border:1px dashed #2196F3;">' +
                 '<h4 style="margin:0 0 8px 0; font-size:0.85rem; color:#2196F3;">Zeitplan importieren</h4>' +
+                '<p style="font-size:0.75rem; color:#aaa; margin:0 0 8px 0;">Wähle die Stardesign PDF-Datei aus:</p>' +
+
                 '<div style="margin-bottom:8px;">' +
                     '<input type="file" id="schedulePdfFile" accept=".pdf,.txt" style="font-size:0.75rem;">' +
                 '</div>' +
+
                 '<textarea id="scheduleRawText" rows="4" placeholder="Oder kopierten Zeitplan-Text hier einfügen..." style="width:100%; font-size:0.8rem; margin-bottom:6px;"></textarea>' +
+
                 '<div style="display:flex; gap:6px;">' +
                     '<button type="button" onclick="window.parseScheduleText()" style="flex:1; background:#4CAF50; color:#fff; border:none; padding:8px; border-radius:4px; font-size:0.8rem; font-weight:bold; cursor:pointer;">⚡ Text analysieren & übernehmen</button>' +
                 '</div>' +
@@ -410,17 +423,20 @@
         updateScheduleTimer();
     }
 
-    // 5. PDF-Parsing
+    // 5. PDF & Text Importer Funktionen
     function loadPdfJsLib() {
         return new Promise(function(resolve, reject) {
             if (window.pdfjsLib) return resolve(window.pdfjsLib);
+
             const script = document.createElement('script');
             script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
             script.onload = function() {
                 window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
                 resolve(window.pdfjsLib);
             };
-            script.onerror = function() { reject(new Error('PDF.js Ladefehler')); };
+            script.onerror = function() {
+                reject(new Error('PDF.js Bibliothek konnte nicht geladen werden.'));
+            };
             document.head.appendChild(script);
         });
     }
@@ -432,7 +448,9 @@
         const textEl = document.getElementById('scheduleRawText');
 
         if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-            if (typeof showNotice === 'function') showNotice('saveNotice', 'PDF wird verarbeitet...');
+            if (typeof showNotice === 'function') {
+                showNotice('saveNotice', 'Lese PDF-Datei aus...');
+            }
 
             loadPdfJsLib().then(function(pdfjsLib) {
                 return file.arrayBuffer().then(function(arrayBuffer) {
@@ -459,11 +477,14 @@
                             });
 
                             linesMap.sort(function(a, b) { return b.y - a.y; });
+
                             let pageText = '\n--- PAGE ' + i + ' ---\n';
                             linesMap.forEach(function(line) {
                                 line.items.sort(function(a, b) { return a.x - b.x; });
                                 const lineStr = line.items.map(function(it) { return it.text; }).join(' ').trim();
-                                if (lineStr) pageText += lineStr + '\n';
+                                if (lineStr) {
+                                    pageText += lineStr + '\n';
+                                }
                             });
                             return pageText;
                         });
@@ -492,7 +513,7 @@
         }
     }
 
-    // 6. Globale Handlungen
+    // 6. Global freigegebene Fenster-Methoden
     window.switchScheduleDay = function(dayName) {
         scheduleState.activeDay = dayName;
         saveScheduleState();
@@ -501,7 +522,9 @@
 
     window.togglePdfImportSection = function() {
         const sec = document.getElementById('pdfImportSection');
-        if (sec) sec.style.display = (sec.style.display === 'none' || !sec.style.display) ? 'block' : 'none';
+        if (sec) {
+            sec.style.display = (sec.style.display === 'none' || !sec.style.display) ? 'block' : 'none';
+        }
     };
 
     window.addCustomTurn = function() {
@@ -549,7 +572,7 @@
     };
 
     window.clearSchedule = function() {
-        if (confirm("Möchtest du den Zeitplan für ALLE Tage leeren?")) {
+        if (confirm("Möchtest du den Zeitplan für ALLE Tage komplett leeren?")) {
             scheduleState.days = { 'Montag': [] };
             scheduleState.activeDay = 'Montag';
             saveScheduleState();
@@ -578,7 +601,7 @@
         const singleTimeRegex = /^(\d{1,2}[:.]\d{2})\s+(.+)/i;
         const nextTimeRegex = /^(next\s*Race|next\s*-\s*(\d{1,2}[:.]\d{2})|next)\s+(.+)/i;
 
-        let lastEndMins = 540;
+        let lastEndMins = 540; // 09:00 Uhr
         let seenInDay = new Set(); 
 
         lines.forEach(function(line) {
@@ -599,13 +622,16 @@
                 else dayName = 'Tag ' + (dayCounter++);
 
                 currentDayKey = dayName;
-                if (!parsedDays[currentDayKey]) parsedDays[currentDayKey] = [];
+                if (!parsedDays[currentDayKey]) {
+                    parsedDays[currentDayKey] = [];
+                }
                 lastEndMins = 540;
                 seenInDay.clear();
                 return;
             }
 
             let start = '', end = '', rawTitle = '';
+
             const rangeMatch = cleanLine.match(rangeTimeRegex);
             const singleMatch = cleanLine.match(singleTimeRegex);
             const nextMatch = cleanLine.match(nextTimeRegex);
@@ -619,7 +645,9 @@
                 rawTitle = singleMatch[2].trim();
             } else if (nextMatch) {
                 start = minutesToTime(lastEndMins);
-                if (nextMatch[2]) end = nextMatch[2].replace('.', ':').padStart(5, '0');
+                if (nextMatch[2]) {
+                    end = nextMatch[2].replace('.', ':').padStart(5, '0');
+                }
                 rawTitle = nextMatch[3].trim();
             } else {
                 return;
@@ -659,10 +687,10 @@
             saveScheduleState();
             renderSchedulePage();
             updateScheduleTimer();
-            alert('Zeitplan erfolgreich importiert!');
+            alert('Zeitplan erfolgreich importiert! Erfasste Tage: ' + validDayKeys.join(', '));
             window.togglePdfImportSection();
         } else {
-            alert('Keine passenden Turns gefunden.');
+            alert('Keine passenden Turns oder Pausen gefunden. Bitte Datei prüfen.');
         }
     };
 
@@ -674,6 +702,7 @@
         updateScheduleTimer();
     };
 
+    // 7. Auto-Init beim Laden der Seite
     if (document.readyState === 'complete' || document.readyState === 'interactive') {
         setTimeout(window.initScheduleModule, 100);
     } else {
