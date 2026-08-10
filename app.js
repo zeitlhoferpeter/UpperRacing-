@@ -8,7 +8,7 @@ const tracksData = {
     grobnik: { name: "Automotodrom Grobnik / Rijeka", curves: 18 }
 };
 
-const DEFAULT_CUP_URL = "https://www.stardesignracing.com/wp-content/uploads/2026/07/Cup-2026.pdf";
+const DEFAULT_CUP_URL = "https://www.stardesignracing.com/wp-content/uploads/2026/08/Cup-2026.pdf";
 
 function initApp() {
     try {
