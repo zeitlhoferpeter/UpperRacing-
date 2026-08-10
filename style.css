@@ -19,13 +19,13 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+    box-shadow: 0 0 20px rgba(0,0,0,0.7);
 }
 
 .app-header {
     background-color: #1f1f1f;
     padding: 12px 15px;
-    border-bottom: 1px solid #333333;
+    border-bottom: 1px solid #333;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -34,13 +34,14 @@ body {
 .app-header h1 {
     margin: 0;
     font-size: 1.1rem;
-    color: #4caf50;
+    color: #4CAF50;
 }
 
+/* Gekürzte, kompaktere Select-Menüs im Header */
 .track-selector-wrapper select {
     background: #2a2a2a;
-    color: #ffffff;
-    border: 1px solid #444444;
+    color: #fff;
+    border: 1px solid #444;
     padding: 4px 6px;
     border-radius: 6px;
     font-size: 0.8rem;
@@ -50,14 +51,15 @@ body {
     overflow: hidden;
 }
 
+/* Header Schedule Widget */
 .header-schedule-widget {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    background: #222222;
+    background: #222;
     padding: 4px 8px;
     border-radius: 14px;
-    border: 1px solid #444444;
+    border: 1px solid #444;
     cursor: pointer;
     font-size: 0.75rem;
     transition: all 0.3s ease;
@@ -65,8 +67,8 @@ body {
 }
 
 .turn-group-badge {
-    background: #555555;
-    color: #ffffff;
+    background: #555;
+    color: #fff;
     padding: 2px 5px;
     border-radius: 3px;
     font-weight: bold;
@@ -74,37 +76,39 @@ body {
 }
 
 .turn-group-badge.my-group {
-    background: #ffd700;
-    color: #000000;
+    background: #FFD700;
+    color: #000;
 }
 
 .turn-time-rem {
     font-weight: bold;
-    color: #4caf50;
+    color: #4CAF50;
 }
 
+/* 10 MINUTEN ALARM: Gelb/Orange glühender Header-Badge */
 @keyframes schedule-pulse-glow {
     0% { transform: scale(1); box-shadow: 0 0 4px #ff9800; border-color: #ff9800; }
-    100% { transform: scale(1.05); box-shadow: 0 0 16px #ff9800; border-color: #ffd700; background: #3a2500; }
+    100% { transform: scale(1.05); box-shadow: 0 0 16px #ff9800; border-color: #FFD700; background: #3a2500; }
 }
 
 .schedule-glow-10m {
-    animation: schedule-pulse-glow 0.8s infinite alternate;
+    animation: schedule-pulse-glow 0.8s infinite alternate !important;
 }
 
+/* 5 MINUTEN ALARM: Pulsierender ROTER Bildschirmrand */
 @keyframes red-screen-border-blink {
-    0%, 100% { box-shadow: inset 0 0 0 0 transparent; }
+    0%, 100% { box-shadow: inset 0 0 0 0px transparent; }
     50% { box-shadow: inset 0 0 25px 8px rgba(244, 67, 54, 0.95); }
 }
 
 body.screen-alert-red {
-    animation: red-screen-border-blink 1s infinite;
+    animation: red-screen-border-blink 1s infinite !important;
 }
 
 .nav-tabs {
     display: flex;
-    background-color: #222222;
-    border-bottom: 1px solid #333333;
+    background-color: #222;
+    border-bottom: 1px solid #333;
     overflow-x: auto;
 }
 
@@ -113,7 +117,7 @@ body.screen-alert-red {
     min-width: 55px;
     background: none;
     border: none;
-    color: #aaaaaa;
+    color: #aaa;
     padding: 12px 2px;
     font-size: 0.72rem;
     cursor: pointer;
@@ -124,8 +128,8 @@ body.screen-alert-red {
 }
 
 .tab-btn.active {
-    color: #4caf50;
-    border-bottom-color: #4caf50;
+    color: #4CAF50;
+    border-bottom-color: #4CAF50;
     background-color: #1a1a1a;
     font-weight: bold;
 }
@@ -138,7 +142,7 @@ main {
 
 .setup-box {
     background-color: #242424;
-    border: 1px solid #333333;
+    border: 1px solid #333;
     border-radius: 8px;
     padding: 12px;
     margin-bottom: 15px;
@@ -148,7 +152,7 @@ main {
     margin-top: 0;
     margin-bottom: 10px;
     font-size: 0.95rem;
-    color: #ffffff;
+    color: #fff;
 }
 
 .grid-2 {
@@ -160,7 +164,7 @@ main {
 label {
     display: block;
     font-size: 0.75rem;
-    color: #aaaaaa;
+    color: #aaa;
     margin-bottom: 3px;
 }
 
@@ -169,14 +173,14 @@ input[type="text"], input[type="number"], textarea, select {
     padding: 8px;
     background-color: #141414;
     border: 1px solid #3d3d3d;
-    color: #ffffff;
+    color: #fff;
     border-radius: 4px;
     font-size: 0.85rem;
 }
 
 input:focus, textarea:focus, select:focus {
     outline: none;
-    border-color: #4caf50;
+    border-color: #4CAF50;
 }
 
 textarea {
@@ -184,8 +188,8 @@ textarea {
 }
 
 .btn-status {
-    background: #333333;
-    border: 1px solid #444444;
+    background: #333;
+    border: 1px solid #444;
     border-radius: 4px;
     padding: 4px 6px;
     cursor: pointer;
@@ -208,31 +212,32 @@ textarea {
 .btn-status.active-green {
     background: #e8f5e9;
     opacity: 1;
-    border-color: #4caf50;
+    border-color: #4CAF50;
 }
 
 .pack-item-done {
     text-decoration: line-through;
-    color: #777777;
+    color: #777;
 }
 
+/* Zeitplan Reichen-Styling */
 .schedule-row {
     display: flex;
     align-items: center;
     background: #1a1a1a;
     padding: 8px;
     border-radius: 6px;
-    border: 1px solid #333333;
+    border: 1px solid #333;
     transition: all 0.2s;
 }
 
 .schedule-row.row-my-group {
-    border-left: 4px solid #ffd700;
+    border-left: 4px solid #FFD700;
     background: #252212;
 }
 
 .schedule-row.row-active {
-    border-color: #4caf50;
+    border-color: #4CAF50;
     background: #102e12;
     box-shadow: 0 0 10px rgba(76, 175, 80, 0.4);
 }
