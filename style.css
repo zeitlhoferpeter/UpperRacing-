@@ -241,3 +241,55 @@ textarea {
     background: #102e12;
     box-shadow: 0 0 10px rgba(76, 175, 80, 0.4);
 }
+
+/* ===== UpperRacing Zeitplan – neue kompakte Anzeige ===== */
+.header-schedule-widget { max-width: 235px; min-height: 28px; overflow: hidden; }
+.header-schedule-widget .turn-title-short { max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .78; }
+.header-schedule-widget .schedule-status-dot { font-size: .55rem; color: #4CAF50; }
+.header-schedule-widget.schedule-header-next .schedule-status-dot { color: #FFD700; }
+.header-schedule-widget.schedule-header-other .schedule-status-dot { color: #888; }
+.header-schedule-widget.schedule-header-active { border-color: #4CAF50; }
+.header-schedule-widget.schedule-header-next { border-color: #FFD700; }
+
+.schedule-headline { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:10px; }
+.schedule-headline h3 { margin:0; font-size:1.1rem; color:#FFD700; }
+.schedule-current-day { font-size:.7rem; color:#aaa; }
+.schedule-settings { background:#1e1e1e; padding:10px; border-radius:6px; margin-bottom:12px; border:1px solid #333; }
+.schedule-setting-line { display:flex; gap:10px; align-items:center; margin-bottom:8px; }
+.schedule-setting-line label { color:#fff; font-size:.85rem; font-weight:bold; margin:0; }
+.schedule-setting-line select { width:auto; padding:4px 10px; font-weight:bold; background:#333; color:#FFD700; border-color:#FFD700; }
+.schedule-check { display:flex; align-items:center; gap:8px; cursor:pointer; font-size:.8rem; margin-top:6px; }
+.schedule-check input { width:16px; height:16px; }
+.schedule-days { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+.schedule-day-btn { padding:6px 12px; border-radius:4px; font-weight:bold; font-size:.75rem; cursor:pointer; border:1px solid #444; background:#222; color:#fff; }
+.schedule-day-btn.active { border:2px solid #FFD700; background:#FFD700; color:#000; }
+.schedule-import-btn { margin-left:auto; background:#2196F3; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:.75rem; cursor:pointer; }
+.schedule-import-section { background:#181818; padding:10px; border-radius:6px; margin-bottom:12px; border:1px dashed #2196F3; }
+.schedule-import-section h4 { margin:0 0 6px; font-size:.85rem; color:#2196F3; }
+.schedule-import-section p { font-size:.75rem; color:#aaa; margin:0 0 8px; }
+.schedule-import-section input[type=file] { font-size:.75rem; margin-bottom:8px; }
+.schedule-import-section textarea { width:100%; font-size:.8rem; margin-bottom:6px; }
+.schedule-analyse-btn { width:100%; background:#4CAF50; color:#fff; border:none; padding:8px; border-radius:4px; font-size:.8rem; font-weight:bold; cursor:pointer; }
+.schedule-add-row { display:flex; gap:6px; align-items:center; flex-wrap:wrap; background:#222; padding:8px; border-radius:6px; margin-bottom:12px; }
+.schedule-add-row input { width:65px; }
+.schedule-add-row input:nth-of-type(3) { flex:1; min-width:120px; }
+.schedule-add-row select { width:90px; }
+.schedule-add-row button { background:#4CAF50; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer; }
+.schedule-list-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+.schedule-list-head h4 { margin:0; font-size:.9rem; }
+.schedule-list-head button { background:none; border:none; color:#f44336; cursor:pointer; font-size:.8rem; }
+.schedule-time { font-weight:bold; width:85px; font-size:.82rem; color:#fff; flex-shrink:0; }
+.schedule-title { flex:1; font-size:.82rem; padding:0 6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.schedule-group { color:#fff; font-size:.68rem; font-weight:bold; padding:2px 6px; border-radius:3px; margin-right:6px; }
+.schedule-group.group-a { background:#4CAF50; }
+.schedule-group.group-b { background:#2196F3; }
+.schedule-group.group-c { background:#FF9800; }
+.schedule-group.group-d { background:#E91E63; }
+.schedule-group.group-other { background:#607D8B; }
+.schedule-delete { background:none; border:none; color:#f44336; cursor:pointer; font-size:.85rem; }
+@media (max-width: 420px) {
+    .header-schedule-widget { max-width: 190px; }
+    .header-schedule-widget .turn-title-short { display:none; }
+    .schedule-time { width:78px; }
+    .schedule-add-row input:nth-of-type(3) { min-width:100px; }
+}
