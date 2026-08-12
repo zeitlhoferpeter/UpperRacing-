@@ -153,10 +153,9 @@
             const raceBriefing = /RENNTEILNEHMER|RACE/i.test(title);
             return { title: raceBriefing ? 'Fahrerbesprechung – Rennteilnehmer' : 'Fahrerbesprechung', group: 'Briefing', type: 'orga' };
         }
-        // Englische Briefing-Zeile nur übernehmen, wenn keine deutsche Bezeichnung enthalten ist.
-        if (/\bBRIEFING\b/i.test(title)) {
-            return { title: /RACE/i.test(title) ? 'Fahrerbesprechung – Rennteilnehmer' : 'Fahrerbesprechung', group: 'Briefing', type: 'orga' };
-        }
+        // Englische Briefing-Zeilen sind nur die Übersetzung der deutschen
+        // Fahrerbesprechung direkt davor und werden nicht zusätzlich importiert.
+        if (/BRIEFING/i.test(title)) return null;
         if (upper.indexOf('ANMELDUNG') !== -1) {
             return { title: 'Anmeldung', group: 'Anmeldung', type: 'orga' };
         }
@@ -571,88 +570,110 @@
     // Rennfolgen ohne fixe Uhrzeit übernommen.
     function parseDayLines(lines) {
         const items = [];
-        let lastKnownTime = '';
         let raceSequence = 0;
 
-        const rangeTimeRegex = /^(\d{1,2}[:.]\d{2})\s*(?:-|–|—|bis)\s*(\d{1,2}[:.]\d{2})\s*(.*)$/i;
-        const singleTimeRegex = /^(\d{1,2}[:.]\d{2})\s+(.+)$/i;
+        const rangeTimeRegex = /^(?:(?:ab|ca\.?|circa)\s+)?(\d{1,2}[:.]\d{2})\s*(?:-|–|—|bis)\s*(\d{1,2}[:.]\d{2})\s*(.*)$/i;
+        const singleTimeRegex = /^(?:(?:ab|ca\.?|circa)\s+)?(\d{1,2}[:.]\d{2})\s+(.+)$/i;
         const nextRaceRegex = /^next\s*(?:race)?\s*(.*)$/i;
+        const nextTimedRegex = /^next\s*-\s*(\d{1,2}[:.]\d{2})\s+(.+)$/i;
 
+        const rows = [];
         (lines || []).forEach(function(line) {
             const cleanLine = String(line || '').trim();
-            if (!cleanLine) return;
-            if (/^---\s*PAGE/i.test(cleanLine)) return;
+            if (!cleanLine || /^---\s*PAGE/i.test(cleanLine)) return;
 
-            let start = '';
-            let end = '';
-            let rawTitle = '';
-            let isFollowingRace = false;
-            const rangeMatch = cleanLine.match(rangeTimeRegex);
-            const singleMatch = cleanLine.match(singleTimeRegex);
-            const nextRaceMatch = cleanLine.match(nextRaceRegex);
-
-            if (rangeMatch) {
-                start = normalizeTime(rangeMatch[1]);
-                end = normalizeTime(rangeMatch[2]);
-                rawTitle = rangeMatch[3].trim();
-                lastKnownTime = start;
-            } else if (singleMatch) {
-                start = normalizeTime(singleMatch[1]);
-                rawTitle = singleMatch[2].trim();
-                lastKnownTime = start;
-            } else if (nextRaceMatch && lastKnownTime) {
-                // Stardesign verwendet bei Folgerennen oft nur "next Race".
-                // Diese Rennen bekommen bewusst KEINE erfundene Uhrzeit, sondern
-                // werden an die letzte bekannte Rennstartzeit angehängt und als
-                // "Danach" gekennzeichnet.
-                start = lastKnownTime;
-                rawTitle = nextRaceMatch[1].trim();
-                isFollowingRace = true;
-            } else {
+            let m = cleanLine.match(rangeTimeRegex);
+            if (m) {
+                rows.push({ kind:'timed', start:normalizeTime(m[1]), end:normalizeTime(m[2]), rawTitle:m[3].trim() });
                 return;
             }
 
-            if (!start) return;
-            const itemData = processLineTitle(rawTitle);
+            m = cleanLine.match(nextTimedRegex);
+            if (m) {
+                rows.push({ kind:'timed', start:normalizeTime(m[1]), end:'', rawTitle:m[2].trim() });
+                return;
+            }
+
+            m = cleanLine.match(singleTimeRegex);
+            if (m) {
+                rows.push({ kind:'timed', start:normalizeTime(m[1]), end:'', rawTitle:m[2].trim() });
+                return;
+            }
+
+            m = cleanLine.match(nextRaceRegex);
+            if (m) {
+                rows.push({ kind:'nextRace', rawTitle:m[1].trim() });
+                return;
+            }
+
+            if (/REGROUPING|NEUE AUSFAHRTSGENEHMIGUNG|NEW TICKET/i.test(cleanLine)) {
+                rows.push({ kind:'untimedOrga', rawTitle:cleanLine });
+            }
+        });
+
+        function nextTimedStart(index) {
+            for (let j = index + 1; j < rows.length; j++) {
+                if (rows[j].kind === 'timed' && rows[j].start) return rows[j].start;
+            }
+            return '';
+        }
+
+        let lastTimedStart = '';
+        let lastRaceStart = '';
+
+        rows.forEach(function(row, index) {
+            if (row.kind === 'untimedOrga') {
+                if (!lastTimedStart) return;
+                const itemData = processLineTitle(row.rawTitle);
+                if (!itemData) return;
+                items.push({ start:lastTimedStart, end:'', title:itemData.title, group:itemData.group, type:itemData.type });
+                return;
+            }
+
+            if (row.kind === 'nextRace') {
+                if (!lastRaceStart) return;
+                const itemData = processLineTitle(row.rawTitle);
+                if (!itemData || itemData.type !== 'race') return;
+                raceSequence += 1;
+                items.push({
+                    start:lastRaceStart, end:'', title:'Danach: ' + itemData.title,
+                    group:itemData.group, type:'race', sequence:raceSequence
+                });
+                return;
+            }
+
+            if (row.kind !== 'timed' || !row.start) return;
+            lastTimedStart = row.start;
+
+            const itemData = processLineTitle(row.rawTitle);
             if (!itemData) return;
 
-            // Turns A-D und gemeinsames Fahren brauchen weiterhin einen echten Zeitbereich.
-            const isTurn = itemData.type === 'turn';
-            if (isTurn) {
-                if (!end || timeToMinutes(end) <= timeToMinutes(start)) return;
-                items.push({
-                    start: start,
-                    end: end,
-                    title: itemData.title,
-                    group: itemData.group,
-                    type: itemData.type
-                });
+            let end = row.end || '';
+
+            // A-D-Erkennung bleibt unverändert. Fehlt im PDF nur die Endzeit,
+            // wird für den Turn die nächste gedruckte Uhrzeit als Ende verwendet.
+            if (itemData.type === 'turn' && !end) {
+                const inferredEnd = nextTimedStart(index);
+                if (inferredEnd && timeToMinutes(inferredEnd) > timeToMinutes(row.start)) end = inferredEnd;
+            }
+
+            if (itemData.type === 'turn') {
+                if (!end || timeToMinutes(end) <= timeToMinutes(row.start)) return;
+                items.push({ start:row.start, end:end, title:itemData.title, group:itemData.group, type:'turn' });
                 return;
             }
 
-            // Orga-Punkte dürfen auch nur eine Startzeit haben.
             if (itemData.type === 'orga') {
-                items.push({
-                    start: start,
-                    end: end || '',
-                    title: itemData.title,
-                    group: itemData.group,
-                    type: itemData.type
-                });
+                items.push({ start:row.start, end:end, title:itemData.title, group:itemData.group, type:'orga' });
                 return;
             }
 
-            // Rennen: fixe Startzeit anzeigen; Folgerennen als "Danach" ohne erfundene Uhrzeit.
             if (itemData.type === 'race') {
-                if (isFollowingRace) raceSequence += 1;
-                else raceSequence = 0;
+                lastRaceStart = row.start;
+                raceSequence = 0;
                 items.push({
-                    start: start,
-                    end: end || '',
-                    title: isFollowingRace ? 'Danach: ' + itemData.title : itemData.title,
-                    group: itemData.group,
-                    type: itemData.type,
-                    sequence: isFollowingRace ? raceSequence : 0
+                    start:row.start, end:end, title:itemData.title,
+                    group:itemData.group, type:'race', sequence:0
                 });
             }
         });
