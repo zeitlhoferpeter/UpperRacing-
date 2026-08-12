@@ -32,17 +32,53 @@
         myGroup: localStorage.getItem('upper_schedule_mygroup') || 'A',
         alert10m: localStorage.getItem('upper_schedule_alert10m') !== 'false',
         alert5m: localStorage.getItem('upper_schedule_alert5m') !== 'false',
+        keepAwake: localStorage.getItem('upper_schedule_keepawake') === 'true',
         activeDay: savedActiveDay,
         days: initialDays
     };
 
     let timerInterval = null;
+    let wakeLockSentinel = null;
+
+    function wakeLockSupported() {
+        return typeof navigator !== 'undefined' && 'wakeLock' in navigator;
+    }
+
+    async function requestScheduleWakeLock() {
+        if (!scheduleState.keepAwake || !wakeLockSupported() || document.visibilityState !== 'visible') return;
+        try {
+            if (wakeLockSentinel) return;
+            wakeLockSentinel = await navigator.wakeLock.request('screen');
+            wakeLockSentinel.addEventListener('release', function() {
+                wakeLockSentinel = null;
+            });
+        } catch (err) {
+            console.warn('[Schedule] Display-Wachhalten nicht möglich:', err);
+            wakeLockSentinel = null;
+        }
+    }
+
+    async function releaseScheduleWakeLock() {
+        if (!wakeLockSentinel) return;
+        try {
+            await wakeLockSentinel.release();
+        } catch (err) {
+            console.warn('[Schedule] Wake Lock konnte nicht freigegeben werden:', err);
+        }
+        wakeLockSentinel = null;
+    }
+
+    function applyWakeLockPreference() {
+        if (scheduleState.keepAwake) requestScheduleWakeLock();
+        else releaseScheduleWakeLock();
+    }
 
     function saveScheduleState() {
         try {
             localStorage.setItem('upper_schedule_mygroup', scheduleState.myGroup);
             localStorage.setItem('upper_schedule_alert10m', scheduleState.alert10m);
             localStorage.setItem('upper_schedule_alert5m', scheduleState.alert5m);
+            localStorage.setItem('upper_schedule_keepawake', scheduleState.keepAwake);
             localStorage.setItem('upper_schedule_activeday', scheduleState.activeDay);
             localStorage.setItem('upper_schedule_days', JSON.stringify(scheduleState.days));
         } catch (e) {
@@ -150,7 +186,7 @@
             return { title: 'Mittagspause', group: 'Pause', type: 'orga' };
         }
         if (upper.indexOf('FAHRERBESPRECHUNG') !== -1) {
-            const raceBriefing = /RENNTEILNEHMER|RACE/i.test(title);
+            const raceBriefing = /RENNTEILNEHMER|RENNFAHRER|FÜR DIE RENNEN|FUER DIE RENNEN|RENNTEILNAHME|RACE/i.test(title);
             return { title: raceBriefing ? 'Fahrerbesprechung – Rennteilnehmer' : 'Fahrerbesprechung', group: 'Briefing', type: 'orga' };
         }
         // Englische Briefing-Zeilen sind nur die Übersetzung der deutschen
@@ -175,11 +211,11 @@
             const laps = title.match(/(\d+)\s*LAPS?/i);
             return { title: 'Rookie Race' + (laps ? ' – ' + laps[1] + ' Laps' : ''), group: 'Rennen', type: 'race' };
         }
-        if (/\bSBK\b/i.test(title) && /RACE|RENNEN/i.test(title)) {
+        if (/\bSBK(?:1000)?\b/i.test(title) && (/RACE|RENNEN/i.test(title) || /LAPS?|RUNDEN/i.test(title))) {
             const laps = title.match(/(\d+)\s*LAPS?/i);
             return { title: 'SBK Race' + (laps ? ' – ' + laps[1] + ' Laps' : ''), group: 'Rennen', type: 'race' };
         }
-        if (/\bSSP\b/i.test(title) && /RACE|RENNEN/i.test(title)) {
+        if (/\bSSP(?:750)?\b/i.test(title) && (/RACE|RENNEN/i.test(title) || /LAPS?|RUNDEN/i.test(title))) {
             const laps = title.match(/(\d+)\s*LAPS?/i);
             return { title: 'SSP Race' + (laps ? ' – ' + laps[1] + ' Laps' : ''), group: 'Rennen', type: 'race' };
         }
@@ -277,12 +313,23 @@
         rows.forEach(function(row) {
             const startM = parseInt(row.dataset.startm, 10);
             const endM = parseInt(row.dataset.endm, 10);
-            row.classList.remove('row-active', 'row-my-group');
+            const type = row.dataset.type || '';
+
+            row.classList.remove('row-active', 'row-my-group', 'row-past');
+            row.style.opacity = '';
+            row.style.filter = '';
+
             if (row.dataset.group === scheduleState.myGroup || row.dataset.group === 'A+B+C+D') {
                 row.classList.add('row-my-group');
             }
+
             if (Number.isFinite(endM) && endM > startM && currentMins >= startM && currentMins < endM) {
                 row.classList.add('row-active');
+            } else if (type === 'turn' && Number.isFinite(endM) && endM > 0 && endM <= currentMins) {
+                // Bereits gefahrene Turns bleiben sichtbar, treten aber klar in den Hintergrund.
+                row.classList.add('row-past');
+                row.style.opacity = '0.38';
+                row.style.filter = 'grayscale(35%)';
             }
         });
     }
@@ -350,10 +397,18 @@
         }
 
         let html = '';
-        currentItems.forEach(function(item, index) {
+        let raceSectionShown = false;
+
+        currentItems.forEach(function(item) {
             const startM = timeToMinutes(item.start);
             const endM = item.end ? timeToMinutes(item.end) : startM;
             const isMyGroup = item.group === scheduleState.myGroup || item.group === 'A+B+C+D';
+
+            if (item.type === 'race' && !raceSectionShown) {
+                raceSectionShown = true;
+                html += '<div style="margin:14px 0 6px 0; padding:7px 10px; border-top:2px solid #9C27B0; border-bottom:1px solid #9C27B0; color:#fff; font-size:0.9rem; font-weight:bold; letter-spacing:0.4px;">🏁 RENNEN</div>';
+            }
+
             let groupColor = '#888';
             if (item.group === 'A') groupColor = '#4CAF50';
             else if (item.group === 'B') groupColor = '#2196F3';
@@ -367,11 +422,13 @@
             else if (item.group === 'Anmeldung') groupColor = '#00BCD4';
             else if (item.group === 'Siegerehrung') groupColor = '#FFC107';
 
-            html += '<div class="schedule-row ' + (isMyGroup ? 'row-my-group' : '') + '" data-startm="' + startM + '" data-endm="' + endM + '" data-group="' + escapeHtml(item.group) + '">' +
-                '<div style="font-weight:bold; width:85px; font-size:0.85rem; color:#fff;">' + (item.sequence ? 'Danach' : (escapeHtml(item.start) + (item.end ? ' - ' + escapeHtml(item.end) : ''))) + '</div>' +
-                '<div style="flex:1; font-size:0.85rem; padding:0 6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + escapeHtml(item.title) + '</div>' +
-                '<span style="background:' + groupColor + '; color:#fff; font-size:0.7rem; font-weight:bold; padding:2px 6px; border-radius:3px; margin-right:6px;">' + escapeHtml(item.group) + '</span>' +
-                '<button type="button" onclick="window.deleteTurn(' + index + ')" style="background:none; border:none; color:#f44336; cursor:pointer; font-size:0.85rem;">🗑️</button>' +
+            let displayTitle = String(item.title || '').replace(/^Danach:\s*/i, '');
+            let displayTime = item.sequence ? 'danach' : (escapeHtml(item.start) + (item.end ? ' - ' + escapeHtml(item.end) : ''));
+
+            html += '<div class="schedule-row ' + (isMyGroup ? 'row-my-group' : '') + '" data-startm="' + startM + '" data-endm="' + endM + '" data-group="' + escapeHtml(item.group) + '" data-type="' + escapeHtml(item.type || '') + '">' +
+                '<div style="font-weight:bold; width:85px; font-size:0.85rem; color:#fff;">' + displayTime + '</div>' +
+                '<div style="flex:1; font-size:0.85rem; padding:0 6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + escapeHtml(displayTitle) + '</div>' +
+                '<span style="background:' + groupColor + '; color:#fff; font-size:0.7rem; font-weight:bold; padding:2px 6px; border-radius:3px;">' + escapeHtml(item.group) + '</span>' +
                 '</div>';
         });
 
@@ -404,6 +461,22 @@
                 scheduleState.alert5m = e.target.checked;
                 saveScheduleState();
                 updateScheduleTimer();
+            };
+        }
+
+        const keepAwakeEl = document.getElementById('keepAwakeToggle');
+        if (keepAwakeEl) {
+            keepAwakeEl.onchange = function(e) {
+                if (!wakeLockSupported()) {
+                    e.target.checked = false;
+                    scheduleState.keepAwake = false;
+                    saveScheduleState();
+                    alert('Das Wachhalten des Displays wird von diesem Browser/Gerät leider nicht unterstützt.');
+                    return;
+                }
+                scheduleState.keepAwake = e.target.checked;
+                saveScheduleState();
+                applyWakeLockPreference();
             };
         }
 
@@ -445,6 +518,7 @@
                 '<div style="display:flex; flex-direction:column; gap:6px; font-size:0.8rem; border-top:1px solid #333; padding-top:8px;">' +
                     '<label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="alert10mToggle" ' + (scheduleState.alert10m ? 'checked' : '') + ' style="width:16px; height:16px; accent-color:#ff9800;"><span>✨ <strong>10 Min. vor eigenem Turn:</strong> Header-Anzeige leuchten lassen</span></label>' +
                     '<label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="alert5mToggle" ' + (scheduleState.alert5m ? 'checked' : '') + ' style="width:16px; height:16px; accent-color:#f44336;"><span>🚨 <strong>5 Min. vor eigenem Turn:</strong> Bildschirmrand ROT blinken</span></label>' +
+                    (wakeLockSupported() ? '<label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="keepAwakeToggle" ' + (scheduleState.keepAwake ? 'checked' : '') + ' style="width:16px; height:16px; accent-color:#FFD700;"><span>📱 <strong>Display während Rennbetrieb wach halten</strong></span></label>' : '') +
                 '</div>' +
             '</div>' +
             '<div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; align-items:center;">' +
@@ -453,14 +527,12 @@
             '</div>' +
             '<div id="pdfImportSection" style="display:none; background:#181818; padding:10px; border-radius:6px; margin-bottom:12px; border:1px dashed #2196F3;">' +
                 '<h4 style="margin:0 0 8px 0; font-size:0.85rem; color:#2196F3;">Zeitplan importieren</h4>' +
-                '<p style="font-size:0.75rem; color:#aaa; margin:0 0 8px 0;">Die PDF-Seiten werden als einzelne Renntage erkannt. Turns A-D bleiben unverändert. Zusätzlich werden Anmeldung, Fahrerbesprechung, Mittagspause, REGROUPING, Siegerehrung und Rennen übernommen.</p>' +
-                '<div style="margin-bottom:8px;"><input type="file" id="schedulePdfFile" accept=".pdf,.txt" style="font-size:0.75rem;"></div>' +
-                '<textarea id="scheduleRawText" rows="4" placeholder="Oder kopierten Zeitplan-Text hier einfügen..." style="width:100%; font-size:0.8rem; margin-bottom:6px;"></textarea>' +
-                '<div style="display:flex; gap:6px;"><button type="button" onclick="window.parseScheduleText()" style="flex:1; background:#4CAF50; color:#fff; border:none; padding:8px; border-radius:4px; font-size:0.8rem; font-weight:bold; cursor:pointer;">⚡ Text analysieren & übernehmen</button></div>' +
+                '<p style="font-size:0.75rem; color:#aaa; margin:0 0 8px 0;">PDF auswählen. Die Seiten werden als einzelne Renntage erkannt. Turns A-D bleiben unverändert. Zusätzlich werden Anmeldung, Fahrerbesprechung, Mittagspause, REGROUPING, Siegerehrung und Rennen übernommen.</p>' +
+                '<div><input type="file" id="schedulePdfFile" accept="application/pdf,.pdf" style="font-size:0.75rem;"></div>' +
             '</div>' +
             '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">' +
                 '<h4 style="margin:0; font-size:0.9rem;">Tagesplan (' + escapeHtml(scheduleState.activeDay) + '): <span id="scheduleCount">0</span> Einträge</h4>' +
-                '<button type="button" onclick="window.clearSchedule()" style="background:none; border:none; color:#f44336; cursor:pointer; font-size:0.8rem;">Alle Tage leeren</button>' +
+                '<button type="button" onclick="window.clearSchedule()" style="background:none; border:none; color:#f44336; cursor:pointer; font-size:0.8rem;">Alles löschen</button>' +
             '</div>' +
             '<div id="scheduleItemsContainer"></div>' +
         '</div>';
@@ -511,49 +583,60 @@
         });
     }
 
+    function hasExistingScheduleEntries() {
+        return Object.keys(scheduleState.days || {}).some(function(dayName) {
+            return Array.isArray(scheduleState.days[dayName]) && scheduleState.days[dayName].length > 0;
+        });
+    }
+
     function handlePdfFileUpload(e) {
-        const file = e.target && e.target.files ? e.target.files[0] : null;
+        const input = e.target;
+        const file = input && input.files ? input.files[0] : null;
         if (!file) return;
 
-        const textEl = document.getElementById('scheduleRawText');
-        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-            if (typeof showNotice === 'function') showNotice('saveNotice', 'Lese PDF-Datei aus...');
-
-            loadPdfJsLib()
-                .then(function(pdfjsLib) {
-                    return file.arrayBuffer().then(function(buffer) {
-                        return pdfjsLib.getDocument({ data: buffer }).promise;
-                    });
-                })
-                .then(function(pdf) {
-                    const promises = [];
-                    for (let i = 1; i <= pdf.numPages; i++) {
-                        promises.push(pdf.getPage(i).then(function(page) {
-                            return extractPdfPageText(page, i);
-                        }));
-                    }
-                    return Promise.all(promises);
-                })
-                .then(function(pages) {
-                    const rawText = pages.map(function(page) {
-                        return '--- PAGE ' + page.pageNumber + ' ---\n' + page.lines.join('\n');
-                    }).join('\n');
-                    if (textEl) textEl.value = rawText;
-                    parseScheduleText(rawText, pages);
-                })
-                .catch(function(err) {
-                    console.error('[Schedule] PDF Parse Fehler:', err);
-                    alert('Fehler beim Lesen der PDF-Datei: ' + (err.message || err));
-                });
-        } else {
-            const reader = new FileReader();
-            reader.onload = function(evt) {
-                const raw = evt.target && evt.target.result ? String(evt.target.result) : '';
-                if (textEl) textEl.value = raw;
-                parseScheduleText(raw);
-            };
-            reader.readAsText(file);
+        if (!(file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf'))) {
+            alert('Bitte eine PDF-Datei auswählen.');
+            input.value = '';
+            return;
         }
+
+        if (hasExistingScheduleEntries()) {
+            const replaceConfirmed = confirm('Es ist bereits ein Zeitplan vorhanden. Wirklich ersetzen?');
+            if (!replaceConfirmed) {
+                input.value = '';
+                return;
+            }
+        }
+
+        if (typeof showNotice === 'function') showNotice('saveNotice', 'Lese PDF-Datei aus...');
+
+        loadPdfJsLib()
+            .then(function(pdfjsLib) {
+                return file.arrayBuffer().then(function(buffer) {
+                    return pdfjsLib.getDocument({ data: buffer }).promise;
+                });
+            })
+            .then(function(pdf) {
+                const promises = [];
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    promises.push(pdf.getPage(i).then(function(page) {
+                        return extractPdfPageText(page, i);
+                    }));
+                }
+                return Promise.all(promises);
+            })
+            .then(function(pages) {
+                const rawText = pages.map(function(page) {
+                    return '--- PAGE ' + page.pageNumber + ' ---\n' + page.lines.join('\n');
+                }).join('\n');
+                parseScheduleText(rawText, pages);
+                input.value = '';
+            })
+            .catch(function(err) {
+                console.error('[Schedule] PDF Parse Fehler:', err);
+                alert('Fehler beim Lesen der PDF-Datei: ' + (err.message || err));
+                input.value = '';
+            });
     }
 
     // Extrahiert die relevanten Zeilen einer einzelnen Seite.
@@ -627,7 +710,7 @@
                 if (!itemData || itemData.type !== 'race') return;
                 raceSequence += 1;
                 items.push({
-                    start:lastRaceStart, end:'', title:'Danach: ' + itemData.title,
+                    start:lastRaceStart, end:'', title:itemData.title,
                     group:itemData.group, type:'race', sequence:raceSequence
                 });
                 return;
@@ -758,17 +841,9 @@
         if (sec) sec.style.display = (sec.style.display === 'none' || !sec.style.display) ? 'block' : 'none';
     };
 
-    window.deleteTurn = function(index) {
-        if (scheduleState.days[scheduleState.activeDay]) {
-            scheduleState.days[scheduleState.activeDay].splice(index, 1);
-            saveScheduleState();
-            renderScheduleRows();
-            updateScheduleTimer();
-        }
-    };
 
     window.clearSchedule = function() {
-        if (confirm('Möchtest du den Zeitplan für ALLE Tage komplett leeren?')) {
+        if (confirm('Zeitplan wirklich vollständig löschen?')) {
             scheduleState.days = { 'Tag 1': [] };
             scheduleState.activeDay = 'Tag 1';
             saveScheduleState();
@@ -777,17 +852,19 @@
         }
     };
 
-    window.parseScheduleText = function() {
-        const textEl = document.getElementById('scheduleRawText');
-        const raw = textEl ? textEl.value : '';
-        parseScheduleText(raw);
-    };
 
     window.initScheduleModule = function() {
         renderSchedulePage();
         if (!timerInterval) timerInterval = setInterval(updateScheduleTimer, 1000);
         updateScheduleTimer();
+        applyWakeLockPreference();
     };
+
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible' && scheduleState.keepAwake) {
+            requestScheduleWakeLock();
+        }
+    });
 
     if (document.readyState === 'complete' || document.readyState === 'interactive') {
         setTimeout(window.initScheduleModule, 100);
