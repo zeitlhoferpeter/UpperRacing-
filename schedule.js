@@ -155,7 +155,7 @@
         }
         // Englische Briefing-Zeilen sind nur die Übersetzung der deutschen
         // Fahrerbesprechung direkt davor und werden nicht zusätzlich importiert.
-        if (/BRIEFING/i.test(title)) return null;
+        if (/\bBRIEFING\b/i.test(title)) return null;
         if (upper.indexOf('ANMELDUNG') !== -1) {
             return { title: 'Anmeldung', group: 'Anmeldung', type: 'orga' };
         }
@@ -281,7 +281,7 @@
             if (row.dataset.group === scheduleState.myGroup || row.dataset.group === 'A+B+C+D') {
                 row.classList.add('row-my-group');
             }
-            if (item.end && currentMins >= startM && currentMins < endM) {
+            if (Number.isFinite(endM) && endM > startM && currentMins >= startM && currentMins < endM) {
                 row.classList.add('row-active');
             }
         });
@@ -457,15 +457,6 @@
                 '<div style="margin-bottom:8px;"><input type="file" id="schedulePdfFile" accept=".pdf,.txt" style="font-size:0.75rem;"></div>' +
                 '<textarea id="scheduleRawText" rows="4" placeholder="Oder kopierten Zeitplan-Text hier einfügen..." style="width:100%; font-size:0.8rem; margin-bottom:6px;"></textarea>' +
                 '<div style="display:flex; gap:6px;"><button type="button" onclick="window.parseScheduleText()" style="flex:1; background:#4CAF50; color:#fff; border:none; padding:8px; border-radius:4px; font-size:0.8rem; font-weight:bold; cursor:pointer;">⚡ Text analysieren & übernehmen</button></div>' +
-            '</div>' +
-            '<div style="background:#222; padding:8px; border-radius:6px; margin-bottom:12px;">' +
-                '<div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">' +
-                    '<input type="text" id="newTurnStart" placeholder="09:00" style="width:60px; text-align:center;">' +
-                    '<span>bis</span><input type="text" id="newTurnEnd" placeholder="09:20" style="width:60px; text-align:center;">' +
-                    '<input type="text" id="newTurnTitle" placeholder="Bezeichnung" style="flex:1; min-width:120px;">' +
-                    '<select id="newTurnGroup" style="width:90px;"><option value="A">Gruppe A</option><option value="B">Gruppe B</option><option value="C">Gruppe C</option><option value="D">Gruppe D</option><option value="Rennen">Rennen</option><option value="REGROUPING">REGROUPING</option><option value="Pause">Mittagspause</option><option value="Briefing">Fahrerbesprechung</option><option value="Anmeldung">Anmeldung</option></select>' +
-                    '<button type="button" onclick="window.addCustomTurn()" style="background:#4CAF50; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer; font-size:0.8rem;">+ Turn</button>' +
-                '</div>' +
             '</div>' +
             '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">' +
                 '<h4 style="margin:0; font-size:0.9rem;">Tagesplan (' + escapeHtml(scheduleState.activeDay) + '): <span id="scheduleCount">0</span> Einträge</h4>' +
@@ -765,38 +756,6 @@
     window.togglePdfImportSection = function() {
         const sec = document.getElementById('pdfImportSection');
         if (sec) sec.style.display = (sec.style.display === 'none' || !sec.style.display) ? 'block' : 'none';
-    };
-
-    window.addCustomTurn = function() {
-        const startEl = document.getElementById('newTurnStart');
-        const endEl = document.getElementById('newTurnEnd');
-        const titleEl = document.getElementById('newTurnTitle');
-        const groupEl = document.getElementById('newTurnGroup');
-
-        const start = normalizeTime(startEl ? startEl.value.trim() : '');
-        const end = normalizeTime(endEl ? endEl.value.trim() : '');
-        const title = titleEl ? titleEl.value.trim() : '';
-        const group = groupEl ? groupEl.value : 'A';
-
-        if (!start || !title) {
-            alert('Bitte Startzeit und Bezeichnung eingeben!');
-            return;
-        }
-        if (!end || timeToMinutes(end) <= timeToMinutes(start)) {
-            alert('Bitte eine gültige Endzeit eingeben!');
-            return;
-        }
-
-        if (!scheduleState.days[scheduleState.activeDay]) scheduleState.days[scheduleState.activeDay] = [];
-        scheduleState.days[scheduleState.activeDay].push({ start: start, end: end, title: title, group: group });
-        scheduleState.days[scheduleState.activeDay] = dedupeAndSort(scheduleState.days[scheduleState.activeDay]);
-        saveScheduleState();
-        renderScheduleRows();
-        updateScheduleTimer();
-
-        if (startEl) startEl.value = '';
-        if (endEl) endEl.value = '';
-        if (titleEl) titleEl.value = '';
     };
 
     window.deleteTurn = function(index) {
