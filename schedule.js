@@ -1,713 +1,571 @@
-// schedule.js - UpperRacing Zeitplan & Live-Turn-Timer Modul
+// schedule.js - UpperRacing Zeitplan, PDF-Import & Live-Turn-Anzeige
+// Kompatibel mit der bestehenden UpperRacing-App.
+(function () {
+    'use strict';
 
-(function() {
-    // 1. Sicheres Laden des LocalStorage-Zustands
-    let initialDays = { 'Montag': [] };
+    const DAY_NAMES = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+    const DAY_ORDER = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+    const STORAGE = {
+        days: 'upper_schedule_days',
+        group: 'upper_schedule_mygroup',
+        alert10: 'upper_schedule_alert10m',
+        alert5: 'upper_schedule_alert5m',
+        activeDay: 'upper_schedule_activeday'
+    };
+
+    let initialDays = {};
     try {
-        const savedDays = localStorage.getItem('upper_schedule_days');
-        if (savedDays) {
-            const parsed = JSON.parse(savedDays);
-            if (parsed && typeof parsed === 'object') {
-                initialDays = parsed;
-            }
+        const saved = localStorage.getItem(STORAGE.days);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed && typeof parsed === 'object') initialDays = normalizeDays(parsed);
         }
     } catch (e) {
-        console.warn('[Schedule] Fehler beim Lesen von upper_schedule_days aus localStorage:', e);
+        console.warn('[Schedule] LocalStorage konnte nicht gelesen werden:', e);
     }
 
     let scheduleState = {
-        myGroup: localStorage.getItem('upper_schedule_mygroup') || 'A',
-        alert10m: localStorage.getItem('upper_schedule_alert10m') !== 'false',
-        alert5m: localStorage.getItem('upper_schedule_alert5m') !== 'false',
-        activeDay: localStorage.getItem('upper_schedule_activeday') || 'Montag',
+        myGroup: localStorage.getItem(STORAGE.group) || 'A',
+        alert10m: localStorage.getItem(STORAGE.alert10) !== 'false',
+        alert5m: localStorage.getItem(STORAGE.alert5) !== 'false',
+        activeDay: localStorage.getItem(STORAGE.activeDay) || getTodayName(),
         days: initialDays
     };
 
     let timerInterval = null;
+    let pdfLoading = false;
 
-    // 2. Hilfsfunktionen (Defensiv & Fehlertolerant)
+    function escapeHtml(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+
+    function getTodayName() {
+        return DAY_NAMES[new Date().getDay()];
+    }
+
+    function normalizeDayName(name, fallbackIndex) {
+        const t = String(name || '').trim().toUpperCase();
+        if (t.includes('MONTAG') || t === 'MONDAY') return 'Montag';
+        if (t.includes('DIENSTAG') || t === 'TUESDAY') return 'Dienstag';
+        if (t.includes('MITTWOCH') || t === 'WEDNESDAY') return 'Mittwoch';
+        if (t.includes('DONNERSTAG') || t === 'THURSDAY') return 'Donnerstag';
+        if (t.includes('FREITAG') || t === 'FRIDAY') return 'Freitag';
+        if (t.includes('SAMSTAG') || t === 'SATURDAY') return 'Samstag';
+        if (t.includes('SONNTAG') || t === 'SUNDAY') return 'Sonntag';
+        const num = t.match(/(?:TAG|DAY)\s*(\d+)/i);
+        return num ? 'Tag ' + num[1] : (fallbackIndex ? 'Tag ' + fallbackIndex : null);
+    }
+
+    function normalizeTime(value) {
+        if (value == null) return '';
+        const m = String(value).trim().replace('.', ':').match(/^(\d{1,2}):(\d{2})$/);
+        if (!m) return '';
+        const h = Number(m[1]), min = Number(m[2]);
+        if (h > 23 || min > 59) return '';
+        return String(h).padStart(2, '0') + ':' + String(min).padStart(2, '0');
+    }
+
+    function timeToMinutes(timeStr) {
+        const t = normalizeTime(timeStr);
+        if (!t) return NaN;
+        const p = t.split(':');
+        return Number(p[0]) * 60 + Number(p[1]);
+    }
+
+    function minutesToTime(total) {
+        let mins = Number(total);
+        if (!Number.isFinite(mins)) mins = 0;
+        mins = ((Math.round(mins) % 1440) + 1440) % 1440;
+        return String(Math.floor(mins / 60)).padStart(2, '0') + ':' + String(mins % 60).padStart(2, '0');
+    }
+
+    function normalizeItem(item) {
+        if (!item || typeof item !== 'object') return null;
+        const start = normalizeTime(item.start);
+        if (!start) return null;
+        let end = normalizeTime(item.end);
+        const startM = timeToMinutes(start);
+        let endM = timeToMinutes(end);
+        if (!end || !Number.isFinite(endM) || endM <= startM) end = minutesToTime(startM + 20);
+        return {
+            start,
+            end,
+            title: String(item.title || 'Zeitplan').trim(),
+            group: String(item.group || 'Orga').trim()
+        };
+    }
+
+    function normalizeDays(days) {
+        const result = {};
+        Object.keys(days || {}).forEach(function (key) {
+            const day = normalizeDayName(key) || key;
+            const items = Array.isArray(days[key]) ? days[key].map(normalizeItem).filter(Boolean) : [];
+            if (items.length) result[day] = items;
+        });
+        return result;
+    }
+
     function saveScheduleState() {
         try {
-            localStorage.setItem('upper_schedule_mygroup', scheduleState.myGroup);
-            localStorage.setItem('upper_schedule_alert10m', scheduleState.alert10m);
-            localStorage.setItem('upper_schedule_alert5m', scheduleState.alert5m);
-            localStorage.setItem('upper_schedule_activeday', scheduleState.activeDay);
-            localStorage.setItem('upper_schedule_days', JSON.stringify(scheduleState.days));
+            localStorage.setItem(STORAGE.group, scheduleState.myGroup);
+            localStorage.setItem(STORAGE.alert10, String(scheduleState.alert10m));
+            localStorage.setItem(STORAGE.alert5, String(scheduleState.alert5m));
+            localStorage.setItem(STORAGE.activeDay, scheduleState.activeDay || '');
+            localStorage.setItem(STORAGE.days, JSON.stringify(scheduleState.days || {}));
         } catch (e) {
             console.error('[Schedule] Speichern fehlgeschlagen:', e);
         }
     }
 
+    function getOrderedDayKeys() {
+        return Object.keys(scheduleState.days || {}).sort(function (a, b) {
+            const ia = DAY_ORDER.indexOf(a), ib = DAY_ORDER.indexOf(b);
+            if (ia === -1 && ib === -1) return a.localeCompare(b, 'de');
+            if (ia === -1) return 1;
+            if (ib === -1) return -1;
+            return ia - ib;
+        });
+    }
+
+    function selectBestActiveDay() {
+        const keys = getOrderedDayKeys();
+        if (!keys.length) {
+            scheduleState.activeDay = getTodayName();
+            return;
+        }
+        const today = getTodayName();
+        if (keys.includes(today)) {
+            scheduleState.activeDay = today;
+            return;
+        }
+        if (!keys.includes(scheduleState.activeDay)) scheduleState.activeDay = keys[0];
+    }
+
     function getCurrentItems() {
-        if (!scheduleState.days || typeof scheduleState.days !== 'object') {
-            scheduleState.days = { 'Montag': [] };
-        }
-        if (!scheduleState.days[scheduleState.activeDay]) {
-            const firstDay = Object.keys(scheduleState.days)[0];
-            if (firstDay) {
-                scheduleState.activeDay = firstDay;
-            } else {
-                return [];
-            }
-        }
+        if (!scheduleState.days || typeof scheduleState.days !== 'object') scheduleState.days = {};
+        if (!scheduleState.days[scheduleState.activeDay]) selectBestActiveDay();
         return scheduleState.days[scheduleState.activeDay] || [];
     }
 
-    function timeToMinutes(timeStr) {
-        if (!timeStr) return 0;
-        const normalized = String(timeStr).replace('.', ':');
-        const parts = normalized.split(':');
-        const h = Number(parts[0]) || 0;
-        const m = Number(parts[1]) || 0;
-        return h * 60 + m;
-    }
-
-    function minutesToTime(totalMins) {
-        const validMins = Math.max(0, Number(totalMins) || 0);
-        const h = Math.floor(validMins / 60) % 24;
-        const m = validMins % 60;
-        return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+    function groupMatches(item, group) {
+        if (group === 'ALL') return ['A', 'B', 'C', 'D'].includes(item.group) || item.group === 'Rennen';
+        return item.group === group || item.group === 'Alle';
     }
 
     function processLineTitle(rawTitle) {
         if (!rawTitle) return null;
-        let title = String(rawTitle).trim();
+        let title = String(rawTitle).replace(/\s+/g, ' ').trim();
         if (!title) return null;
-        
-        if (title.indexOf('/') !== -1) {
-            const parts = title.split('/');
-            const dePart = parts.find(function(p) {
-                return /anmeldung|fahrerbesprechung|anfängerkurs|theorie|praxis|gruppe|freies fahren|rennen|mittag|pause|lunch|siegerehrung/i.test(p);
-            });
-            title = dePart ? dePart.trim() : parts[0].trim();
-        }
 
+        // Häufige PDF-Trennzeichen/Spaltenreste entfernen.
+        title = title.replace(/^[-–—|:]+\s*/, '').replace(/\s*[-–—|]+\s*$/, '').trim();
         const t = title.toUpperCase();
 
-        // 1. Reine Info-Header & Vorab-Hinweise ignorieren
-        if (t.startsWith('QUALIFYING:') || t.startsWith('LETZTES QUALIFYING:') || t.indexOf('ANMELDUNG ZU DEN RENNEN') !== -1 || t.indexOf('REGISTRATION FOR ALL') !== -1 || t.indexOf('ZEITNAHME ENDE') !== -1) {
-            return null;
-        }
+        if (/QUALIFYING|LETZTES QUALIFYING|ANMELDUNG ZU DEN RENNEN|REGISTRATION FOR ALL|ZEITNAHME ENDE/.test(t)) return null;
+        if (/MITTAG|PAUSE|LUNCH|ESSEN/.test(t)) return { title: 'Mittagspause', group: 'Pause' };
+        if (/FAHRERBESPRECHUNG|BRIEFING/.test(t)) return { title: 'Fahrerbesprechung', group: 'Orga' };
+        if (/ANFÄNGERKURS.*THEORIE|THEORIE/.test(t) && !/PRAXIS/.test(t)) return { title: 'Anfängerkurs Theorie', group: 'Anfänger' };
+        if (/ANFÄNGERKURS.*PRAXIS|PRAXIS/.test(t)) return { title: 'Anfängerkurs Praxis', group: 'Anfänger' };
+        if (/SIEGEREHRUNG|PRICEGIVING/.test(t)) return { title: 'Siegerehrung', group: 'Orga' };
 
-        // 2. Mittagspause / Lunch
-        if (t.indexOf('MITTAG') !== -1 || t.indexOf('PAUSE') !== -1 || t.indexOf('LUNCH') !== -1 || t.indexOf('ESSEN') !== -1) {
-            return { title: 'Mittagspause', group: 'Pause' };
-        }
+        // Gruppen dürfen auch mitten im Text stehen (z.B. "Freies Fahren - Gruppe A").
+        if (/ALLE GRUPPEN|A\s*\+\s*B\s*\+\s*C\s*\+\s*D/.test(t)) return { title: 'Freies Fahren (Alle Gruppen)', group: 'Alle' };
+        const groupMatch = t.match(/(?:GRUPPE|GR\.?|GROUP)\s*([ABCD])\b/);
+        if (groupMatch) return { title: 'Freies Fahren Gruppe ' + groupMatch[1], group: groupMatch[1] };
+        if (/SLOWER GROUP A/.test(t)) return { title: 'Freies Fahren Gruppe A', group: 'A' };
+        if (/FASTER GROUP B/.test(t)) return { title: 'Freies Fahren Gruppe B', group: 'B' };
+        if (/FAST GROUP C/.test(t)) return { title: 'Freies Fahren Gruppe C', group: 'C' };
+        if (/VERY FAST GROUP D/.test(t)) return { title: 'Freies Fahren Gruppe D', group: 'D' };
 
-        // 3. Fahrerbesprechung & Orga
-        if (t.indexOf('FAHRERBESPRECHUNG') !== -1) {
-            return { title: 'Fahrerbesprechung', group: 'Orga' };
-        }
-
-        // 4. Anfängerkurs
-        if (t.indexOf('ANFÄNGERKURS THEORIE') !== -1 || (t.indexOf('THEORIE') !== -1 && t.indexOf('PRAXIS') === -1)) {
-            return { title: 'Anfängerkurs Theorie', group: 'Anfänger' };
-        }
-        if (t.indexOf('ANFÄNGERKURS PRAXIS') !== -1 || t.indexOf('PRAXIS') !== -1) {
-            return { title: 'Anfängerkurs Praxis', group: 'Anfänger' };
-        }
-
-        // 5. Siegerehrung
-        if (t.indexOf('SIEGEREHRUNG') !== -1 || t.indexOf('PRICEGIVING') !== -1) {
-            return { title: 'Siegerehrung', group: 'Orga' };
-        }
-
-        // 6. Freies Fahren / Gruppen A-D
-        if (t.indexOf('ALLE GRUPPEN') !== -1 || t.indexOf('A+B+C+D') !== -1) {
-            return { title: 'Freies Fahren (Alle Gruppen)', group: 'A' };
-        }
-        if (t.indexOf('GRUPPE A') !== -1 || t.indexOf('GR. A') !== -1 || t.indexOf('SLOWER GROUP A') !== -1) {
-            return { title: 'Freies Fahren Gruppe A', group: 'A' };
-        }
-        if (t.indexOf('GRUPPE B') !== -1 || t.indexOf('GR. B') !== -1 || t.indexOf('FASTER GROUP B') !== -1) {
-            return { title: 'Freies Fahren Gruppe B', group: 'B' };
-        }
-        if (t.indexOf('GRUPPE C') !== -1 || t.indexOf('GR. C') !== -1 || t.indexOf('FAST GROUP C') !== -1) {
-            return { title: 'Freies Fahren Gruppe C', group: 'C' };
-        }
-        if (t.indexOf('GRUPPE D') !== -1 || t.indexOf('GR. D') !== -1 || t.indexOf('VERY FAST GROUP D') !== -1) {
-            return { title: 'Freies Fahren Gruppe D', group: 'D' };
-        }
-
-        // 7. Rennen
-        if (t.indexOf('CLASSIC') !== -1) return { title: 'Classic Race (7 Laps)', group: 'Rennen' };
-        if (t.indexOf('ROOKIE') !== -1) return { title: 'Sternchen Rookie Race', group: 'Rennen' };
-        if (t.indexOf('SBK') !== -1) return { title: 'SBK Race (6 Laps)', group: 'Rennen' };
-        if (t.indexOf('SSP') !== -1) return { title: 'SSP Race (6 Laps)', group: 'Rennen' };
-        if (t.indexOf('B-RACE') !== -1) return { title: 'B-Race (5 Laps)', group: 'Rennen' };
-        if (t.indexOf('RENNEN') !== -1 || t.indexOf('RACE') !== -1) {
-            let clean = title.split(';')[0].split(',')[0].trim();
-            return { title: clean, group: 'Rennen' };
-        }
+        if (/CLASSIC/.test(t)) return { title: 'Classic Race', group: 'Rennen' };
+        if (/ROOKIE/.test(t)) return { title: 'Sternchen Rookie Race', group: 'Rennen' };
+        if (/\bSBK\b/.test(t)) return { title: 'SBK Race', group: 'Rennen' };
+        if (/\bSSP\b/.test(t)) return { title: 'SSP Race', group: 'Rennen' };
+        if (/B[- ]RACE/.test(t)) return { title: 'B-Race', group: 'Rennen' };
+        if (/\bRENNEN\b|\bRACE\b/.test(t)) return { title: title.split(';')[0].trim(), group: 'Rennen' };
 
         return null;
     }
 
-    // 3. UI-Highlighting & Live-Timer
-    function updateHeaderWidget(activeTurn, nextMyTurn, minsToNextMyTurn) {
+    function getTimeParts(line) {
+        const range = line.match(/\b(\d{1,2}[:.]\d{2})\s*(?:-|–|—|bis|to)\s*(\d{1,2}[:.]\d{2})\b/i);
+        if (range) return { start: normalizeTime(range[1]), end: normalizeTime(range[2]), text: line.replace(range[0], ' ').trim() };
+        const single = line.match(/\b(\d{1,2}[:.]\d{2})\b/);
+        if (single) return { start: normalizeTime(single[1]), end: '', text: line.replace(single[0], ' ').trim() };
+        return null;
+    }
+
+    function updateHeaderWidget(activeTurn, nextMyTurn, nextDiffSeconds) {
         const widget = document.getElementById('headerScheduleWidget');
         if (!widget) return;
 
-        let label = '';
-        let isGlowing10m = false;
-        let isBlinking5m = false;
+        widget.classList.remove('schedule-header-active', 'schedule-header-next', 'schedule-header-other');
+        let html = '';
+        let glow10 = false, blink5 = false;
 
         if (activeTurn) {
-            const pad = function(n) { return String(n).padStart(2, '0'); };
-            const remStr = activeTurn.remainingMins + ':' + pad(activeTurn.remainingSecs);
-            const isMine = (activeTurn.group === scheduleState.myGroup);
-            label = '<span class="turn-group-badge ' + (isMine ? 'my-group' : '') + '">Gr. ' + activeTurn.group + '</span> <span class="turn-time-rem">⏳ ' + remStr + '</span>';
+            const mine = groupMatches(activeTurn, scheduleState.myGroup);
+            const remaining = Math.max(0, activeTurn.endAbsSeconds - activeTurn.nowAbsSeconds);
+            const mm = Math.floor(remaining / 60);
+            const ss = remaining % 60;
+            const groupText = activeTurn.group === 'Alle' ? 'ALLE' : activeTurn.group;
+            html = '<span class="schedule-status-dot">●</span>' +
+                   '<span class="turn-group-badge ' + (mine ? 'my-group' : '') + '">Gr. ' + escapeHtml(groupText) + '</span>' +
+                   '<span class="turn-title-short">' + escapeHtml(activeTurn.title) + '</span>' +
+                   '<span class="turn-time-rem">' + String(mm).padStart(2, '0') + ':' + String(ss).padStart(2, '0') + '</span>';
+            widget.classList.add(mine ? 'schedule-header-active' : 'schedule-header-other');
         } else if (nextMyTurn) {
-            label = '<span class="turn-next-badge">Nächstes: Gr. ' + nextMyTurn.group + ' in ' + nextMyTurn.diffMins + 'm</span>';
+            const mins = Math.floor(nextDiffSeconds / 60);
+            const secs = nextDiffSeconds % 60;
+            html = '<span class="schedule-status-dot">●</span>' +
+                   '<span class="turn-next-badge">Gr. ' + escapeHtml(nextMyTurn.group === 'Alle' ? 'ALLE' : nextMyTurn.group) + ' in ' + mins + ':' + String(secs).padStart(2, '0') + '</span>';
+            widget.classList.add('schedule-header-next');
+            if (nextDiffSeconds <= 600 && nextDiffSeconds > 300 && scheduleState.alert10m) glow10 = true;
+            if (nextDiffSeconds <= 300 && nextDiffSeconds > 0) {
+                if (scheduleState.alert10m) glow10 = true;
+                if (scheduleState.alert5m) blink5 = true;
+            }
         } else {
-            label = '<span style="opacity:0.8;">⏱️ Kein Turn</span>';
+            html = '<span style="opacity:.8">⏱️ Kein weiterer Turn</span>';
         }
 
-        if (nextMyTurn && minsToNextMyTurn <= 10 && minsToNextMyTurn > 5) {
-            if (scheduleState.alert10m) isGlowing10m = true;
-        } else if (nextMyTurn && minsToNextMyTurn <= 5 && minsToNextMyTurn > 0) {
-            if (scheduleState.alert10m) isGlowing10m = true;
-            if (scheduleState.alert5m) isBlinking5m = true;
-        }
-
-        widget.innerHTML = label;
-
-        if (isGlowing10m) widget.classList.add('schedule-glow-10m');
-        else widget.classList.remove('schedule-glow-10m');
-
-        if (isBlinking5m) document.body.classList.add('screen-alert-red');
-        else document.body.classList.remove('screen-alert-red');
+        widget.innerHTML = html;
+        widget.classList.toggle('schedule-glow-10m', glow10);
+        document.body.classList.toggle('screen-alert-red', blink5);
     }
 
-    function updateScheduleViewHighlight(activeTurn, currentMins) {
+    function updateScheduleViewHighlight(currentMinutes) {
         const container = document.getElementById('scheduleItemsContainer');
         if (!container) return;
-
-        const rows = container.querySelectorAll('.schedule-row');
-        rows.forEach(function(row) {
-            const startM = parseInt(row.dataset.startm, 10);
-            const endM = parseInt(row.dataset.endm, 10);
-
-            row.classList.remove('row-active', 'row-my-group');
-            if (row.dataset.group === scheduleState.myGroup) {
-                row.classList.add('row-my-group');
-            }
-
-            if (currentMins >= startM && currentMins < endM) {
-                row.classList.add('row-active');
-            }
+        container.querySelectorAll('.schedule-row').forEach(function (row) {
+            const start = Number(row.dataset.startm), end = Number(row.dataset.endm);
+            row.classList.remove('row-active');
+            if (scheduleState.myGroup === 'ALL' || row.dataset.group === scheduleState.myGroup || row.dataset.group === 'Alle') row.classList.add('row-my-group');
+            else row.classList.remove('row-my-group');
+            if (currentMinutes >= start && currentMinutes < end) row.classList.add('row-active');
         });
     }
 
     function updateScheduleTimer() {
         const now = new Date();
-        const currentMins = now.getHours() * 60 + now.getMinutes();
-        const currentSecs = now.getSeconds();
+        const today = getTodayName();
+        // Wenn ein Zeitplan für heute vorhanden ist, automatisch auf heute umschalten.
+        if (scheduleState.days[today] && scheduleState.activeDay !== today) {
+            scheduleState.activeDay = today;
+            saveScheduleState();
+            renderSchedulePage();
+        }
+
+        const currentSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+        const currentMinutes = Math.floor(currentSeconds / 60);
+        const items = getCurrentItems().slice().sort(function (a, b) { return timeToMinutes(a.start) - timeToMinutes(b.start); });
 
         let activeTurn = null;
         let nextMyTurn = null;
-        let minsToNextMyTurn = Infinity;
+        let nextDiffSeconds = Infinity;
 
-        const items = getCurrentItems();
-        const sorted = items.slice().sort(function(a, b) {
-            return timeToMinutes(a.start) - timeToMinutes(b.start);
-        });
-
-        for (let i = 0; i < sorted.length; i++) {
-            const item = sorted[i];
+        items.forEach(function (item, index) {
             const startM = timeToMinutes(item.start);
             let endM = timeToMinutes(item.end);
-            
-            if (!endM || endM <= startM) {
-                endM = (i < sorted.length - 1) ? timeToMinutes(sorted[i+1].start) : startM + 20;
+            if (!Number.isFinite(endM) || endM <= startM) endM = index < items.length - 1 ? timeToMinutes(items[index + 1].start) : startM + 20;
+            if (currentSeconds >= startM * 60 && currentSeconds < endM * 60) {
+                activeTurn = Object.assign({}, item, {
+                    endAbsSeconds: endM * 60,
+                    nowAbsSeconds: currentSeconds
+                });
             }
-
-            if (currentMins >= startM && currentMins < endM) {
-                const remainingMins = endM - currentMins - 1;
-                const remainingSecs = 60 - currentSecs;
-                activeTurn = Object.assign({}, item, { remainingMins: remainingMins, remainingSecs: remainingSecs, endM: endM });
+            const isMine = groupMatches(item, scheduleState.myGroup) || (item.group === 'Rennen' && scheduleState.myGroup !== 'Pause');
+            const diff = startM * 60 - currentSeconds;
+            if (isMine && diff > 0 && diff < nextDiffSeconds) {
+                nextDiffSeconds = diff;
+                nextMyTurn = item;
             }
+        });
 
-            const isMyTurn = (scheduleState.myGroup === 'ALL' || item.group === scheduleState.myGroup || (item.group === 'Rennen' && scheduleState.myGroup !== 'Pause'));
-            if (isMyTurn && startM > currentMins) {
-                const diffMins = startM - currentMins;
-                if (diffMins < minsToNextMyTurn) {
-                    minsToNextMyTurn = diffMins;
-                    nextMyTurn = Object.assign({}, item, { startM: startM, diffMins: diffMins });
-                }
-            }
-        }
-
-        updateHeaderWidget(activeTurn, nextMyTurn, minsToNextMyTurn);
-        updateScheduleViewHighlight(activeTurn, currentMins);
+        updateHeaderWidget(activeTurn, nextMyTurn, nextDiffSeconds);
+        updateScheduleViewHighlight(currentMinutes);
     }
 
-    // 4. Rendering
     function renderScheduleRows() {
         const container = document.getElementById('scheduleItemsContainer');
         const countEl = document.getElementById('scheduleCount');
         if (!container) return;
-
-        const currentItems = getCurrentItems();
+        const currentItems = getCurrentItems().slice().sort(function (a, b) { return timeToMinutes(a.start) - timeToMinutes(b.start); });
         if (countEl) countEl.textContent = String(currentItems.length);
-
-        if (currentItems.length === 0) {
-            container.innerHTML = '<p style="font-size:0.8rem; color:#888; text-align:center; padding:15px;">Kein Zeitplan für ' + scheduleState.activeDay + ' geladen. Bitte PDF importieren.</p>';
+        if (!currentItems.length) {
+            container.innerHTML = '<p style="font-size:.8rem;color:#888;text-align:center;padding:15px">Kein Zeitplan für ' + escapeHtml(scheduleState.activeDay) + ' geladen. Bitte PDF importieren.</p>';
             return;
         }
-
-        const sorted = currentItems.slice().sort(function(a, b) {
-            return timeToMinutes(a.start) - timeToMinutes(b.start);
-        });
         let html = '';
-
-        sorted.forEach(function(item, index) {
+        currentItems.forEach(function (item, index) {
             const startM = timeToMinutes(item.start);
-            let endM = timeToMinutes(item.end);
-            if (!endM || endM <= startM) endM = startM + 20;
-
-            const isMyGroup = (item.group === scheduleState.myGroup);
-            let groupColor = '#888';
-            if (item.group === 'A') groupColor = '#4CAF50';
-            else if (item.group === 'B') groupColor = '#2196F3';
-            else if (item.group === 'C') groupColor = '#FF9800';
-            else if (item.group === 'D') groupColor = '#E91E63';
-            else if (item.group === 'Anfänger') groupColor = '#00BCD4';
-            else if (item.group === 'Rennen') groupColor = '#9C27B0';
-            else if (item.group === 'Pause') groupColor = '#607D8B';
-
-            html += '<div class="schedule-row ' + (isMyGroup ? 'row-my-group' : '') + '" data-startm="' + startM + '" data-endm="' + endM + '" data-group="' + item.group + '">' +
-                '<div style="font-weight:bold; width:85px; font-size:0.85rem; color:#fff;">' + item.start + ' - ' + (item.end || minutesToTime(endM)) + '</div>' +
-                '<div style="flex:1; font-size:0.85rem; padding:0 6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + item.title + '</div>' +
-                '<span style="background:' + groupColor + '; color:#fff; font-size:0.7rem; font-weight:bold; padding:2px 6px; border-radius:3px; margin-right:6px;">' + item.group + '</span>' +
-                '<button type="button" onclick="window.deleteTurn(' + index + ')" style="background:none; border:none; color:#f44336; cursor:pointer; font-size:0.85rem;">🗑️</button>' +
+            const endM = timeToMinutes(item.end);
+            const mine = groupMatches(item, scheduleState.myGroup);
+            let groupClass = item.group === 'A' ? 'group-a' : item.group === 'B' ? 'group-b' : item.group === 'C' ? 'group-c' : item.group === 'D' ? 'group-d' : 'group-other';
+            html += '<div class="schedule-row ' + (mine ? 'row-my-group ' : '') + '" data-startm="' + startM + '" data-endm="' + endM + '" data-group="' + escapeHtml(item.group) + '">' +
+                '<div class="schedule-time">' + escapeHtml(item.start) + ' - ' + escapeHtml(item.end) + '</div>' +
+                '<div class="schedule-title">' + escapeHtml(item.title) + '</div>' +
+                '<span class="schedule-group ' + groupClass + '">' + escapeHtml(item.group) + '</span>' +
+                '<button type="button" onclick="window.deleteTurn(' + index + ')" class="schedule-delete" title="Turn löschen">🗑️</button>' +
                 '</div>';
         });
-
         container.innerHTML = html;
+        updateScheduleViewHighlight(new Date().getHours() * 60 + new Date().getMinutes());
     }
 
     function bindScheduleEvents() {
         const groupSel = document.getElementById('scheduleMyGroupSelect');
-        if (groupSel) {
-            groupSel.onchange = function(e) {
-                scheduleState.myGroup = e.target.value;
-                saveScheduleState();
-                renderScheduleRows();
-                updateScheduleTimer();
-            };
-        }
-
-        const alert10mEl = document.getElementById('alert10mToggle');
-        if (alert10mEl) {
-            alert10mEl.onchange = function(e) {
-                scheduleState.alert10m = e.target.checked;
-                saveScheduleState();
-                updateScheduleTimer();
-            };
-        }
-
-        const alert5mEl = document.getElementById('alert5mToggle');
-        if (alert5mEl) {
-            alert5mEl.onchange = function(e) {
-                scheduleState.alert5m = e.target.checked;
-                saveScheduleState();
-                updateScheduleTimer();
-            };
-        }
-
-        const pdfFileEl = document.getElementById('schedulePdfFile');
-        if (pdfFileEl) {
-            pdfFileEl.onchange = handlePdfFileUpload;
-        }
+        if (groupSel) groupSel.onchange = function (e) { scheduleState.myGroup = e.target.value; saveScheduleState(); renderScheduleRows(); updateScheduleTimer(); };
+        const a10 = document.getElementById('alert10mToggle');
+        if (a10) a10.onchange = function (e) { scheduleState.alert10m = e.target.checked; saveScheduleState(); updateScheduleTimer(); };
+        const a5 = document.getElementById('alert5mToggle');
+        if (a5) a5.onchange = function (e) { scheduleState.alert5m = e.target.checked; saveScheduleState(); updateScheduleTimer(); };
+        const file = document.getElementById('schedulePdfFile');
+        if (file) file.onchange = handlePdfFileUpload;
     }
 
     function renderSchedulePage() {
-        const container = document.getElementById('pageSchedule');
-        if (!container) return;
-
-        const dayKeys = Object.keys(scheduleState.days);
-        let dayButtonsHtml = '';
-
-        dayKeys.forEach(function(dayName) {
-            const isActive = dayName === scheduleState.activeDay;
-            dayButtonsHtml += '<button type="button" onclick="window.switchScheduleDay(\'' + dayName + '\')" ' +
-                'style="padding:6px 14px; border-radius:4px; font-weight:bold; font-size:0.8rem; cursor:pointer; ' +
-                'border:' + (isActive ? '2px solid #FFD700' : '1px solid #444') + '; ' +
-                'background:' + (isActive ? '#FFD700' : '#222') + '; ' +
-                'color:' + (isActive ? '#000' : '#fff') + ';">' +
-                '📅 ' + dayName +
-                '</button> ';
+        const page = document.getElementById('pageSchedule');
+        if (!page) return;
+        const keys = getOrderedDayKeys();
+        let buttons = '';
+        keys.forEach(function (day) {
+            const active = day === scheduleState.activeDay;
+            buttons += '<button type="button" class="schedule-day-btn ' + (active ? 'active' : '') + '" onclick="window.switchScheduleDay(\'' + day.replace(/'/g, "\\'") + '\')">📅 ' + escapeHtml(day) + '</button>';
         });
 
-        let html = '<div class="setup-box">' +
-            '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">' +
-                '<h3 style="margin:0; font-size:1.1rem; color:#FFD700;">⏱️ Live-Zeitplan & Alarm</h3>' +
+        page.innerHTML = '<div class="setup-box">' +
+            '<div class="schedule-headline"><h3>⏱️ Live-Zeitplan & Alarm</h3><span class="schedule-current-day">Heute: ' + escapeHtml(getTodayName()) + '</span></div>' +
+            '<div class="schedule-settings">' +
+                '<div class="schedule-setting-line"><label>Meine Gruppe:</label><select id="scheduleMyGroupSelect">' +
+                    '<option value="A" ' + (scheduleState.myGroup === 'A' ? 'selected' : '') + '>Gruppe A</option>' +
+                    '<option value="B" ' + (scheduleState.myGroup === 'B' ? 'selected' : '') + '>Gruppe B</option>' +
+                    '<option value="C" ' + (scheduleState.myGroup === 'C' ? 'selected' : '') + '>Gruppe C</option>' +
+                    '<option value="D" ' + (scheduleState.myGroup === 'D' ? 'selected' : '') + '>Gruppe D</option>' +
+                    '<option value="ALL" ' + (scheduleState.myGroup === 'ALL' ? 'selected' : '') + '>Alle Turn-Erinnerungen</option>' +
+                '</select></div>' +
+                '<label class="schedule-check"><input type="checkbox" id="alert10mToggle" ' + (scheduleState.alert10m ? 'checked' : '') + '> ✨ 10 Min. vor eigenem Turn</label>' +
+                '<label class="schedule-check"><input type="checkbox" id="alert5mToggle" ' + (scheduleState.alert5m ? 'checked' : '') + '> 🚨 5 Min. vor eigenem Turn</label>' +
             '</div>' +
-
-            '<div style="background:#1e1e1e; padding:10px; border-radius:6px; margin-bottom:12px; border:1px solid #333;">' +
-                '<div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:8px;">' +
-                    '<label style="font-size:0.85rem; font-weight:bold; color:#fff;">Meine Gruppe:</label>' +
-                    '<select id="scheduleMyGroupSelect" style="width:auto; padding:4px 10px; font-weight:bold; background:#333; color:#FFD700; border-color:#FFD700;">' +
-                        '<option value="A" ' + (scheduleState.myGroup==='A'?'selected':'') + '>Gruppe A (Langsamer)</option>' +
-                        '<option value="B" ' + (scheduleState.myGroup==='B'?'selected':'') + '>Gruppe B (Schneller)</option>' +
-                        '<option value="C" ' + (scheduleState.myGroup==='C'?'selected':'') + '>Gruppe C (Raser)</option>' +
-                        '<option value="D" ' + (scheduleState.myGroup==='D'?'selected':'') + '>Gruppe D (Sehr Schnell)</option>' +
-                        '<option value="ALL" ' + (scheduleState.myGroup==='ALL'?'selected':'') + '>Alle Turn-Erinnerungen</option>' +
-                    '</select>' +
-                '</div>' +
-
-                '<div style="display:flex; flex-direction:column; gap:6px; font-size:0.8rem; border-top:1px solid #333; padding-top:8px;">' +
-                    '<label style="display:flex; align-items:center; gap:8px; cursor:pointer;">' +
-                        '<input type="checkbox" id="alert10mToggle" ' + (scheduleState.alert10m ? 'checked' : '') + ' style="width:16px; height:16px; accent-color:#ff9800;">' +
-                        '<span>✨ <strong>10 Min. vor eigenem Turn:</strong> Header-Anzeige leuchten lassen</span>' +
-                    '</label>' +
-                    '<label style="display:flex; align-items:center; gap:8px; cursor:pointer;">' +
-                        '<input type="checkbox" id="alert5mToggle" ' + (scheduleState.alert5m ? 'checked' : '') + ' style="width:16px; height:16px; accent-color:#f44336;">' +
-                        '<span>🚨 <strong>5 Min. vor eigenem Turn:</strong> Bildschirmrand ROT blinken</span>' +
-                    '</label>' +
-                '</div>' +
+            '<div class="schedule-days">' + buttons + '<button type="button" onclick="window.togglePdfImportSection()" class="schedule-import-btn">📄 PDF importieren</button></div>' +
+            '<div id="pdfImportSection" class="schedule-import-section" style="display:none">' +
+                '<h4>Stardesign-Zeitplan importieren</h4>' +
+                '<p>PDF auswählen oder den kopierten Zeitplan-Text einfügen.</p>' +
+                '<input type="file" id="schedulePdfFile" accept=".pdf,.txt">' +
+                '<textarea id="scheduleRawText" rows="6" placeholder="Zeitplan-Text hier einfügen..."></textarea>' +
+                '<button type="button" onclick="window.parseScheduleText()" class="schedule-analyse-btn">⚡ Text analysieren & übernehmen</button>' +
             '</div>' +
-
-            '<div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; align-items:center;">' +
-                dayButtonsHtml +
-                '<button type="button" onclick="window.togglePdfImportSection()" style="margin-left:auto; background:#2196F3; color:#fff; border:none; padding:6px 12px; border-radius:4px; font-size:0.75rem; cursor:pointer;">📄 PDF Importieren</button>' +
+            '<div class="schedule-add-row">' +
+                '<input type="text" id="newTurnStart" placeholder="09:00"> <span>bis</span> <input type="text" id="newTurnEnd" placeholder="09:20">' +
+                '<input type="text" id="newTurnTitle" placeholder="Bezeichnung">' +
+                '<select id="newTurnGroup"><option>A</option><option>B</option><option>C</option><option>D</option><option>Anfänger</option><option>Rennen</option><option>Pause</option><option>Orga</option></select>' +
+                '<button type="button" onclick="window.addCustomTurn()">+ Turn</button>' +
             '</div>' +
-
-            '<div id="pdfImportSection" style="display:none; background:#181818; padding:10px; border-radius:6px; margin-bottom:12px; border:1px dashed #2196F3;">' +
-                '<h4 style="margin:0 0 8px 0; font-size:0.85rem; color:#2196F3;">Zeitplan importieren</h4>' +
-                '<p style="font-size:0.75rem; color:#aaa; margin:0 0 8px 0;">Wähle die Stardesign PDF-Datei aus:</p>' +
-
-                '<div style="margin-bottom:8px;">' +
-                    '<input type="file" id="schedulePdfFile" accept=".pdf,.txt" style="font-size:0.75rem;">' +
-                '</div>' +
-
-                '<textarea id="scheduleRawText" rows="4" placeholder="Oder kopierten Zeitplan-Text hier einfügen..." style="width:100%; font-size:0.8rem; margin-bottom:6px;"></textarea>' +
-
-                '<div style="display:flex; gap:6px;">' +
-                    '<button type="button" onclick="window.parseScheduleText()" style="flex:1; background:#4CAF50; color:#fff; border:none; padding:8px; border-radius:4px; font-size:0.8rem; font-weight:bold; cursor:pointer;">⚡ Text analysieren & übernehmen</button>' +
-                '</div>' +
-            '</div>' +
-
-            '<div style="background:#222; padding:8px; border-radius:6px; margin-bottom:12px;">' +
-                '<div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">' +
-                    '<input type="text" id="newTurnStart" placeholder="09:00" style="width:60px; text-align:center;">' +
-                    '<span>bis</span>' +
-                    '<input type="text" id="newTurnEnd" placeholder="09:20" style="width:60px; text-align:center;">' +
-                    '<input type="text" id="newTurnTitle" placeholder="Bezeichnung (z.B. Turn 1 Gruppe A)" style="flex:1; min-width:120px;">' +
-                    '<select id="newTurnGroup" style="width:90px;">' +
-                        '<option value="A">Gruppe A</option>' +
-                        '<option value="B">Gruppe B</option>' +
-                        '<option value="C">Gruppe C</option>' +
-                        '<option value="D">Gruppe D</option>' +
-                        '<option value="Anfänger">Anfänger</option>' +
-                        '<option value="Rennen">Rennen</option>' +
-                        '<option value="Pause">Pause</option>' +
-                        '<option value="Orga">Orga</option>' +
-                    '</select>' +
-                    '<button type="button" onclick="window.addCustomTurn()" style="background:#4CAF50; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer; font-size:0.8rem;">+ Turn</button>' +
-                '</div>' +
-            '</div>' +
-
-            '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">' +
-                '<h4 style="margin:0; font-size:0.9rem;">Tagesplan (' + scheduleState.activeDay + '): <span id="scheduleCount">0</span> Turns</h4>' +
-                '<button type="button" onclick="window.clearSchedule()" style="background:none; border:none; color:#f44336; cursor:pointer; font-size:0.8rem;">Alle Tage leeren</button>' +
-            '</div>' +
-
-            '<div id="scheduleItemsContainer" style="display:flex; flex-direction:column; gap:6px;"></div>' +
+            '<div class="schedule-list-head"><h4>Tagesplan (' + escapeHtml(scheduleState.activeDay) + '): <span id="scheduleCount">0</span> Einträge</h4><button type="button" onclick="window.clearSchedule()">Alle Tage leeren</button></div>' +
+            '<div id="scheduleItemsContainer"></div>' +
         '</div>';
-
-        container.innerHTML = html;
         bindScheduleEvents();
         renderScheduleRows();
         updateScheduleTimer();
     }
 
-    // 5. PDF & Text Importer Funktionen
     function loadPdfJsLib() {
-        return new Promise(function(resolve, reject) {
+        return new Promise(function (resolve, reject) {
             if (window.pdfjsLib) return resolve(window.pdfjsLib);
-
             const script = document.createElement('script');
             script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-            script.onload = function() {
-                window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            script.onload = function () {
+                if (window.pdfjsLib && window.pdfjsLib.GlobalWorkerOptions) window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
                 resolve(window.pdfjsLib);
             };
-            script.onerror = function() {
-                reject(new Error('PDF.js Bibliothek konnte nicht geladen werden.'));
-            };
+            script.onerror = function () { reject(new Error('PDF.js konnte nicht geladen werden.')); };
             document.head.appendChild(script);
         });
     }
 
-    function handlePdfFileUpload(e) {
-        const file = e.target && e.target.files ? e.target.files[0] : null;
-        if (!file) return;
-
-        const textEl = document.getElementById('scheduleRawText');
-
-        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-            if (typeof showNotice === 'function') {
-                showNotice('saveNotice', 'Lese PDF-Datei aus...');
-            }
-
-            loadPdfJsLib().then(function(pdfjsLib) {
-                return file.arrayBuffer().then(function(arrayBuffer) {
-                    return pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-                });
-            }).then(function(pdf) {
-                let pagePromises = [];
-                for (let i = 1; i <= pdf.numPages; i++) {
-                    pagePromises.push(pdf.getPage(i).then(function(page) {
-                        return page.getTextContent().then(function(textContent) {
-                            const linesMap = [];
-                            textContent.items.forEach(function(item) {
-                                const text = item.str ? item.str.trim() : '';
-                                if (!text) return;
-                                const x = item.transform[4];
-                                const y = item.transform[5];
-
-                                let line = linesMap.find(function(l) { return Math.abs(l.y - y) <= 8; });
-                                if (!line) {
-                                    line = { y: y, items: [] };
-                                    linesMap.push(line);
-                                }
-                                line.items.push({ x: x, text: text });
-                            });
-
-                            linesMap.sort(function(a, b) { return b.y - a.y; });
-
-                            let pageText = '\n--- PAGE ' + i + ' ---\n';
-                            linesMap.forEach(function(line) {
-                                line.items.sort(function(a, b) { return a.x - b.x; });
-                                const lineStr = line.items.map(function(it) { return it.text; }).join(' ').trim();
-                                if (lineStr) {
-                                    pageText += lineStr + '\n';
-                                }
-                            });
-                            return pageText;
-                        });
-                    }));
-                }
-                return Promise.all(pagePromises);
-            }).then(function(pagesTextArray) {
-                const fullText = pagesTextArray.join('\n');
-                if (textEl) {
-                    textEl.value = fullText.trim();
-                    window.parseScheduleText();
-                }
-            }).catch(function(err) {
-                console.error('[Schedule] PDF Parse Fehler:', err);
-                alert('Fehler beim Lesen der PDF-Datei.');
+    async function extractPdfText(file) {
+        const pdfjsLib = await loadPdfJsLib();
+        const buffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+        const pages = [];
+        for (let p = 1; p <= pdf.numPages; p++) {
+            const page = await pdf.getPage(p);
+            const content = await page.getTextContent();
+            const lines = [];
+            content.items.forEach(function (item) {
+                const text = item.str ? item.str.trim() : '';
+                if (!text) return;
+                const x = item.transform ? item.transform[4] : 0;
+                const y = item.transform ? item.transform[5] : 0;
+                let line = lines.find(function (l) { return Math.abs(l.y - y) <= 5; });
+                if (!line) { line = { y: y, items: [] }; lines.push(line); }
+                line.items.push({ x: x, text: text });
             });
-        } else {
-            const reader = new FileReader();
-            reader.onload = function(evt) {
-                if (textEl && evt.target) {
-                    textEl.value = evt.target.result;
-                    window.parseScheduleText();
-                }
-            };
-            reader.readAsText(file);
+            lines.sort(function (a, b) { return b.y - a.y; });
+            pages.push(lines.map(function (line) {
+                line.items.sort(function (a, b) { return a.x - b.x; });
+                return line.items.map(function (it) { return it.text; }).join(' ').replace(/\s+/g, ' ').trim();
+            }).filter(Boolean).join('\n'));
+        }
+        return pages.map(function (p, i) { return '--- PAGE ' + (i + 1) + ' ---\n' + p; }).join('\n');
+    }
+
+    async function handlePdfFileUpload(e) {
+        const file = e.target && e.target.files ? e.target.files[0] : null;
+        if (!file || pdfLoading) return;
+        const textEl = document.getElementById('scheduleRawText');
+        pdfLoading = true;
+        try {
+            if (file.name.toLowerCase().endsWith('.pdf')) {
+                if (textEl) textEl.value = await extractPdfText(file);
+            } else {
+                if (textEl) textEl.value = await file.text();
+            }
+            if (textEl && textEl.value.trim()) window.parseScheduleText();
+        } catch (err) {
+            console.error('[Schedule] PDF-Import:', err);
+            alert('Die PDF konnte nicht gelesen werden. Du kannst den Text auch direkt in das Feld kopieren.');
+        } finally {
+            pdfLoading = false;
         }
     }
 
-    // 6. Global freigegebene Fenster-Methoden
-    window.switchScheduleDay = function(dayName) {
+    function detectDayFromLine(line) {
+        if (/\bMONTAG\b|\bMONDAY\b/i.test(line)) return 'Montag';
+        if (/\bDIENSTAG\b|\bTUESDAY\b/i.test(line)) return 'Dienstag';
+        if (/\bMITTWOCH\b|\bWEDNESDAY\b/i.test(line)) return 'Mittwoch';
+        if (/\bDONNERSTAG\b|\bTHURSDAY\b/i.test(line)) return 'Donnerstag';
+        if (/\bFREITAG\b|\bFRIDAY\b/i.test(line)) return 'Freitag';
+        if (/\bSAMSTAG\b|\bSATURDAY\b/i.test(line)) return 'Samstag';
+        if (/\bSONNTAG\b|\bSUNDAY\b/i.test(line)) return 'Sonntag';
+        const m = line.match(/\b(?:TAG|DAY)\s*(\d+)\b/i);
+        return m ? 'Tag ' + m[1] : null;
+    }
+
+    window.switchScheduleDay = function (dayName) {
+        if (!scheduleState.days[dayName]) return;
         scheduleState.activeDay = dayName;
         saveScheduleState();
         renderSchedulePage();
     };
 
-    window.togglePdfImportSection = function() {
+    window.togglePdfImportSection = function () {
         const sec = document.getElementById('pdfImportSection');
-        if (sec) {
-            sec.style.display = (sec.style.display === 'none' || !sec.style.display) ? 'block' : 'none';
+        if (sec) sec.style.display = sec.style.display === 'none' ? 'block' : 'none';
+    };
+
+    window.addCustomTurn = function () {
+        const start = normalizeTime(document.getElementById('newTurnStart')?.value);
+        const end = normalizeTime(document.getElementById('newTurnEnd')?.value);
+        const title = document.getElementById('newTurnTitle')?.value.trim();
+        const group = document.getElementById('newTurnGroup')?.value || 'A';
+        if (!start || !title) return alert('Bitte Startzeit und Bezeichnung eingeben!');
+        if (!scheduleState.days[scheduleState.activeDay]) scheduleState.days[scheduleState.activeDay] = [];
+        scheduleState.days[scheduleState.activeDay].push(normalizeItem({ start, end: end || minutesToTime(timeToMinutes(start) + 20), title, group }));
+        saveScheduleState(); renderSchedulePage();
+        ['newTurnStart', 'newTurnEnd', 'newTurnTitle'].forEach(function (id) { const el = document.getElementById(id); if (el) el.value = ''; });
+    };
+
+    window.deleteTurn = function (index) {
+        const items = getCurrentItems().slice().sort(function (a, b) { return timeToMinutes(a.start) - timeToMinutes(b.start); });
+        if (items[index]) {
+            const target = items[index];
+            scheduleState.days[scheduleState.activeDay] = scheduleState.days[scheduleState.activeDay].filter(function (x) { return !(x.start === target.start && x.end === target.end && x.title === target.title && x.group === target.group); });
+            saveScheduleState(); renderSchedulePage();
         }
     };
 
-    window.addCustomTurn = function() {
-        const startEl = document.getElementById('newTurnStart');
-        const endEl = document.getElementById('newTurnEnd');
-        const titleEl = document.getElementById('newTurnTitle');
-        const groupEl = document.getElementById('newTurnGroup');
-
-        const start = startEl ? startEl.value.trim() : '';
-        const end = endEl ? endEl.value.trim() : '';
-        const title = titleEl ? titleEl.value.trim() : '';
-        const group = groupEl ? groupEl.value : 'A';
-
-        if (!start || !title) {
-            alert('Bitte Startzeit und Bezeichnung eingeben!');
-            return;
-        }
-
-        if (!scheduleState.days[scheduleState.activeDay]) {
-            scheduleState.days[scheduleState.activeDay] = [];
-        }
-
-        scheduleState.days[scheduleState.activeDay].push({
-            start: start,
-            end: end || minutesToTime(timeToMinutes(start) + 20),
-            title: title,
-            group: group
-        });
-        saveScheduleState();
-        renderScheduleRows();
-        updateScheduleTimer();
-
-        if (startEl) startEl.value = '';
-        if (endEl) endEl.value = '';
-        if (titleEl) titleEl.value = '';
+    window.clearSchedule = function () {
+        if (!confirm('Möchtest du den Zeitplan für ALLE Tage komplett leeren?')) return;
+        scheduleState.days = {};
+        scheduleState.activeDay = getTodayName();
+        saveScheduleState(); renderSchedulePage(); updateScheduleTimer();
     };
 
-    window.deleteTurn = function(index) {
-        if (scheduleState.days[scheduleState.activeDay]) {
-            scheduleState.days[scheduleState.activeDay].splice(index, 1);
-            saveScheduleState();
-            renderScheduleRows();
-            updateScheduleTimer();
-        }
-    };
-
-    window.clearSchedule = function() {
-        if (confirm("Möchtest du den Zeitplan für ALLE Tage komplett leeren?")) {
-            scheduleState.days = { 'Montag': [] };
-            scheduleState.activeDay = 'Montag';
-            saveScheduleState();
-            renderSchedulePage();
-            updateScheduleTimer();
-        }
-    };
-
-    window.parseScheduleText = function() {
+    window.parseScheduleText = function () {
         const textEl = document.getElementById('scheduleRawText');
         const raw = textEl ? textEl.value : '';
-        if (!raw || raw.trim() === '') {
-            alert('Bitte Zeitplan-Text einfügen!');
-            return;
-        }
+        if (!raw.trim()) return alert('Bitte Zeitplan-Text einfügen oder eine PDF auswählen!');
 
-        const lines = raw.split('\n');
         const parsedDays = {};
-        
-        let dayCounter = 1;
-        let currentDayKey = "Montag";
-        parsedDays[currentDayKey] = [];
+        let currentDay = null;
+        let fallbackDay = 1;
+        let lastEnd = 540;
+        const seen = new Set();
 
-        const dayRegex = /(?:Program:\s*)?(MONTAG|DIENSTAG|MITTWOCH|DONNERSTAG|FREITAG|SAMSTAG|SONNTAG|TAG\s*\d+|DAY\s*\d+)/i;
-        const rangeTimeRegex = /^(\d{1,2}[:.]\d{2})\s*(?:-|bis)\s*(\d{1,2}[:.]\d{2})\s+(.+)/i;
-        const singleTimeRegex = /^(\d{1,2}[:.]\d{2})\s+(.+)/i;
-        const nextTimeRegex = /^(next\s*Race|next\s*-\s*(\d{1,2}[:.]\d{2})|next)\s+(.+)/i;
+        raw.split(/\r?\n/).forEach(function (originalLine) {
+            const line = originalLine.replace(/\s+/g, ' ').trim();
+            if (!line || /^---\s*PAGE/i.test(line)) return;
 
-        let lastEndMins = 540; // 09:00 Uhr
-        let seenInDay = new Set(); 
-
-        lines.forEach(function(line) {
-            const cleanLine = line.trim();
-            if (!cleanLine) return;
-
-            const dayMatch = cleanLine.match(dayRegex);
-            if (dayMatch && !cleanLine.includes('freies Fahren') && !cleanLine.includes('Anmeldung')) {
-                let detectedStr = dayMatch[1].toUpperCase();
-                let dayName = detectedStr;
-                if (detectedStr.includes('MONTAG')) dayName = 'Montag';
-                else if (detectedStr.includes('DIENSTAG')) dayName = 'Dienstag';
-                else if (detectedStr.includes('MITTWOCH')) dayName = 'Mittwoch';
-                else if (detectedStr.includes('DONNERSTAG')) dayName = 'Donnerstag';
-                else if (detectedStr.includes('FREITAG')) dayName = 'Freitag';
-                else if (detectedStr.includes('SAMSTAG')) dayName = 'Samstag';
-                else if (detectedStr.includes('SONNTAG')) dayName = 'Sonntag';
-                else dayName = 'Tag ' + (dayCounter++);
-
-                currentDayKey = dayName;
-                if (!parsedDays[currentDayKey]) {
-                    parsedDays[currentDayKey] = [];
-                }
-                lastEndMins = 540;
-                seenInDay.clear();
+            const day = detectDayFromLine(line);
+            if (day && !/freies fahren|gruppe [abcd]/i.test(line)) {
+                currentDay = day;
+                if (!parsedDays[currentDay]) parsedDays[currentDay] = [];
+                lastEnd = 540;
                 return;
             }
 
-            let start = '', end = '', rawTitle = '';
-
-            const rangeMatch = cleanLine.match(rangeTimeRegex);
-            const singleMatch = cleanLine.match(singleTimeRegex);
-            const nextMatch = cleanLine.match(nextTimeRegex);
-
-            if (rangeMatch) {
-                start = rangeMatch[1].replace('.', ':').padStart(5, '0');
-                end = rangeMatch[2].replace('.', ':').padStart(5, '0');
-                rawTitle = rangeMatch[3].trim();
-            } else if (singleMatch) {
-                start = singleMatch[1].replace('.', ':').padStart(5, '0');
-                rawTitle = singleMatch[2].trim();
-            } else if (nextMatch) {
-                start = minutesToTime(lastEndMins);
-                if (nextMatch[2]) {
-                    end = nextMatch[2].replace('.', ':').padStart(5, '0');
-                }
-                rawTitle = nextMatch[3].trim();
-            } else {
-                return;
+            // Falls die PDF keine Wochentage enthält, werden die gefundenen Blöcke als Tag 1, Tag 2 ... angelegt.
+            if (!currentDay) {
+                currentDay = 'Tag ' + fallbackDay;
+                parsedDays[currentDay] = [];
             }
 
-            const itemData = processLineTitle(rawTitle);
+            const timeData = getTimeParts(line);
+            if (!timeData || !timeData.start) return;
+            const itemData = processLineTitle(timeData.text);
             if (!itemData) return;
 
-            const startMins = timeToMinutes(start);
-            let endMins = end ? timeToMinutes(end) : (startMins + 20);
-            if (endMins <= startMins) endMins = startMins + 20;
+            const startM = timeToMinutes(timeData.start);
+            let end = timeData.end;
+            let endM = timeToMinutes(end);
+            if (!end || !Number.isFinite(endM) || endM <= startM) end = minutesToTime(startM + 20);
+            endM = timeToMinutes(end);
 
-            const uniqKey = start + '_' + itemData.group + '_' + itemData.title;
-            if (seenInDay.has(uniqKey)) return;
-            seenInDay.add(uniqKey);
-
-            parsedDays[currentDayKey].push({
-                start: start,
-                end: end || minutesToTime(endMins),
-                title: itemData.title,
-                group: itemData.group
-            });
-
-            lastEndMins = endMins;
+            const key = currentDay + '|' + timeData.start + '|' + end + '|' + itemData.group + '|' + itemData.title;
+            if (seen.has(key)) return;
+            seen.add(key);
+            parsedDays[currentDay].push({ start: timeData.start, end, title: itemData.title, group: itemData.group });
+            lastEnd = endM;
         });
 
-        const validDayKeys = Object.keys(parsedDays).filter(function(k) {
-            return parsedDays[k].length > 0;
+        Object.keys(parsedDays).forEach(function (day) {
+            parsedDays[day].sort(function (a, b) { return timeToMinutes(a.start) - timeToMinutes(b.start); });
         });
+        const valid = getOrderedKeys(parsedDays).filter(function (d) { return parsedDays[d].length; });
+        if (!valid.length) return alert('Keine passenden Zeitplan-Einträge gefunden. Prüfe, ob Gruppen, Rennen oder Pausen im PDF enthalten sind.');
 
-        if (validDayKeys.length > 0) {
-            const cleanDaysObj = {};
-            validDayKeys.forEach(function(k) { cleanDaysObj[k] = parsedDays[k]; });
-
-            scheduleState.days = cleanDaysObj;
-            scheduleState.activeDay = validDayKeys[0];
-            saveScheduleState();
-            renderSchedulePage();
-            updateScheduleTimer();
-            alert('Zeitplan erfolgreich importiert! Erfasste Tage: ' + validDayKeys.join(', '));
-            window.togglePdfImportSection();
-        } else {
-            alert('Keine passenden Turns oder Pausen gefunden. Bitte Datei prüfen.');
-        }
+        scheduleState.days = parsedDays;
+        const today = getTodayName();
+        scheduleState.activeDay = valid.includes(today) ? today : valid[0];
+        saveScheduleState();
+        renderSchedulePage();
+        updateScheduleTimer();
+        window.togglePdfImportSection();
+        alert('Zeitplan importiert. Erkannt: ' + valid.join(', '));
     };
 
-    window.initScheduleModule = function() {
+    function getOrderedKeys(obj) {
+        return Object.keys(obj).sort(function (a, b) {
+            const ia = DAY_ORDER.indexOf(a), ib = DAY_ORDER.indexOf(b);
+            if (ia < 0 && ib < 0) return a.localeCompare(b, 'de', { numeric: true });
+            if (ia < 0) return 1;
+            if (ib < 0) return -1;
+            return ia - ib;
+        });
+    }
+
+    window.initScheduleModule = function () {
+        scheduleState.days = normalizeDays(scheduleState.days);
+        selectBestActiveDay();
+        saveScheduleState();
         renderSchedulePage();
-        if (!timerInterval) {
-            timerInterval = setInterval(updateScheduleTimer, 1000);
-        }
+        if (!timerInterval) timerInterval = setInterval(updateScheduleTimer, 1000);
         updateScheduleTimer();
     };
 
-    // 7. Auto-Init beim Laden der Seite
-    if (document.readyState === 'complete' || document.readyState === 'interactive') {
-        setTimeout(window.initScheduleModule, 100);
-    } else {
-        document.addEventListener('DOMContentLoaded', function() {
-            window.initScheduleModule();
-        });
-    }
+    if (document.readyState === 'complete' || document.readyState === 'interactive') setTimeout(window.initScheduleModule, 100);
+    else document.addEventListener('DOMContentLoaded', function () { window.initScheduleModule(); });
 })();
