@@ -23,33 +23,25 @@
     const styleTag = document.createElement('style');
     styleTag.innerHTML = `
         #weather-header-widget {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 5px 12px;
-            border-radius: 20px;
             cursor: pointer;
-            font-size: 12px;
-            transition: all 0.3s ease;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            white-space: nowrap;
+            transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
         }
         #weather-header-widget:hover {
-            background: rgba(255, 255, 255, 0.2);
+            border-color: #ffd400;
+            background: linear-gradient(145deg, #202020, #131313);
         }
         /* Statische Farben für das Tages-Maximum */
         #weather-header-widget.alert-yellow {
-            background-color: rgba(255, 193, 7, 0.3);
-            border-color: #ffc107;
+            background: linear-gradient(145deg, rgba(255, 212, 0, 0.20), #171500);
+            border-color: #ffd400;
         }
         #weather-header-widget.alert-orange {
-            background-color: rgba(255, 140, 0, 0.35);
+            background: linear-gradient(145deg, rgba(255, 140, 0, 0.24), #1b1000);
             border-color: #ff8c00;
         }
         #weather-header-widget.alert-red {
-            background-color: rgba(220, 53, 69, 0.4);
-            border-color: #dc3545;
+            background: linear-gradient(145deg, rgba(227, 32, 32, 0.25), #1d0808);
+            border-color: #e32020;
         }
         /* Blink-Animation für akuten Regen in den nächsten 60 Minuten */
         .weather-pulse {
