@@ -22,33 +22,65 @@
 
     <div class="app-container">
         <header class="app-header">
-            <div>
-                <h1>🏍️ UpperRacing</h1>
-                <div class="track-selector-wrapper" style="margin-top:5px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                    <select id="trackSelect" onchange="onTrackChange()">
-                        <option value="pannoniaring">Pannonia</option>
-                        <option value="slovakia">Slovakia</option>
-                        <option value="brünn">Brünn</option>
-                        <option value="most">Most</option>
-                        <option value="grobnik">Grobnik</option>
-                    </select>
-                    <select id="motorcycleSelect" onchange="onMotorcycleChange()">
-                        <!-- Wird dynamisch gefüllt -->
-                    </select>
-                    <div id="weather-header-widget" title="Klicken für Wettervorhersage & Regenradar">
-                        <span id="weather-icon">⏳</span> <span id="weather-temp">--°C</span>
-                    </div>
-                    <!-- Neuer Live Turn Anzeige-Slot -->
-                    <div id="headerScheduleWidget" class="header-schedule-widget" onclick="switchPage('schedule')" title="Klicken für ausführlichen Zeitplan">
-                        <span style="opacity:0.8;">⏱️ Lade Zeitplan...</span>
+            <div class="header-brand-row">
+                <div class="header-brand">
+                    <img src="icon.png" alt="UpperRacing" class="header-brand-logo">
+                    <div class="header-brand-text">
+                        <div class="header-brand-name"><span>UPPER</span><strong>RACING</strong></div>
+                        <div class="header-brand-sub">TRACKDAY DASHBOARD</div>
                     </div>
                 </div>
+                <div id="headerPoint2Slot" class="header-extra-slot"></div>
             </div>
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <div id="headerPoint2Slot"></div>
-                <div id="headerAllTime" onclick="confirmClearAllTimeBest()" style="text-align:right; background:#222; padding:6px 10px; border-radius:6px; border:1px solid #444; cursor:pointer;" title="Klicken zum Zurücksetzen der Bestzeit">
-                    <div style="font-size:0.65rem; color:#FFD700;">🏆 Bestzeit 🗑️</div>
-                    <div id="headerAllTimeValue" style="font-size:0.85rem; font-weight:bold; color:#fff;">--:--.---</div>
+
+            <div class="header-select-grid">
+                <label class="header-control-card" for="motorcycleSelect">
+                    <span class="header-control-icon">🏍️</span>
+                    <span class="header-control-content">
+                        <span class="header-control-label">MOTORRAD</span>
+                        <select id="motorcycleSelect" onchange="onMotorcycleChange()">
+                            <!-- Wird dynamisch gefüllt -->
+                        </select>
+                    </span>
+                    <span class="header-control-chevron">⌄</span>
+                </label>
+
+                <label class="header-control-card" for="trackSelect">
+                    <span class="header-control-icon">🏁</span>
+                    <span class="header-control-content">
+                        <span class="header-control-label">STRECKE</span>
+                        <select id="trackSelect" onchange="onTrackChange()">
+                            <option value="pannoniaring">Pannonia</option>
+                            <option value="slovakia">Slovakia</option>
+                            <option value="brünn">Brünn</option>
+                            <option value="most">Most</option>
+                            <option value="grobnik">Grobnik</option>
+                        </select>
+                    </span>
+                    <span class="header-control-chevron">⌄</span>
+                </label>
+
+                <div id="weather-header-widget" class="header-control-card header-weather-card" title="Klicken für Wettervorhersage & Regenradar">
+                    <span class="header-control-icon" id="weather-icon">⏳</span>
+                    <span class="header-control-content">
+                        <span class="header-control-label">WETTER</span>
+                        <span class="header-weather-main"><span id="weather-temp">--°C</span></span>
+                        <span id="weather-info-text" class="header-weather-info">Akt: --% | Tag: --%</span>
+                    </span>
+                    <span class="header-control-chevron">›</span>
+                </div>
+            </div>
+
+            <div class="header-status-grid">
+                <div id="headerScheduleWidget" class="header-schedule-widget header-status-card" onclick="switchPage('schedule')" title="Klicken für ausführlichen Zeitplan">
+                    <div class="header-status-label">NÄCHSTER TURN</div>
+                    <div class="header-status-value"><span style="opacity:0.8;">⏱️ Lade Zeitplan...</span></div>
+                </div>
+
+                <div id="headerAllTime" class="header-best-card" onclick="confirmClearAllTimeBest()" title="Klicken zum Zurücksetzen der Bestzeit">
+                    <div class="header-best-label">🏆 BESTZEIT</div>
+                    <div id="headerAllTimeValue" class="header-best-value">--:--.---</div>
+                    <div class="header-best-hint">Antippen zum Zurücksetzen</div>
                 </div>
             </div>
         </header>
