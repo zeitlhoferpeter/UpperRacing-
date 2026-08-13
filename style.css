@@ -22,116 +22,436 @@ body {
     box-shadow: 0 0 20px rgba(0,0,0,0.7);
 }
 
+
+/* =========================================================
+   UPPERRACING HEADER – Racing Dashboard Redesign
+   Nur Darstellung: IDs, Events und Funktionen bleiben gleich.
+   Logo-Farben: Gelb / Rot / Weiß auf Schwarz.
+   ========================================================= */
+
+:root {
+    --ur-black: #090909;
+    --ur-panel: #151515;
+    --ur-panel-2: #1d1d1d;
+    --ur-border: #3a3a3a;
+    --ur-border-soft: #292929;
+    --ur-white: #ffffff;
+    --ur-text: #e8e8e8;
+    --ur-muted: #969696;
+    --ur-yellow: #ffd400;
+    --ur-yellow-soft: rgba(255, 212, 0, 0.12);
+    --ur-red: #e32020;
+}
+
 .app-header {
-    background-color: #1f1f1f;
-    padding: 12px 15px;
-    border-bottom: 1px solid #333;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.025), transparent 34%),
+        var(--ur-black);
+    padding: 10px;
+    border-bottom: 1px solid #242424;
+    display: block;
+}
+
+.header-brand-row {
+    min-height: 46px;
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 9px;
 }
 
-.app-header h1 {
+.header-brand {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.header-brand-logo {
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+    object-position: center;
+    border-radius: 8px;
+    margin-right: 9px;
+    flex-shrink: 0;
+}
+
+.header-brand-text {
+    min-width: 0;
+    line-height: 1;
+}
+
+.header-brand-name {
+    display: flex;
+    gap: 5px;
+    align-items: baseline;
+    font-weight: 900;
+    font-style: italic;
+    letter-spacing: 0.6px;
+    white-space: nowrap;
+}
+
+.header-brand-name span {
+    color: var(--ur-white);
+    font-size: 1.05rem;
+}
+
+.header-brand-name strong {
+    color: var(--ur-red);
+    font-size: 0.88rem;
+}
+
+.header-brand-sub {
+    color: var(--ur-yellow);
+    margin-top: 4px;
+    font-size: 0.52rem;
+    font-weight: 800;
+    letter-spacing: 1.25px;
+}
+
+.header-extra-slot {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.header-select-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+}
+
+.header-control-card {
+    min-height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(145deg, #1b1b1b, #111);
+    border: 1px solid var(--ur-border);
+    border-radius: 9px;
+    padding: 8px 9px;
+    color: var(--ur-white);
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.header-control-card:focus-within,
+.header-control-card:active {
+    border-color: var(--ur-yellow);
+    background: linear-gradient(145deg, #202020, #131313);
+}
+
+.header-control-icon {
+    width: 28px;
+    flex: 0 0 28px;
+    text-align: center;
+    font-size: 1.25rem;
+    filter: saturate(0.9);
+}
+
+.header-control-content {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.header-control-label {
+    color: var(--ur-muted);
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 0.9px;
+    margin-bottom: 2px;
+}
+
+.header-control-chevron {
+    color: var(--ur-yellow);
+    flex: 0 0 auto;
+    font-size: 1.15rem;
+    line-height: 1;
+}
+
+.header-control-card select {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    padding: 0;
     margin: 0;
-    font-size: 1.1rem;
-    color: #4CAF50;
-}
-
-/* Gekürzte, kompaktere Select-Menüs im Header */
-.track-selector-wrapper select {
-    background: #2a2a2a;
-    color: #fff;
-    border: 1px solid #444;
-    padding: 4px 6px;
-    border-radius: 6px;
-    font-size: 0.8rem;
-    max-width: 85px;
+    background: transparent;
+    color: var(--ur-white);
+    border: 0;
+    border-radius: 0;
+    font-size: 0.88rem;
+    font-weight: 800;
+    line-height: 1.25;
+    overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    overflow: hidden;
+    cursor: pointer;
 }
 
-/* Header Schedule Widget */
-.header-schedule-widget {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background: #222;
-    padding: 4px 8px;
-    border-radius: 14px;
-    border: 1px solid #444;
-    cursor: pointer;
-    font-size: 0.75rem;
-    transition: all 0.3s ease;
+.header-control-card select:focus {
+    outline: none;
+    border: 0;
+}
+
+.header-control-card select option {
+    background: #151515;
+    color: #fff;
+}
+
+.header-weather-card {
+    grid-column: 1 / -1;
+    min-height: 58px;
+}
+
+.header-weather-main {
+    color: var(--ur-white);
+    font-size: 0.9rem;
+    font-weight: 900;
     white-space: nowrap;
+}
+
+.header-weather-info {
+    color: #b8b8b8;
+    font-size: 0.62rem;
+    line-height: 1.25;
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.header-status-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 128px;
+    gap: 7px;
+    margin-top: 7px;
+}
+
+.header-status-card,
+.header-best-card {
+    min-height: 66px;
+    background: linear-gradient(145deg, #191919, #101010);
+    border: 1px solid var(--ur-border);
+    border-radius: 9px;
+}
+
+.header-schedule-widget {
+    max-width: none;
+    min-height: 66px;
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: center;
+    align-items: center;
+    gap: 5px 7px;
+    padding: 8px 10px;
+    border-radius: 9px;
+    font-size: 0.77rem;
+    white-space: normal;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+}
+
+.header-schedule-widget::before {
+    content: "NÄCHSTER TURN";
+    width: 100%;
+    color: var(--ur-muted);
+    font-size: 0.58rem;
+    font-weight: 900;
+    letter-spacing: 0.9px;
+    line-height: 1;
+    margin-bottom: 2px;
+}
+
+.header-schedule-widget > .header-status-label,
+.header-schedule-widget > .header-status-value {
+    display: contents;
+}
+
+.header-schedule-widget .turn-next-badge {
+    color: var(--ur-white);
+    font-size: 0.92rem;
+    font-weight: 900;
 }
 
 .turn-group-badge {
-    background: #555;
+    background: #333;
     color: #fff;
-    padding: 2px 5px;
-    border-radius: 3px;
-    font-weight: bold;
-    font-size: 0.7rem;
+    padding: 4px 7px;
+    border-radius: 5px;
+    font-weight: 900;
+    font-size: 0.76rem;
+    border: 1px solid #555;
 }
 
 .turn-group-badge.my-group {
-    background: #FFD700;
-    color: #000;
+    background: var(--ur-yellow);
+    border-color: var(--ur-yellow);
+    color: #050505;
 }
 
 .turn-time-rem {
-    font-weight: bold;
-    color: #4CAF50;
+    color: var(--ur-yellow);
+    font-size: 1rem;
+    font-weight: 900;
 }
 
-/* 10 MINUTEN ALARM: Gelb/Orange glühender Header-Badge */
+.header-best-card {
+    padding: 8px 9px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: right;
+    cursor: pointer;
+}
+
+.header-best-label {
+    color: var(--ur-yellow);
+    font-size: 0.56rem;
+    font-weight: 900;
+    letter-spacing: 0.6px;
+}
+
+.header-best-value {
+    color: var(--ur-white);
+    font-size: 0.98rem;
+    font-weight: 900;
+    margin-top: 3px;
+    white-space: nowrap;
+}
+
+.header-best-hint {
+    color: #777;
+    font-size: 0.48rem;
+    margin-top: 2px;
+}
+
+/* 10-Minuten-Warnung bleibt funktional, nur im neuen Design */
 @keyframes schedule-pulse-glow {
-    0% { transform: scale(1); box-shadow: 0 0 4px #ff9800; border-color: #ff9800; }
-    100% { transform: scale(1.05); box-shadow: 0 0 16px #ff9800; border-color: #FFD700; background: #3a2500; }
+    0% {
+        box-shadow: 0 0 0 rgba(255,212,0,0);
+        border-color: var(--ur-yellow);
+        background: #191919;
+    }
+    100% {
+        box-shadow: 0 0 17px rgba(255,212,0,.52);
+        border-color: var(--ur-yellow);
+        background: #282300;
+    }
 }
 
 .schedule-glow-10m {
     animation: schedule-pulse-glow 0.8s infinite alternate !important;
 }
 
-/* 5 MINUTEN ALARM: Pulsierender ROTER Bildschirmrand */
+/* 5-Minuten-Warnung bleibt unverändert als roter Bildschirmrand */
 @keyframes red-screen-border-blink {
-    0%, 100% { box-shadow: inset 0 0 0 0px transparent; }
-    50% { box-shadow: inset 0 0 25px 8px rgba(244, 67, 54, 0.95); }
+    0%, 100% { box-shadow: inset 0 0 0 0 transparent; }
+    50% { box-shadow: inset 0 0 25px 8px rgba(227, 32, 32, 0.95); }
 }
 
 body.screen-alert-red {
     animation: red-screen-border-blink 1s infinite !important;
 }
 
+/* Navigation: gleiche Buttons / gleiche onclick-Funktionen */
 .nav-tabs {
     display: flex;
-    background-color: #222;
-    border-bottom: 1px solid #333;
+    gap: 0;
+    background: #101010;
+    border-bottom: 1px solid #292929;
     overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.nav-tabs::-webkit-scrollbar {
+    display: none;
 }
 
 .tab-btn {
-    flex: 1;
-    min-width: 55px;
-    background: none;
-    border: none;
-    color: #aaa;
-    padding: 12px 2px;
-    font-size: 0.72rem;
+    flex: 1 0 auto;
+    min-width: 64px;
+    min-height: 45px;
+    background: transparent;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    color: #929292;
+    padding: 10px 9px 8px;
+    font-size: 0.71rem;
+    font-weight: 700;
     cursor: pointer;
     text-align: center;
-    border-bottom: 3px solid transparent;
-    transition: all 0.2s;
     white-space: nowrap;
+    transition: color .18s ease, background .18s ease, border-color .18s ease;
 }
 
 .tab-btn.active {
-    color: #4CAF50;
-    border-bottom-color: #4CAF50;
-    background-color: #1a1a1a;
-    font-weight: bold;
+    color: var(--ur-yellow);
+    border-bottom-color: var(--ur-yellow);
+    background: linear-gradient(180deg, rgba(255,212,0,.07), transparent);
+    font-weight: 900;
+}
+
+@media (min-width: 421px) {
+    .header-select-grid {
+        grid-template-columns: 1fr 1fr 1.18fr;
+    }
+
+    .header-weather-card {
+        grid-column: auto;
+    }
+}
+
+@media (max-width: 360px) {
+    .app-header {
+        padding: 8px;
+    }
+
+    .header-brand-logo {
+        width: 42px;
+        height: 42px;
+    }
+
+    .header-brand-name span {
+        font-size: .96rem;
+    }
+
+    .header-brand-name strong {
+        font-size: .78rem;
+    }
+
+    .header-select-grid {
+        gap: 5px;
+    }
+
+    .header-control-card {
+        min-height: 60px;
+        padding: 7px;
+    }
+
+    .header-control-icon {
+        width: 23px;
+        flex-basis: 23px;
+        font-size: 1.05rem;
+    }
+
+    .header-status-grid {
+        grid-template-columns: minmax(0, 1fr) 112px;
+        gap: 5px;
+    }
+
+    .header-best-value {
+        font-size: .86rem;
+    }
 }
 
 main {
@@ -242,14 +562,7 @@ textarea {
     box-shadow: 0 0 10px rgba(76, 175, 80, 0.4);
 }
 
-/* ===== UpperRacing Zeitplan – neue kompakte Anzeige ===== */
-.header-schedule-widget { max-width: 235px; min-height: 28px; overflow: hidden; }
-.header-schedule-widget .turn-title-short { max-width: 92px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .78; }
-.header-schedule-widget .schedule-status-dot { font-size: .55rem; color: #4CAF50; }
-.header-schedule-widget.schedule-header-next .schedule-status-dot { color: #FFD700; }
-.header-schedule-widget.schedule-header-other .schedule-status-dot { color: #888; }
-.header-schedule-widget.schedule-header-active { border-color: #4CAF50; }
-.header-schedule-widget.schedule-header-next { border-color: #FFD700; }
+/* ===== UpperRacing Zeitplan – Anzeige ===== */
 
 .schedule-headline { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:10px; }
 .schedule-headline h3 { margin:0; font-size:1.1rem; color:#FFD700; }
@@ -288,8 +601,6 @@ textarea {
 .schedule-group.group-other { background:#607D8B; }
 .schedule-delete { background:none; border:none; color:#f44336; cursor:pointer; font-size:.85rem; }
 @media (max-width: 420px) {
-    .header-schedule-widget { max-width: 190px; }
-    .header-schedule-widget .turn-title-short { display:none; }
     .schedule-time { width:78px; }
     .schedule-add-row input:nth-of-type(3) { min-width:100px; }
 }
