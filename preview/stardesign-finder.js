@@ -23,10 +23,7 @@
     function parseRange(text){
       const m=String(text||'').match(/(\d{1,2})\.(\d{1,2})\.\s*-\s*(\d{1,2})\.(\d{1,2})\.(\d{4})/);
       if(!m)return null;
-      return {
-        start:new Date(+m[5],+m[2]-1,+m[1]),
-        end:new Date(+m[5],+m[4]-1,+m[3])
-      };
+      return {start:new Date(+m[5],+m[2]-1,+m[1]),end:new Date(+m[5],+m[4]-1,+m[3])};
     }
 
     function todayInside(range){
@@ -55,9 +52,7 @@
       d.head.appendChild(s);
     }
 
-    function findImportSection(){
-      return d.getElementById('pdfImportSection');
-    }
+    function findImportSection(){return d.getElementById('pdfImportSection')}
 
     function ensureBox(){
       ensureStyles();
@@ -75,15 +70,12 @@
       return box;
     }
 
-    function absUrl(href){
-      try{return new URL(href,'https://www.stardesignracing.com/events').toString()}catch(e){return ''}
-    }
+    function absUrl(href){try{return new URL(href,'https://www.stardesignracing.com/events').toString()}catch(e){return ''}}
 
     function findMatchingEvent(doc){
       const key=selectedTrackKey();
       const aliases=TRACK_ALIASES[key]||[key];
       const links=[...doc.querySelectorAll('a')].filter(a=>/zeitplan\s*herunterladen/i.test(a.textContent||''));
-
       for(const link of links){
         let node=link;
         for(let depth=0;depth<8&&node;depth++,node=node.parentElement){
@@ -92,24 +84,15 @@
           const range=parseRange(txt);
           if(!range||!todayInside(range))continue;
           if(!aliases.some(a=>lower.includes(a)))continue;
-
-          const heading=[...node.querySelectorAll('h2,h3,h4')]
-            .map(h=>(h.textContent||'').trim())
-            .find(t=>aliases.some(a=>t.toLowerCase().includes(a)))||'Stardesign Racing Event';
-
-          return {
-            title:heading,
-            range,
-            pdf:absUrl(link.getAttribute('href')||link.href||'')
-          };
+          const heading=[...node.querySelectorAll('h2,h3,h4')].map(h=>(h.textContent||'').trim()).find(t=>aliases.some(a=>t.toLowerCase().includes(a)))||'Stardesign Racing Event';
+          return {title:heading,range,pdf:absUrl(link.getAttribute('href')||link.href||'')};
         }
       }
       return null;
     }
 
     async function loadPdfThroughExistingImport(pdfUrl,btn){
-      btn.disabled=true;
-      btn.textContent='Lade Zeitplan …';
+      btn.disabled=true;btn.textContent='Lade Zeitplan …';
       try{
         const res=await fetch(pdfUrl,{cache:'no-store'});
         if(!res.ok)throw new Error('PDF HTTP '+res.status);
@@ -117,84 +100,55 @@
         const file=new File([blob],'Stardesign-Zeitplan.pdf',{type:'application/pdf'});
         const input=d.getElementById('schedulePdfFile');
         if(!input)throw new Error('PDF-Importfeld nicht gefunden');
-        const dt=new DataTransfer();
-        dt.items.add(file);
-        input.files=dt.files;
+        const dt=new DataTransfer();dt.items.add(file);input.files=dt.files;
         input.dispatchEvent(new Event('change',{bubbles:true}));
-        btn.textContent='Zeitplan geladen';
+        btn.textContent='Zeitplan wird verarbeitet …';
       }catch(err){
         console.warn('[Stardesign Finder] PDF Import:',err);
-        btn.disabled=false;
-        btn.textContent='Zeitplan laden erneut versuchen';
+        btn.disabled=false;btn.textContent='Zeitplan laden erneut versuchen';
         alert('Stardesign-Zeitplan konnte nicht automatisch geladen werden: '+(err.message||err));
       }
     }
 
-    let running=false;
-    let lastTrack='';
+    let running=false,lastTrack='';
 
     async function runFinder(force){
-      const section=findImportSection();
-      if(!section)return;
-      const track=selectedTrackKey();
-      if(running)return;
+      const section=findImportSection();if(!section)return;
+      const track=selectedTrackKey();if(running)return;
       if(!force&&d.getElementById('stardesignLiveSchedule')&&track===lastTrack)return;
-      lastTrack=track;
-      running=true;
-      const box=ensureBox();
-      if(!box){running=false;return;}
+      lastTrack=track;running=true;
+      const box=ensureBox();if(!box){running=false;return}
       const status=box.querySelector('.stardesign-live-status');
       const trackName=d.getElementById('trackSelect')?.selectedOptions?.[0]?.textContent||track;
       status.textContent='Prüfe '+trackName+' für heute …';
-
       try{
         const res=await fetch('https://www.stardesignracing.com/events',{cache:'no-store'});
         if(!res.ok)throw new Error('Eventseite HTTP '+res.status);
         const html=await res.text();
         const doc=new DOMParser().parseFromString(html,'text/html');
         const event=findMatchingEvent(doc);
-
-        if(!event){
-          status.textContent='Für heute wurde auf der Stardesign-Seite kein passendes Event für '+trackName+' gefunden.';
-          running=false;
-          return;
-        }
-
+        if(!event){status.textContent='Für heute wurde auf der Stardesign-Seite kein passendes Event für '+trackName+' gefunden.';running=false;return}
         status.innerHTML='<strong>'+event.title+'</strong><br>'+fmt(event.range.start)+' – '+fmt(event.range.end)+'<br>Zeitplan gefunden.';
-        const btn=d.createElement('button');
-        btn.className='stardesign-live-btn';
-        btn.textContent='Zeitplan automatisch laden';
-        btn.onclick=function(){loadPdfThroughExistingImport(event.pdf,btn)};
-        box.appendChild(btn);
-
-        const a=d.createElement('a');
-        a.className='stardesign-live-link';
-        a.href=event.pdf;
-        a.target='_blank';
-        a.rel='noopener';
-        a.textContent='Zeitplan bei Stardesign öffnen';
-        box.appendChild(a);
-      }catch(err){
-        console.warn('[Stardesign Finder] Eventprüfung:',err);
-        status.textContent='Automatische Stardesign-Prüfung fehlgeschlagen: '+(err.message||err);
-      }
+        const btn=d.createElement('button');btn.className='stardesign-live-btn';btn.textContent='Zeitplan automatisch laden';btn.onclick=function(){loadPdfThroughExistingImport(event.pdf,btn)};box.appendChild(btn);
+        const a=d.createElement('a');a.className='stardesign-live-link';a.href=event.pdf;a.target='_blank';a.rel='noopener';a.textContent='Zeitplan bei Stardesign öffnen';box.appendChild(a);
+      }catch(err){console.warn('[Stardesign Finder] Eventprüfung:',err);status.textContent='Automatische Stardesign-Prüfung fehlgeschlagen: '+(err.message||err)}
       running=false;
     }
 
     const observer=new MutationObserver(function(){
-      if(findImportSection())runFinder(false);
+      if(findImportSection()&&!d.getElementById('stardesignLiveSchedule'))runFinder(true);
     });
     observer.observe(d.body,{childList:true,subtree:true});
 
     const track=d.getElementById('trackSelect');
-    if(track){
-      track.addEventListener('change',function(){
-        const old=d.getElementById('stardesignLiveSchedule');
-        if(old)old.remove();
-        setTimeout(function(){runFinder(true)},100);
-      });
-    }
+    if(track)track.addEventListener('change',function(){const old=d.getElementById('stardesignLiveSchedule');if(old)old.remove();setTimeout(function(){runFinder(true)},100)});
 
-    setTimeout(function(){runFinder(true)},800);
+    /* Sicherheitsnetz: nach "Alles löschen" wird der Zeitplanbereich neu gerendert.
+       Dadurch erscheint der Auto-Download auch ohne Streckenwechsel wieder. */
+    setInterval(function(){
+      if(findImportSection()&&!d.getElementById('stardesignLiveSchedule'))runFinder(true);
+    },1200);
+
+    setTimeout(function(){runFinder(true)},600);
   });
 })();
