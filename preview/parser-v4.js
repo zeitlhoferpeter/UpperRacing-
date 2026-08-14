@@ -99,23 +99,37 @@
       return [...map.values()].sort((a,b)=>tm(a.start)-tm(b.start)||(a.sequence||0)-(b.sequence||0));
     }
 
-    function detectHeaders(items){
-      const hits=[];
-      items.forEach(it=>{const txt=clean(it.str),day=detectDay(txt);if(day)hits.push({day,x:it.transform?.[4]||0,y:it.transform?.[5]||0})});
-      const ded=[];hits.sort((a,b)=>a.x-b.x).forEach(h=>{if(!ded.some(d=>d.day===h.day&&Math.abs(d.x-h.x)<120))ded.push(h)});
-      return ded;
+    function countTurns(items){return items.filter(x=>x.type==='turn').length}
+
+    function splitLandscape(items,pageWidth){
+      const mid=pageWidth/2;
+      const gutter=Math.max(8,pageWidth*0.015);
+      return [
+        items.filter(it=>(it.transform?.[4]||0)<mid-gutter),
+        items.filter(it=>(it.transform?.[4]||0)>=mid+gutter)
+      ];
     }
 
-    function regionsFromPage(tc,fallbackDay){
-      const items=tc.items||[];let headers=detectHeaders(items);
-      if(!headers.length){const allText=items.map(i=>clean(i.str)).join(' ');return[{day:detectDay(allText)||fallbackDay||'',items}]}
-      headers=headers.sort((a,b)=>a.x-b.x);
-      if(headers.length===1)return[{day:headers[0].day,items}];
-      return headers.map((h,i)=>{
-        const left=i===0?-Infinity:(headers[i-1].x+h.x)/2;
-        const right=i===headers.length-1?Infinity:(h.x+headers[i+1].x)/2;
-        return{day:h.day,items:items.filter(it=>{const x=it.transform?.[4]||0;return x>=left&&x<right})};
-      });
+    function regionsFromPage(tc,pageWidth,pageHeight,fallbackDay){
+      const items=tc.items||[];
+      const landscape=pageWidth>pageHeight*1.15;
+
+      if(landscape){
+        const halves=splitLandscape(items,pageWidth);
+        const regions=[];
+        let inferred=fallbackDay||'';
+        halves.forEach((half,idx)=>{
+          const text=half.map(i=>clean(i.str)).join(' ');
+          let day=detectDay(text);
+          if(!day){day=idx===0?(inferred||''):(regions[0]?.day?nextDay(regions[0].day):(inferred?nextDay(inferred):''))}
+          const built=buildItems(rowsForItems(half));
+          if(countTurns(built)>=3)regions.push({day,items:half,prebuilt:built});
+        });
+        if(regions.length>=2)return regions;
+      }
+
+      const allText=items.map(i=>clean(i.str)).join(' ');
+      return[{day:detectDay(allText)||fallbackDay||'',items}];
     }
 
     function loadPdfJs(){
@@ -127,20 +141,22 @@
       const lib=await loadPdfJs(),pdf=await lib.getDocument({data:buffer}).promise;
       const parsed={};let lastDay='';
       for(let p=1;p<=pdf.numPages;p++){
-        const page=await pdf.getPage(p),tc=await page.getTextContent();
-        const regs=regionsFromPage(tc,lastDay?nextDay(lastDay):'');
+        const page=await pdf.getPage(p),tc=await page.getTextContent(),vp=page.getViewport({scale:1});
+        const fallback=lastDay?nextDay(lastDay):'';
+        const regs=regionsFromPage(tc,vp.width,vp.height,fallback);
         for(const reg of regs){
           let day=reg.day||(lastDay?nextDay(lastDay):('Tag '+(Object.keys(parsed).length+1)));
-          const items=buildItems(rowsForItems(reg.items));
-          if(items.filter(x=>x.type==='turn').length<3)continue;
-          if(parsed[day])parsed[day]=parsed[day].concat(items);else parsed[day]=items;
-          lastDay=day;
+          const items=reg.prebuilt||buildItems(rowsForItems(reg.items));
+          if(countTurns(items)<3)continue;
+          if(parsed[day]){
+            let alt=day,n=2;while(parsed[alt])alt=day+' '+n++;
+            day=alt;
+          }
+          parsed[day]=items;
+          lastDay=day.replace(/ \d+$/,'');
         }
       }
-      Object.keys(parsed).forEach(day=>{
-        const map=new Map();parsed[day].forEach(it=>{const k=[it.start,it.end,it.group,it.title,it.sequence||''].join('|');if(!map.has(k))map.set(k,it)});parsed[day]=[...map.values()].sort((a,b)=>tm(a.start)-tm(b.start)||(a.sequence||0)-(b.sequence||0));
-      });
-      console.info('[Parser v4 column-aware]',Object.keys(parsed),parsed);
+      console.info('[Parser v5 landscape-column]',Object.keys(parsed),parsed);
       return parsed;
     }
 
@@ -154,7 +170,7 @@
         input.value='';w.sessionStorage.setItem('upper_preview_open_schedule','1');
         w.alert('Zeitplan erfolgreich importiert! Erkannt: '+keys.length+' Tage – '+keys.join(', ')+'.');
         w.location.reload();
-      }catch(err){console.error('[Parser v4]',err);input.value='';w.alert('Fehler beim Lesen der PDF-Datei: '+(err.message||err))}
+      }catch(err){console.error('[Parser v5]',err);input.value='';w.alert('Fehler beim Lesen der PDF-Datei: '+(err.message||err))}
     }
 
     d.addEventListener('change',function(ev){
