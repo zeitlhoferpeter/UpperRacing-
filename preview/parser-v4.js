@@ -7,7 +7,11 @@
     if(!w||!d)return;
 
     const DAYS=['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
-    const DAY_PATTERNS=[['Sonntag',/(Sonntag|Sunday)/i],['Montag',/(Montag|Monday)/i],['Dienstag',/(Dienstag|Tuesday)/i],['Mittwoch',/(Mittwoch|Wednesday)/i],['Donnerstag',/(Donnerstag|Thursday)/i],['Freitag',/(Freitag|Friday|Fri\s*\/\s*day)/i],['Samstag',/(Samstag|Saturday)/i]];
+    const DAY_PATTERNS=[
+      ['Sonntag',/(Sonntag|Sunday)/i],['Montag',/(Montag|Monday)/i],['Dienstag',/(Dienstag|Tuesday)/i],
+      ['Mittwoch',/(Mittwoch|Wednesday)/i],['Donnerstag',/(Donnerstag|Thursday)/i],
+      ['Freitag',/(Freitag|Friday|Fri\s*\/\s*day)/i],['Samstag',/(Samstag|Saturday)/i]
+    ];
 
     function clean(s){return String(s||'').replace(/\s+/g,' ').trim()}
     function normTime(t){const m=String(t||'').trim().replace('.',':').match(/^(\d{1,2}):(\d{2})$/);if(!m)return'';const h=+m[1],mi=+m[2];if(h>23||mi>59)return'';return String(h).padStart(2,'0')+':'+String(mi).padStart(2,'0')}
@@ -39,19 +43,70 @@
       return null;
     }
 
-    function readingOrderLines(tc){
-      const lines=[];let cur='';
-      (tc.items||[]).forEach(function(it){const s=clean(it.str);if(!s)return;cur+=(cur?' ':'')+s;if(it.hasEOL){if(clean(cur))lines.push(clean(cur));cur=''}});
-      if(clean(cur))lines.push(clean(cur));
-      if(lines.length>=8)return lines;
-      return (tc.items||[]).map(function(it){return clean(it.str)}).filter(Boolean);
+    function geometricRows(items){
+      const rows=[];
+      (items||[]).forEach(function(it){
+        const text=clean(it.str);if(!text)return;
+        const x=it.transform&&it.transform.length>5?it.transform[4]:0;
+        const y=it.transform&&it.transform.length>5?it.transform[5]:0;
+        let row=rows.find(function(r){return Math.abs(r.y-y)<=5});
+        if(!row){row={y:y,items:[]};rows.push(row)}
+        row.items.push({x:x,text:text});
+      });
+      rows.sort(function(a,b){return b.y-a.y});
+      return rows;
+    }
+
+    function linesFromRows(rows){
+      return rows.map(function(r){
+        r.items.sort(function(a,b){return a.x-b.x});
+        return clean(r.items.map(function(i){return i.text}).join(' '));
+      }).filter(Boolean);
+    }
+
+    function detectDayHeaders(items){
+      const rows=geometricRows(items),heads=[];
+      rows.forEach(function(r){
+        const text=clean(r.items.map(function(i){return i.text}).join(' '));
+        const day=detectDay(text);if(!day)return;
+        const dayItems=r.items.filter(function(i){return detectDay(i.text)});
+        const xs=(dayItems.length?dayItems:r.items).map(function(i){return i.x});
+        const x=Math.min.apply(null,xs);
+        if(!heads.some(function(h){return h.day===day&&Math.abs(h.x-x)<80}))heads.push({day:day,x:x,y:r.y,text:text});
+      });
+      heads.sort(function(a,b){return a.x-b.x});
+      return heads;
+    }
+
+    function pageRegions(tc,viewport){
+      const items=tc.items||[],heads=detectDayHeaders(items);
+      const landscape=viewport.width>viewport.height*1.1;
+      if(heads.length>=2){
+        return heads.map(function(h,i){
+          const left=i===0?0:(heads[i-1].x+h.x)/2;
+          const right=i===heads.length-1?viewport.width:(h.x+heads[i+1].x)/2;
+          return{day:h.day,items:items.filter(function(it){const x=it.transform&&it.transform.length>5?it.transform[4]:0;return x>=left&&x<right})};
+        });
+      }
+      if(heads.length===1){
+        const h=heads[0];
+        if(landscape&&h.x>viewport.width*0.42){
+          return[{day:h.day,items:items.filter(function(it){const x=it.transform&&it.transform.length>5?it.transform[4]:0;return x>=viewport.width*0.48})}];
+        }
+        return[{day:h.day,items:items}];
+      }
+      return[{day:'',items:items}];
     }
 
     function parseLine(line){
       let s=clean(line);if(!s)return[];const out=[];
       if(/\bnext\s*(?:Race)?\b/i.test(s)){
         const first=s.search(/\bnext\s*(?:Race)?\b/i);if(first>0)out.push.apply(out,parseLine(s.slice(0,first)));s=s.slice(Math.max(0,first));
-        s.split(/(?=\bnext\s*(?:Race)?\b)/i).filter(Boolean).forEach(function(p){const timed=p.match(/^next\s*-\s*(\d{1,2}[:.]\d{2})\s+(.+)$/i);if(timed)out.push({kind:'timed',start:normTime(timed[1]),end:'',rawTitle:clean(timed[2])});else out.push({kind:'nextRace',rawTitle:clean(p.replace(/^next\s*(?:Race)?\s*/i,''))})});
+        s.split(/(?=\bnext\s*(?:Race)?\b)/i).filter(Boolean).forEach(function(p){
+          const timed=p.match(/^next\s*-\s*(\d{1,2}[:.]\d{2})\s+(.+)$/i);
+          if(timed)out.push({kind:'timed',start:normTime(timed[1]),end:'',rawTitle:clean(timed[2])});
+          else out.push({kind:'nextRace',rawTitle:clean(p.replace(/^next\s*(?:Race)?\s*/i,''))});
+        });
         return out;
       }
       let m=s.match(/^(?:Vortag\s*\/?.*?\s+)?(?:(?:ab|ca\.?|circa)\s+)?(\d{1,2}[:.]\d{2})\s*(?:-|–|—|bis)\s*(\d{1,2}[:.]\d{2})\s*(.*)$/i);
@@ -63,13 +118,6 @@
     }
 
     function parseLines(lines){const rows=[];(lines||[]).forEach(function(line){parseLine(line).forEach(function(r){rows.push(r)})});return rows}
-    function turnCount(rows){return rows.reduce(function(n,r){const c=r.kind==='timed'?classify(r.rawTitle):null;return n+(c&&c.type==='turn'?1:0)},0)}
-
-    function splitIntoDayChunks(rows){
-      const chunks=[];let cur=[],lastTimed=null;
-      function push(){if(turnCount(cur)>=3)chunks.push(cur);cur=[];lastTimed=null}
-      rows.forEach(function(r){if(r.kind==='timed'&&r.start){const t=tm(r.start);if(lastTimed!==null&&lastTimed>=15*60&&t<=8*60+45&&turnCount(cur)>=6)push();lastTimed=t}cur.push(r)});push();return chunks;
-    }
 
     function buildItems(rows){
       const items=[];let lastTimed='',lastRace='',raceSeq=0;
@@ -91,16 +139,26 @@
     function loadPdfJs(){if(w.pdfjsLib)return Promise.resolve(w.pdfjsLib);return new Promise(function(resolve,reject){const s=d.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';s.onload=function(){w.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';resolve(w.pdfjsLib)};s.onerror=function(){reject(new Error('PDF.js konnte nicht geladen werden'))};d.head.appendChild(s)})}
 
     async function analyze(buffer){
-      const lib=await loadPdfJs(),pdf=await lib.getDocument({data:buffer}).promise;const blocks=[];let previousDay='';
+      const lib=await loadPdfJs(),pdf=await lib.getDocument({data:buffer}).promise;
+      const parsed={};let previousDay='';
       for(let p=1;p<=pdf.numPages;p++){
-        const page=await pdf.getPage(p),tc=await page.getTextContent();const lines=readingOrderLines(tc);const pageDay=detectDay(lines.join(' '));const chunks=splitIntoDayChunks(parseLines(lines));
-        if(!chunks.length)continue;
-        chunks.forEach(function(chunk,idx){let day='';if(idx===0&&pageDay)day=pageDay;else if(previousDay)day=nextDay(previousDay);else if(pageDay)day=idx===0?pageDay:nextDay(pageDay);else day='Tag '+(blocks.length+1);blocks.push({day:day,rows:chunk});previousDay=day});
+        const page=await pdf.getPage(p),tc=await page.getTextContent(),viewport=page.getViewport({scale:1});
+        const regions=pageRegions(tc,viewport);
+        for(const reg of regions){
+          let day=reg.day|| (previousDay?nextDay(previousDay):'Tag '+(Object.keys(parsed).length+1));
+          const lines=linesFromRows(geometricRows(reg.items));
+          const items=buildItems(parseLines(lines));
+          if(items.filter(function(x){return x.type==='turn'}).length<3)continue;
+          if(parsed[day]){
+            const merged=parsed[day].concat(items),map=new Map();
+            merged.forEach(function(it){const k=[it.start,it.end,it.group,it.title,it.sequence||''].join('|');if(!map.has(k))map.set(k,it)});
+            parsed[day]=Array.from(map.values()).sort(function(a,b){return tm(a.start)-tm(b.start)||(a.sequence||0)-(b.sequence||0)});
+          }else parsed[day]=items;
+          previousDay=day;
+        }
       }
-      for(let i=0;i<blocks.length;i++)if(/^Tag\s+\d+$/i.test(blocks[i].day)&&i>0&&!/^Tag\s+\d+$/i.test(blocks[i-1].day))blocks[i].day=nextDay(blocks[i-1].day);
-      const parsed={};
-      blocks.forEach(function(b){const items=buildItems(b.rows);if(items.filter(function(x){return x.type==='turn'}).length<3)return;let name=b.day||('Tag '+(Object.keys(parsed).length+1));if(parsed[name]){let n=2,base=name;while(parsed[base+' '+n])n++;name=base+' '+n}parsed[name]=items});
-      console.info('[UpperRacing Parser v6]',Object.keys(parsed),parsed);return parsed;
+      console.info('[UpperRacing Parser v7 weekday-columns]',Object.keys(parsed),parsed);
+      return parsed;
     }
 
     function hasExisting(){try{return Object.values(JSON.parse(w.localStorage.getItem('upper_schedule_days')||'{}')).some(function(v){return Array.isArray(v)&&v.length})}catch(_){return false}}
@@ -109,7 +167,7 @@
     async function importFile(file,input){
       if(hasExisting()&&!w.confirm('Es ist bereits ein Zeitplan vorhanden. Wirklich ersetzen?')){input.value='';return}
       try{const keys=saveParsed(await analyze(await file.arrayBuffer()));input.value='';w.sessionStorage.setItem('upper_preview_open_schedule','1');w.alert('Zeitplan erfolgreich importiert! Erkannt: '+keys.length+' Tage – '+keys.join(', ')+'.');w.location.reload()}
-      catch(err){console.error('[Parser v6]',err);input.value='';w.alert('Fehler beim Lesen der PDF-Datei: '+(err.message||err))}
+      catch(err){console.error('[Parser v7]',err);input.value='';w.alert('Fehler beim Lesen der PDF-Datei: '+(err.message||err))}
     }
 
     d.addEventListener('change',function(ev){const input=ev.target;if(!input||input.id!=='schedulePdfFile')return;const file=input.files&&input.files[0];if(!file)return;ev.preventDefault();ev.stopImmediatePropagation();importFile(file,input)},true);
