@@ -107,7 +107,11 @@
       if(m)return[{kind:'timed',start:normTime(m[1]),end:normTime(m[2]),rawTitle:clean(m[3])}];
       m=s.match(/^(?:(?:ab|ca\.?|circa)\s+)?(\d{1,2}[:.]\d{2})\s+(.+)$/i);
       if(m)return[{kind:'timed',start:normTime(m[1]),end:'',rawTitle:clean(m[2])}];
-      if(/REGROUPING|MITTAGSPAUSE|LUNCH BREAK|FAHRERBESPRECHUNG|SIEGEREHRUNG|PRICEGIVING|ANMELDUNG|REGISTRATION/i.test(s))return[{kind:'untimed',rawTitle:s}];
+      /* Anmeldung/Registration ohne eigene Uhrzeit ignorieren wir bewusst. Die englische
+         Wiederholungszeile hat in Stardesign-PDFs sonst die zuletzt gelesene Zeit geerbt
+         und dadurch mehrere falsche Anmeldungen am Tagesende erzeugt. */
+      if(/ANMELDUNG|REGISTRATION/i.test(s))return[];
+      if(/REGROUPING|MITTAGSPAUSE|LUNCH BREAK|FAHRERBESPRECHUNG|SIEGEREHRUNG|PRICEGIVING/i.test(s))return[{kind:'untimed',rawTitle:s}];
       return[];
     }
 
@@ -157,7 +161,7 @@
           parsed[day]=items;previousDay=day;
         }
       }
-      console.info('[UpperRacing Parser v8]',Object.keys(parsed),parsed);
+      console.info('[UpperRacing Parser v8.1]',Object.keys(parsed),parsed);
       return parsed;
     }
 
@@ -167,7 +171,7 @@
     async function importFile(file,input){
       if(hasExisting()&&!w.confirm('Es ist bereits ein Zeitplan vorhanden. Wirklich ersetzen?')){input.value='';return}
       try{const keys=saveParsed(await analyze(await file.arrayBuffer()));input.value='';w.sessionStorage.setItem('upper_preview_open_schedule','1');w.alert('Zeitplan erfolgreich importiert! Erkannt: '+keys.length+' Tage – '+keys.join(', ')+'.');w.location.reload()}
-      catch(err){console.error('[Parser v8]',err);input.value='';w.alert('Fehler beim Lesen der PDF-Datei: '+(err.message||err))}
+      catch(err){console.error('[Parser v8.1]',err);input.value='';w.alert('Fehler beim Lesen der PDF-Datei: '+(err.message||err))}
     }
 
     d.addEventListener('change',function(ev){const input=ev.target;if(!input||input.id!=='schedulePdfFile')return;const file=input.files&&input.files[0];if(!file)return;ev.preventDefault();ev.stopImmediatePropagation();importFile(file,input)},true);
