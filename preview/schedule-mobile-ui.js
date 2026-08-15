@@ -31,6 +31,7 @@
       #stardesignLiveSchedule,#stardesignAutoSchedule{display:none!important}
       button[onclick*="togglePdfImportSection"]{display:none!important}
       #pdfImportSection{display:none!important}
+      #pageSchedule label:has(#alert10mToggle),#pageSchedule label:has(#alert5mToggle),#pageSchedule label:has(#keepAwakeToggle){display:none!important}
       .preview-import-modal{display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.74);align-items:flex-end;justify-content:center;padding:12px;box-sizing:border-box}
       .preview-import-modal.open{display:flex}.preview-import-sheet{width:100%;max-width:460px;background:#151515;border:1px solid #444;border-radius:14px 14px 10px 10px;padding:12px;max-height:82vh;overflow:auto;box-sizing:border-box}
       .preview-import-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.preview-import-head strong{font-size:.9rem}.preview-import-close{background:#222;color:#fff;border:1px solid #444;border-radius:8px;padding:7px 10px;cursor:pointer}
