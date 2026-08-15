@@ -16,7 +16,11 @@
       .preview-schedule-top.collapsed .preview-schedule-loaded{display:flex}
       .preview-schedule-top.collapsed .preview-schedule-body{display:none}
       .preview-loaded-check{color:#ffd400;font-size:1rem;font-weight:900}.preview-loaded-body{min-width:0;flex:1}.preview-loaded-title{font-size:.78rem;font-weight:900}.preview-loaded-sub{font-size:.62rem;color:#aaa;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.preview-loaded-chevron{color:#ffd400;font-weight:900}
-      .preview-schedule-title{font-size:1rem;font-weight:900;margin-bottom:3px}.preview-schedule-sub{font-size:.7rem;color:#aaa;margin-bottom:9px}
+      .preview-schedule-body-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:3px}
+      .preview-schedule-title{font-size:1rem;font-weight:900}
+      .preview-schedule-collapse{display:none;background:#202020;color:#fff;border:1px solid #444;border-radius:7px;padding:6px 8px;font-size:.66rem;font-weight:800;cursor:pointer}
+      .preview-schedule-top.has-schedule:not(.collapsed) .preview-schedule-collapse{display:block}
+      .preview-schedule-sub{font-size:.7rem;color:#aaa;margin-bottom:9px}
       .preview-schedule-grid{display:grid;grid-template-columns:1fr;gap:8px}
       .preview-schedule-field{background:#101010;border:1px solid #3b3b3b;border-radius:8px;padding:7px 8px;min-width:0}
       .preview-schedule-label{display:block;color:#929292;font-size:.52rem;font-weight:900;letter-spacing:.6px;margin-bottom:4px}
@@ -32,7 +36,7 @@
       .preview-import-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.preview-import-head strong{font-size:.9rem}.preview-import-close{background:#222;color:#fff;border:1px solid #444;border-radius:8px;padding:7px 10px;cursor:pointer}
       .preview-option-group{background:#101010;border:1px solid #333;border-radius:9px;padding:10px;margin:0 0 10px}.preview-option-title{font-size:.72rem;font-weight:900;color:#ffd400;margin-bottom:8px;letter-spacing:.35px}
       .preview-option-group label{display:flex;align-items:flex-start;gap:9px;font-size:.75rem;line-height:1.35;margin:0 0 9px;color:#eee}.preview-option-group label:last-child{margin-bottom:0}.preview-option-group input[type="checkbox"]{width:18px;height:18px;flex:0 0 18px;margin-top:1px}
-      .preview-date-option{display:block!important}.preview-date-option input{margin-top:5px;width:100%;box-sizing:border-box;background:#181818;color:#fff;border:1px solid #3d3d3d;border-radius:7px;padding:9px;font-size:.8rem}
+      .preview-date-option{display:block!important}.preview-date-option input{display:block!important;margin-top:6px!important;width:100%!important;box-sizing:border-box!important;background:#181818!important;color:#fff!important;border:1px solid #3d3d3d!important;border-radius:7px!important;padding:10px!important;font-size:.85rem!important;min-height:42px!important}
       .preview-date-hint{font-size:.65rem;color:#929292;line-height:1.35;margin-top:6px}
       .preview-manual-btn{width:100%;background:#202020;color:#fff;border:1px solid #444;border-radius:8px;padding:10px;font-size:.78rem;font-weight:900;cursor:pointer}
       @media(max-width:390px){.preview-schedule-top{padding:9px}.preview-schedule-auto{padding:11px 8px}.preview-import-modal{padding:8px}.preview-import-sheet{border-radius:13px 13px 8px 8px}}
@@ -54,7 +58,9 @@
 
     function updateCollapsedState(){
       const top=d.getElementById('previewScheduleTop');if(!top)return;
-      const loaded=hasSchedule();if(!loaded)userExpanded=false;
+      const loaded=hasSchedule();
+      if(!loaded)userExpanded=false;
+      top.classList.toggle('has-schedule',loaded);
       top.classList.toggle('collapsed',loaded&&!userExpanded);
       const sub=top.querySelector('.preview-loaded-sub'),track=d.getElementById('trackSelect');
       if(sub){const trackName=track&&track.selectedOptions&&track.selectedOptions[0]?track.selectedOptions[0].textContent:'Strecke';const count=dayCount();sub.textContent=trackName+(count?' · '+count+(count===1?' Tag':' Tage'):'')+' · Antippen zum Ändern'}
@@ -77,9 +83,10 @@
       modal.appendChild(sheet);d.body.appendChild(modal);
 
       const dateGroup=d.createElement('div');dateGroup.className='preview-option-group';
-      dateGroup.innerHTML='<div class="preview-option-title">ANDERES DATUM</div><label class="preview-date-option">Datum für automatische Suche<input id="previewScheduleDate" type="date"><div class="preview-date-hint">Standardmäßig wird heute verwendet. Nur ändern, wenn du einen anderen Event-Zeitplan laden möchtest.</div></label>';
+      dateGroup.innerHTML='<div class="preview-option-title">DATUM FÜR AUTOMATISCHE SUCHE</div><label class="preview-date-option">Datum auswählen<input id="previewScheduleDate" type="date"><div class="preview-date-hint">Standard ist heute. Hier kannst du z. B. schon den Zeitplan für morgen oder ein späteres Event suchen.</div></label>';
       sheet.appendChild(dateGroup);
-      const date=dateGroup.querySelector('#previewScheduleDate');date.value=w.localStorage.getItem('upper_preview_schedule_date')||isoToday();
+      const date=dateGroup.querySelector('#previewScheduleDate');
+      date.value=w.localStorage.getItem('upper_preview_schedule_date')||isoToday();
       date.onchange=function(){w.localStorage.setItem('upper_preview_schedule_date',date.value||isoToday());lastScheduleSignature='';rerunFinder()};
 
       const alarmGroup=d.createElement('div');alarmGroup.className='preview-option-group';alarmGroup.innerHTML='<div class="preview-option-title">ALARM & DISPLAY</div>';
@@ -103,10 +110,12 @@
       if(d.getElementById('previewScheduleTop')){updateCollapsedState();autoSelectCurrentDayOnce();return}
 
       const top=d.createElement('div');top.id='previewScheduleTop';top.className='preview-schedule-top';
-      top.innerHTML='<button type="button" class="preview-schedule-loaded"><span class="preview-loaded-check">✓</span><span class="preview-loaded-body"><div class="preview-loaded-title">Zeitplan geladen</div><div class="preview-loaded-sub">Antippen zum Ändern</div></span><span class="preview-loaded-chevron">⌄</span></button><div class="preview-schedule-body"><div class="preview-schedule-title">Zeitplan</div><div class="preview-schedule-sub">Strecke wählen und passenden Stardesign-Zeitplan automatisch laden.</div><div class="preview-schedule-grid"><label class="preview-schedule-field"><span class="preview-schedule-label">STRECKE</span><select id="previewScheduleTrack"></select></label></div><button id="previewScheduleAuto" class="preview-schedule-auto">Zeitplan automatisch laden<small>heutiges Datum · Stardesign-Website prüfen</small></button><button id="previewScheduleMore" class="preview-schedule-more">⋯ Weitere Optionen</button></div>';
+      top.innerHTML='<button type="button" class="preview-schedule-loaded"><span class="preview-loaded-check">✓</span><span class="preview-loaded-body"><div class="preview-loaded-title">Zeitplan geladen</div><div class="preview-loaded-sub">Antippen zum Ändern</div></span><span class="preview-loaded-chevron">⌄</span></button><div class="preview-schedule-body"><div class="preview-schedule-body-head"><div class="preview-schedule-title">Zeitplan</div><button type="button" class="preview-schedule-collapse">▲ Einklappen</button></div><div class="preview-schedule-sub">Strecke wählen und passenden Stardesign-Zeitplan automatisch laden.</div><div class="preview-schedule-grid"><label class="preview-schedule-field"><span class="preview-schedule-label">STRECKE</span><select id="previewScheduleTrack"></select></label></div><button id="previewScheduleAuto" class="preview-schedule-auto">Zeitplan automatisch laden<small>heutiges bzw. gewähltes Datum · Stardesign prüfen</small></button><button id="previewScheduleMore" class="preview-schedule-more">⋯ Weitere Optionen</button></div>';
       page.insertBefore(top,page.firstChild);
 
       top.querySelector('.preview-schedule-loaded').onclick=function(){userExpanded=true;updateCollapsedState()};
+      top.querySelector('.preview-schedule-collapse').onclick=function(){if(hasSchedule()){userExpanded=false;updateCollapsedState()}};
+
       const sel=top.querySelector('#previewScheduleTrack');[...track.options].forEach(o=>{const n=d.createElement('option');n.value=o.value;n.textContent=o.textContent;sel.appendChild(n)});sel.value=track.value;
       sel.onchange=function(){track.value=sel.value;track.dispatchEvent(new Event('change',{bubbles:true}));rerunFinder()};
 
@@ -120,7 +129,7 @@
           tries++;
           const live=d.querySelector('#stardesignLiveSchedule .stardesign-live-btn');
           const status=d.querySelector('#stardesignLiveSchedule .stardesign-live-status');
-          if(live){clearInterval(timer);lastScheduleSignature='';live.click();btn.disabled=false;if(btn.firstChild)btn.firstChild.textContent=original;return}
+          if(live){clearInterval(timer);lastScheduleSignature='';userExpanded=false;live.click();btn.disabled=false;if(btn.firstChild)btn.firstChild.textContent=original;return}
           if(tries===12)rerunFinder();
           if(tries>36){clearInterval(timer);btn.disabled=false;if(btn.firstChild)btn.firstChild.textContent=original;w.alert(status&&status.textContent?status.textContent:'Automatischer Zeitplan konnte nicht gefunden werden. Bitte unter „Weitere Optionen“ die PDF manuell laden.')}
         },160);
