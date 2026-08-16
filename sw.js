@@ -1,5 +1,6 @@
-// sw.js - Service Worker für GitHub Pages & Offline-Caching
-const CACHE_NAME = 'upperracing-v9.0-main';
+// sw.js - UpperRacing Service Worker
+// Netzwerk zuerst für aktuelle App-/Preview-Dateien, Cache nur als Offline-Fallback.
+const CACHE_NAME = 'upperracing-v10.1-refresh-fix';
 const assetsToCache = [
   './',
   './index.html',
@@ -25,36 +26,60 @@ const assetsToCache = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(assetsToCache);
-    }).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(assetsToCache))
+      .then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.map((key) => {
-          if (key !== CACHE_NAME) return caches.delete(key);
-        })
-      );
-    }).then(() => self.clients.claim())
+    caches.keys().then((keys) => Promise.all(
+      keys.map((key) => key !== CACHE_NAME ? caches.delete(key) : Promise.resolve())
+    )).then(() => self.clients.claim())
   );
 });
 
+function sameOrigin(url) {
+  try { return new URL(url).origin === self.location.origin; }
+  catch (_) { return false; }
+}
+
+function isFreshAppAsset(request) {
+  if (!sameOrigin(request.url)) return false;
+  const url = new URL(request.url);
+  return request.destination === 'script' ||
+         request.destination === 'style' ||
+         request.destination === 'document' ||
+         /\.(?:js|css|html)$/.test(url.pathname) ||
+         url.pathname.includes('/preview/') ||
+         url.pathname.includes('/preview-dashboard/');
+}
+
+async function networkFirst(request) {
+  try {
+    const fresh = await fetch(request, { cache: 'no-store' });
+    if (fresh && fresh.ok && request.method === 'GET') {
+      const cache = await caches.open(CACHE_NAME);
+      cache.put(request, fresh.clone()).catch(() => {});
+    }
+    return fresh;
+  } catch (err) {
+    const cached = await caches.match(request, { ignoreSearch: true });
+    if (cached) return cached;
+    throw err;
+  }
+}
+
 self.addEventListener('fetch', (event) => {
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match('./index.html', { ignoreSearch: true }))
-    );
+  const request = event.request;
+
+  if (request.mode === 'navigate' || isFreshAppAsset(request)) {
+    event.respondWith(networkFirst(request));
     return;
   }
 
   event.respondWith(
-    caches.match(event.request, { ignoreSearch: true }).then((cachedResponse) => {
-      if (cachedResponse) return cachedResponse;
-      return fetch(event.request).catch(() => undefined);
-    })
+    caches.match(request).then((cached) => cached || fetch(request).catch(() => undefined))
   );
 });
