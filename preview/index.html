@@ -15,7 +15,7 @@
     (function(){
       const frame=document.getElementById('previewFrame');
       const build=Date.now().toString();
-      fetch('../index.html?preview=header-v2&pv='+build,{cache:'no-store'})
+      fetch('../app-base.html?preview=header-v2&pv='+build,{cache:'no-store'})
         .then(function(res){if(!res.ok)throw new Error('HTTP '+res.status);return res.text();})
         .then(function(html){
           html=html.replace('<head>','<head><base href="/UpperRacing-/">');
@@ -29,19 +29,19 @@
         })
         .catch(function(err){
           console.warn('[Preview] Frischer App-Load fehlgeschlagen, Fallback:',err);
-          frame.src='../index.html?preview=header-v2&pv='+build;
+          frame.src='../app-base.html?preview=header-v2&pv='+build;
         });
     })();
   </script>
-  <script src="proxy.js?v=20260815-1"></script>
-  <script src="preview.js?v=20260815-1"></script>
-  <script src="parser-prefilter.js?v=20260815-1"></script>
-  <script src="parser-turn-gap-fix.js?v=20260816-1"></script>
-  <script src="parser-v4.js?v=20260815-1"></script>
-  <script src="stardesign-finder.js?v=20260815-1"></script>
-  <script src="schedule-mobile-ui.js?v=20260815-1"></script>
-  <script src="day-rollover.js?v=20260815-1"></script>
-  <script src="header-program-context.js?v=20260815-1"></script>
-  <script src="weather-warning-test.js?v=20260815-3"></script>
+  <script src="proxy.js?v=20260816-2"></script>
+  <script src="preview.js?v=20260816-2"></script>
+  <script src="parser-prefilter.js?v=20260816-2"></script>
+  <script src="parser-turn-gap-fix.js?v=20260816-2"></script>
+  <script src="parser-v4.js?v=20260816-2"></script>
+  <script src="stardesign-finder.js?v=20260816-2"></script>
+  <script src="schedule-mobile-ui.js?v=20260816-2"></script>
+  <script src="day-rollover.js?v=20260816-2"></script>
+  <script src="header-program-context.js?v=20260816-2"></script>
+  <script src="weather-warning-test.js?v=20260816-2"></script>
 </body>
 </html>
