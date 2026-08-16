@@ -1,311 +1,58 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>UpperRacing - Trackday App</title>
-    <link rel="stylesheet" href="style.css">
-
-    <!-- Web App Manifest (für Android & Chrome) -->
-    <link rel="manifest" href="manifest.json">
-
-    <!-- iOS / iPhone Spezial-Einstellungen -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="UpperRacing">
-    <link rel="apple-touch-icon" href="icon.png">
-
-    <!-- Theme-Farbe für die Browser-Leiste -->
-    <meta name="theme-color" content="#1f1f1f">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#090909">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="UpperRacing">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon.png">
+  <title>UpperRacing - Trackday App</title>
+  <style>
+    html,body{margin:0;width:100%;height:100%;background:#090909;overflow:hidden}
+    #previewFrame{display:block;width:100%;height:100%;border:0;background:#121212}
+  </style>
 </head>
-<body onload="initApp()">
-
-    <div class="app-container">
-        <header class="app-header">
-            <div class="header-brand-row">
-                <div class="header-brand">
-                    <img src="icon.png" alt="UpperRacing" class="header-brand-logo">
-                    <div class="header-brand-text">
-                        <div class="header-brand-name"><span>UPPER</span><strong>RACING</strong></div>
-                        <div class="header-brand-sub">TRACKDAY DASHBOARD</div>
-                    </div>
-                </div>
-                <div id="headerPoint2Slot" class="header-extra-slot"></div>
-            </div>
-
-            <div class="header-select-grid">
-                <label class="header-control-card" for="motorcycleSelect">
-                    <span class="header-control-icon">🏍️</span>
-                    <span class="header-control-content">
-                        <span class="header-control-label">MOTORRAD</span>
-                        <select id="motorcycleSelect" onchange="onMotorcycleChange()">
-                            <!-- Wird dynamisch gefüllt -->
-                        </select>
-                    </span>
-                    <span class="header-control-chevron">⌄</span>
-                </label>
-
-                <label class="header-control-card" for="trackSelect">
-                    <span class="header-control-icon">🏁</span>
-                    <span class="header-control-content">
-                        <span class="header-control-label">STRECKE</span>
-                        <select id="trackSelect" onchange="onTrackChange()">
-                            <option value="pannoniaring">Pannonia</option>
-                            <option value="slovakia">Slovakia</option>
-                            <option value="brünn">Brünn</option>
-                            <option value="most">Most</option>
-                            <option value="grobnik">Grobnik</option>
-                        </select>
-                    </span>
-                    <span class="header-control-chevron">⌄</span>
-                </label>
-
-                <div id="weather-header-widget" class="header-control-card header-weather-card" title="Klicken für Wettervorhersage & Regenradar">
-                    <span class="header-control-icon" id="weather-icon">⏳</span>
-                    <span class="header-control-content">
-                        <span class="header-control-label">WETTER</span>
-                        <span class="header-weather-main"><span id="weather-temp">--°C</span></span>
-                        <span id="weather-info-text" class="header-weather-info">Akt: --% | Tag: --%</span>
-                    </span>
-                    <span class="header-control-chevron">›</span>
-                </div>
-            </div>
-
-            <div class="header-status-grid">
-                <div id="headerScheduleWidget" class="header-schedule-widget header-status-card" onclick="switchPage('schedule')" title="Klicken für ausführlichen Zeitplan">
-                    <div class="header-status-label">NÄCHSTER TURN</div>
-                    <div class="header-status-value"><span style="opacity:0.8;">⏱️ Lade Zeitplan...</span></div>
-                </div>
-
-                <div id="headerAllTime" class="header-best-card" onclick="confirmClearAllTimeBest()" title="Klicken zum Zurücksetzen der Bestzeit">
-                    <div class="header-best-label">🏆 BESTZEIT</div>
-                    <div id="headerAllTimeValue" class="header-best-value">--:--.---</div>
-                    <div class="header-best-hint">Antippen zum Zurücksetzen</div>
-                </div>
-            </div>
-        </header>
-
-        <nav class="nav-tabs">
-            <button type="button" class="tab-btn active" onclick="switchPage('setup')">Setup</button>
-            <button type="button" class="tab-btn" onclick="switchPage('curves')">Kurven</button>
-            <button type="button" class="tab-btn" onclick="switchPage('laps')">Runden</button>
-            <button type="button" class="tab-btn" onclick="switchPage('schedule')">Zeitplan</button>
-            <button type="button" class="tab-btn" onclick="switchPage('cup')">Cup</button>
-            <button type="button" class="tab-btn" onclick="switchPage('pack')">Packliste</button>
-            <button type="button" class="tab-btn" onclick="switchPage('backup'); if(typeof initBackup==='function') initBackup();">Backup</button>
-        </nav>
-
-        <main>
-            <div id="pageSetup" class="page-content active">
-                <div class="setup-box">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                        <h3 style="margin:0;">Session-Eintrag</h3>
-                        <select id="sessionSelect" onchange="onSessionChange()" style="padding:4px; background:#222; color:#fff; border:1px solid #444; border-radius:4px;"></select>
-                    </div>
-                    <div style="display:flex; gap:6px; margin-bottom:10px;">
-                        <button type="button" onclick="newSession()" style="flex:1; background:#4CAF50; color:#fff; border:none; padding:8px; border-radius:4px; cursor:pointer;">+ Neue Session</button>
-                        <button type="button" onclick="deleteCurrentSession()" style="background:#f44336; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer;" title="Löschen">🗑️</button>
-                    </div>
-                    
-                    <div class="grid-2">
-                        <div><label>Luftdruck Vorne</label><input type="text" id="tireFront" placeholder="2.1 bar"></div>
-                        <div><label>Luftdruck Hinten</label><input type="text" id="tireRear" placeholder="1.5 bar"></div>
-                    </div>
-                    <div class="grid-2" style="margin-top:8px;">
-                        <div><label>Luft-/Asphalttemp.</label><input type="text" id="outsideTemp" placeholder="25°C / 35°C"></div>
-                        <div><label>Übersetzung</label><input type="text" id="gearing" placeholder="15 / 43"></div>
-                    </div>
-                </div>
-
-                <div class="setup-box">
-                    <h3>Fahrwerk - Gabel</h3>
-                    <div class="grid-2">
-                        <div><label>Zugstufe (Rebound)</label><input type="text" id="forkRebound" placeholder="Klicks auf"></div>
-                        <div><label>Druckstufe (Compression)</label><input type="text" id="forkCompression" placeholder="Klicks auf"></div>
-                        <div><label>Vorspannung (Preload)</label><input type="text" id="forkPreload" placeholder="Ringe sichtbar"></div>
-                        <div><label>Negativfederweg (Sag)</label><input type="text" id="forkSag" placeholder="mm"></div>
-                    </div>
-                    <div style="margin-top:8px;"><label>Restfederweg / Kabelbinder</label><input type="text" id="forkRemaining" placeholder="mm"></div>
-                </div>
-
-                <div class="setup-box">
-                    <h3>Fahrwerk - Federbein</h3>
-                    <div class="grid-2">
-                        <div><label>Zugstufe (Rebound)</label><input type="text" id="shockRebound" placeholder="Klicks auf"></div>
-                        <div><label>Druckstufe (Compression)</label><input type="text" id="shockCompression" placeholder="Klicks auf"></div>
-                        <div><label>Vorspannung (Preload)</label><input type="text" id="shockPreload" placeholder="mm / Umdrehungen"></div>
-                        <div><label>Negativfederweg (Sag)</label><input type="text" id="shockSag" placeholder="mm"></div>
-                    </div>
-                    <div style="margin-top:8px;"><label>Restfederweg</label><input type="text" id="shockRemaining" placeholder="mm"></div>
-                </div>
-
-                <div style="display:flex; gap:8px; margin-bottom:15px;">
-                    <button type="button" onclick="saveData()" style="flex:2; background:#4CAF50; color:#fff; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer;">💾 Speichern</button>
-                    <button type="button" onclick="saveAsBaseline()" style="flex:1; background:#2196F3; color:#fff; border:none; padding:12px; border-radius:6px; font-size:0.85rem; cursor:pointer;">Als Basis</button>
-                    <button type="button" onclick="loadBaseline()" style="flex:1; background:#FF9800; color:#fff; border:none; padding:12px; border-radius:6px; font-size:0.85rem; cursor:pointer;">Lade Basis</button>
-                </div>
-                <div id="saveNotice" style="display:none; background:#4CAF50; color:#fff; text-align:center; padding:8px; border-radius:4px; margin-bottom:15px; font-size:0.85rem;"></div>
-            </div>
-
-            <div id="pageCurves" class="page-content" style="display:none;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <h2 style="margin:0; font-size:1.1rem;">Kurven-Guide</h2>
-                    <div style="display:flex; gap:6px;">
-                        <button type="button" onclick="shareCurves()" style="background:#2196F3; color:#fff; border:none; padding:6px 10px; border-radius:4px; cursor:pointer; font-size:0.8rem;">📤 Teilen</button>
-                        <button type="button" onclick="saveCurvesData()" style="background:#4CAF50; color:#fff; border:none; padding:6px 10px; border-radius:4px; cursor:pointer; font-size:0.8rem;">💾 Speichern</button>
-                    </div>
-                </div>
-                <div id="saveNoticeCurves" style="display:none; background:#4CAF50; color:#fff; text-align:center; padding:6px; border-radius:4px; margin-bottom:10px; font-size:0.8rem;"></div>
-                <div id="curvesContainer"></div>
-            </div>
-
-            <div id="pageLaps" class="page-content" style="display:none;">
-                <div class="setup-box">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                        <h3 style="margin:0;">Rundenzeiten / Stint</h3>
-                        <select id="lapSessionSelect" onchange="onLapSessionChange()" style="padding:4px; background:#222; color:#fff; border:1px solid #444; border-radius:4px;"></select>
-                    </div>
-                    <div style="display:flex; gap:6px; margin-bottom:12px;">
-                        <button type="button" onclick="startNewLapSession()" style="flex:1; background:#4CAF50; color:#fff; border:none; padding:8px; border-radius:4px; cursor:pointer; font-size:0.85rem;">+ Neuer Stint</button>
-                        <button type="button" onclick="deleteCurrentLapSession()" style="background:#f44336; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer;" title="Stint löschen">🗑️</button>
-                    </div>
-
-                    <div style="background:#222; padding:10px; border-radius:6px; margin-bottom:12px;">
-                        <h4 style="margin:0 0 8px 0; font-size:0.9rem; color:#aaa;">Runde hinzufügen</h4>
-                        <div style="display:flex; gap:6px; align-items:center; margin-bottom:8px;">
-                            <input type="number" id="manualMin" placeholder="Min" style="width:50px; padding:6px; background:#111; border:1px solid #444; color:#fff; text-align:center; border-radius:4px;">
-                            <span>:</span>
-                            <input type="number" id="manualSec" placeholder="Sek" style="width:50px; padding:6px; background:#111; border:1px solid #444; color:#fff; text-align:center; border-radius:4px;">
-                            <span>.</span>
-                            <input type="number" id="manualMs" placeholder="ms" style="width:60px; padding:6px; background:#111; border:1px solid #444; color:#fff; text-align:center; border-radius:4px;">
-                            <input type="number" id="manualLapNum" placeholder="Nr." style="width:45px; padding:6px; background:#111; border:1px solid #444; color:#fff; text-align:center; border-radius:4px;" title="Rundennummer">
-                        </div>
-                        <button type="button" onclick="addManualLap()" style="width:100%; background:#2196F3; color:#fff; border:none; padding:8px; border-radius:4px; cursor:pointer; font-weight:bold;">Runde eintragen</button>
-                    </div>
-
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                        <h4 style="margin:0; font-size:0.9rem;">Rundenliste</h4>
-                        <button type="button" onclick="confirmClearLaps()" style="background:none; border:none; color:#f44336; cursor:pointer; font-size:0.8rem;">Stint leeren</button>
-                    </div>
-                    <div id="lapsContainer"></div>
-                </div>
-            </div>
-
-            <!-- NEUER REITER: ZEITPLAN -->
-            <div id="pageSchedule" class="page-content" style="display:none;"></div>
-
-            <div id="pageCup" class="page-content" style="display:none;">
-                <div class="setup-box">
-                    <h3>Cup-Reglement / Info</h3>
-                    <p style="font-size:0.85rem; color:#ccc; margin-bottom:12px;">Offizieller Cup-Link oder PDF.</p>
-                    <div style="margin-bottom:10px;">
-                        <label style="font-size:0.75rem">Cup Link / PDF URL</label>
-                        <input type="text" id="cupUrlInput" placeholder="https://..." style="width:100%; padding:8px; background:#222; border:1px solid #444; color:#fff; border-radius:4px; margin-top:4px;">
-                    </div>
-                    <div style="display:flex; gap:8px;">
-                        <button type="button" onclick="saveCupUrl()" style="flex:1; background:#4CAF50; color:#fff; border:none; padding:10px; border-radius:4px; cursor:pointer;">Link speichern</button>
-                        <button type="button" onclick="openCupInBrowser()" style="flex:1; background:#2196F3; color:#fff; border:none; padding:10px; border-radius:4px; cursor:pointer;">Cup öffnen ↗</button>
-                    </div>
-                </div>
-            </div>
-
-            <div id="pagePack" class="page-content" style="display:none;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                    <h2 style="margin:0; font-size:1.1rem;">Packliste</h2>
-                    <button type="button" onclick="resetPackList()" style="background:#f44336; color:#fff; border:none; padding:6px 10px; border-radius:4px; cursor:pointer; font-size:0.75rem;">Standard Reset</button>
-                </div>
-                <div id="packContainer"></div>
-            </div>
-
-            <div id="pageBackup" class="page-content" style="display:none;">
-                <div class="setup-box">
-                    <h3>Daten & Backup</h3>
-                    <p style="font-size:0.85rem; color:#ccc; margin-bottom:12px;">Sichere deine Sessions, Rundenzeiten und Einstellungen.</p>
-                    
-                    <div id="backupReminderBanner" style="display:none; background:#ff9800; color:#000; padding:10px; border-radius:6px; margin-bottom:12px; font-weight:bold; font-size:0.85rem; text-align:center;">
-                        ⚠️ Es gibt ungesicherte Änderungen von heute!
-                    </div>
-
-                    <div style="display:flex; flex-direction:column; gap:10px;">
-                        <button type="button" onclick="exportBackup()" style="background:#4CAF50; color:#fff; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer;">💾 Backup erstellen & herunterladen</button>
-                        
-                        <div style="background:#222; padding:10px; border-radius:6px; border:1px solid #444; margin-top:5px;">
-                            <label style="font-size:0.8rem; margin-bottom:6px; display:block;">Backup von Datei wiederherstellen (Import)</label>
-                            <input type="file" accept=".json" onchange="importBackup(event)" style="font-size:0.8rem;">
-                        </div>
-                    </div>
-                    <div id="saveNoticeBackup" style="display:none; background:#4CAF50; color:#fff; text-align:center; padding:8px; border-radius:4px; margin-top:12px; font-size:0.85rem;"></div>
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <!-- PWA Installations-Popup -->
-    <div id="pwa-install-banner" style="display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 400px; background: #222; border: 2px solid #FFD700; border-radius: 12px; padding: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.8); z-index: 10000; text-align: center; font-family: sans-serif;">
-        <div style="font-size: 1.1rem; font-weight: bold; color: #fff; margin-bottom: 5px;">🏎️ UpperRacing installieren</div>
-        <div id="pwa-install-text" style="font-size: 0.85rem; color: #ccc; margin-bottom: 12px;">Füge die App zum Startbildschirm hinzu für den besten Offline-Zugriff auf der Rennstrecke.</div>
-        <div style="display: flex; gap: 10px; justify-content: center;">
-            <button id="pwa-install-btn" style="flex: 1; background: #4CAF50; color: white; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer;">Installieren</button>
-            <button id="pwa-close-btn" style="background: #444; color: #aaa; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer;">Später</button>
-        </div>
-    </div>
-
-    <script src="pack.js"></script>
-    <script src="backup.js"></script>
-    <script src="schedule.js"></script>
-    <script src="app.js"></script>
-    <script src="weather.js"></script>
-    <script>
-      // Service Worker registrieren
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js')
-            .then((reg) => { console.log('Service Worker registriert:', reg.scope); })
-            .catch((err) => { console.log('Service Worker Fehler:', err); });
-        });
-      }
-
-      // Installations-Banner Steuerung
-      let deferredPrompt;
-      const installBanner = document.getElementById('pwa-install-banner');
-      const installBtn = document.getElementById('pwa-install-btn');
-      const closeBtn = document.getElementById('pwa-close-btn');
-      const installText = document.getElementById('pwa-install-text');
-
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-      const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-
-      if (!isStandalone) {
-        window.addEventListener('beforeinstallprompt', (e) => {
-          e.preventDefault();
-          deferredPrompt = e;
-          installBanner.style.display = 'block';
+<body>
+  <iframe id="previewFrame" title="UpperRacing"></iframe>
+  <script>
+    (function(){
+      const frame=document.getElementById('previewFrame');
+      const build=Date.now().toString();
+      fetch('app-base.html?main='+build,{cache:'no-store'})
+        .then(function(res){if(!res.ok)throw new Error('HTTP '+res.status);return res.text();})
+        .then(function(html){
+          html=html.replace('<head>','<head><base href="/UpperRacing-/">');
+          html=html.replace(/(src|href)="(?!https?:|\/\/|data:|#)([^"]+)"/g,function(match,attr,url){
+            const sep=url.indexOf('?')>=0?'&':'?';
+            return attr+'="'+url+sep+'main='+build+'"';
+          });
+          frame.srcdoc=html;
+        })
+        .catch(function(err){
+          console.warn('[UpperRacing] Frischer App-Load fehlgeschlagen, Fallback:',err);
+          frame.src='app-base.html?main='+build;
         });
 
-        if (isiOS) {
-          installText.innerHTML = 'Tippe unten auf das <strong>Teilen-Symbol ( Quadrat mit Pfeil )</strong> und wähle <strong>"Zum Home-Bildschirm"</strong>.';
-          installBtn.style.display = 'none';
-          installBanner.style.display = 'block';
-        }
+      if('serviceWorker' in navigator){
+        window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').catch(function(err){console.log('Service Worker Fehler:',err)})});
       }
+    })();
+  </script>
 
-      if (installBtn) {
-        installBtn.addEventListener('click', async () => {
-          if (deferredPrompt) {
-            deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
-            console.log(`Installation outcome: ${outcome}`);
-            deferredPrompt = null;
-            installBanner.style.display = 'none';
-          }
-        });
-      }
+  <!-- Getestete produktive Erweiterungen aus dem bisherigen Preview-Stand -->
+  <script src="preview/proxy.js?v=20260816-main1"></script>
+  <script src="preview/preview.js?v=20260816-main1"></script>
+  <script src="preview/parser-prefilter.js?v=20260816-main1"></script>
+  <script src="preview/parser-turn-gap-fix.js?v=20260816-main1"></script>
+  <script src="preview/parser-v4.js?v=20260816-main1"></script>
+  <script src="preview/stardesign-finder.js?v=20260816-main1"></script>
+  <script src="preview/schedule-mobile-ui.js?v=20260816-main1"></script>
+  <script src="preview/day-rollover.js?v=20260816-main1"></script>
+  <script src="preview/header-program-context.js?v=20260816-main1"></script>
 
-      if (closeBtn) {
-        closeBtn.addEventListener('click', () => {
-          installBanner.style.display = 'none';
-        });
-      }
-    </script>
+  <!-- weather-warning-test.js ist absichtlich NICHT in der Main-App -->
 </body>
 </html>
