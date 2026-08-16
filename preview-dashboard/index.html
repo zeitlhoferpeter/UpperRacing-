@@ -35,7 +35,9 @@
         '../preview/day-rollover.js',
         '../preview/header-program-context.js',
         '../preview/weather-warning-test.js',
-        '../preview/dashboard-ui-v3.js'
+        '../preview/tire-setup-test.js',
+        '../preview/dashboard-ui-v3.js',
+        '../preview/dashboard-refine-v4.js'
       ];
 
       function loadScript(src){
@@ -49,10 +51,6 @@
         });
       }
 
-      // Wichtig: Erst alle Preview-Erweiterungen laden und deren iframe-load-Listener
-      // registrieren. Erst danach wird die eigentliche App in das iframe gesetzt.
-      // Dadurch gibt es keinen Race-Condition-Fehler mehr, bei dem einzelne UI-Skripte
-      // den iframe-load verpassen und die Testansicht nur teilweise/alt erscheint.
       scripts.reduce(function(p,src){return p.then(function(){return loadScript(src)})},Promise.resolve())
         .then(function(){
           return fetch('../app-base.html?dashboardtest='+build,{cache:'no-store'});
