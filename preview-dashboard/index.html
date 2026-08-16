@@ -27,8 +27,9 @@
       const frame=document.getElementById('previewFrame');
       const boot=document.getElementById('bootState');
       const indicator=document.getElementById('pullRefresh');
-      const build='20260816-fastcup4';
+      const build='20260816-cloud1';
       let cupModulePromise=null;
+      let cloudModulePromise=null;
 
       function installPullRefresh(){
         const d=frame.contentDocument;
@@ -92,9 +93,21 @@
         return cupModulePromise;
       }
 
-      function installCupLazyLoader(){
-        const w=frame.contentWindow;if(!w||w.__upperCupLazyLoader)return;
-        w.__upperCupLazyLoader=true;
+      function loadCloudModule(){
+        if(cloudModulePromise)return cloudModulePromise;
+        cloudModulePromise=new Promise(function(resolve,reject){
+          const s=document.createElement('script');
+          s.src='../preview/cloud-backup-test.js?dashboardtest='+build;
+          s.onload=function(){resolve()};
+          s.onerror=function(){cloudModulePromise=null;reject(new Error('Cloud-Modul konnte nicht geladen werden'))};
+          document.head.appendChild(s);
+        });
+        return cloudModulePromise;
+      }
+
+      function installLazyFeatures(){
+        const w=frame.contentWindow;if(!w||w.__upperLazyFeatures)return;
+        w.__upperLazyFeatures=true;
         const original=w.switchPage;
         if(typeof original!=='function')return;
         w.switchPage=function(page){
@@ -104,6 +117,11 @@
             loadCupModule().then(function(){
               if(w.upperCupAutoTest&&typeof w.upperCupAutoTest.activate==='function')w.upperCupAutoTest.activate();
             }).catch(function(err){console.warn('[Cup Lazy]',err)});
+          }
+          if(page==='backup'){
+            loadCloudModule().then(function(){
+              if(window.upperCloudBackupTest&&typeof window.upperCloudBackupTest.activate==='function')window.upperCloudBackupTest.activate();
+            }).catch(function(err){console.warn('[Cloud Lazy]',err)});
           }
           return result;
         };
@@ -160,7 +178,7 @@
           frame.addEventListener('load',function(){
             if(boot)boot.style.display='none';
             installPullRefresh();
-            installCupLazyLoader();
+            installLazyFeatures();
           },{once:true});
           frame.srcdoc=html;
         })
