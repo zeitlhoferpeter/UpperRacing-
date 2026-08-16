@@ -27,9 +27,7 @@
       const frame=document.getElementById('previewFrame');
       const boot=document.getElementById('bootState');
       const indicator=document.getElementById('pullRefresh');
-      // Stabile Build-ID: Browser darf Dateien jetzt wieder cachen.
-      // Bei Änderungen an der Testversion wird diese ID mitgeändert.
-      const build='20260816-fastcup3';
+      const build='20260816-fastcup4';
       let cupModulePromise=null;
 
       function installPullRefresh(){
@@ -70,11 +68,10 @@
         const actions=openBtn&&openBtn.parentElement;
         const title=page.querySelector('.setup-box h3');
         const intro=page.querySelector('.setup-box p');
-        if(title)title.textContent='Cup-Jahreswertung';
-        if(intro)intro.textContent='Aktuelle Jahreswertung direkt von Stardesign.';
+        if(title)title.style.display='none';
+        if(intro)intro.style.display='none';
         if(actions){actions.style.display='flex';actions.style.flexDirection='column';actions.style.gap='8px'}
         if(openBtn){
-          // Hauptaktion ganz nach oben auf die Cup-Seite verschieben.
           if(box&&box.firstChild!==openBtn)box.insertBefore(openBtn,box.firstChild);
           openBtn.textContent='🏆 Jahreswertung öffnen ↗';openBtn.style.width='100%';openBtn.style.flex='none';
           openBtn.style.background='#ffd400';openBtn.style.color='#0b0b0b';openBtn.style.fontWeight='900';openBtn.style.fontSize='1rem';
