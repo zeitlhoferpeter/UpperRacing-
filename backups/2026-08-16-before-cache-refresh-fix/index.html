@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#090909">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="UpperRacing">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon.png">
+  <title>UpperRacing - Trackday App</title>
+  <style>
+    html,body{margin:0;width:100%;height:100%;background:#090909;overflow:hidden}
+    #previewFrame{display:block;width:100%;height:100%;border:0;background:#121212}
+  </style>
+</head>
+<body>
+  <iframe id="previewFrame" title="UpperRacing"></iframe>
+  <script>
+    (function(){
+      const frame=document.getElementById('previewFrame');
+      const build=Date.now().toString();
+      fetch('app-base.html?main='+build,{cache:'no-store'})
+        .then(function(res){if(!res.ok)throw new Error('HTTP '+res.status);return res.text();})
+        .then(function(html){
+          html=html.replace('<head>','<head><base href="/UpperRacing-/">');
+          html=html.replace(/(src|href)="(?!https?:|\/\/|data:|#)([^"]+)"/g,function(match,attr,url){
+            const sep=url.indexOf('?')>=0?'&':'?';
+            return attr+'="'+url+sep+'main='+build+'"';
+          });
+          frame.srcdoc=html;
+        })
+        .catch(function(err){
+          console.warn('[UpperRacing] Frischer App-Load fehlgeschlagen, Fallback:',err);
+          frame.src='app-base.html?main='+build;
+        });
+
+      if('serviceWorker' in navigator){
+        window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').catch(function(err){console.log('Service Worker Fehler:',err)})});
+      }
+    })();
+  </script>
+
+  <!-- Getestete produktive Erweiterungen aus dem bisherigen Preview-Stand -->
+  <script src="preview/proxy.js?v=20260816-main1"></script>
+  <script src="preview/preview.js?v=20260816-main1"></script>
+  <script src="preview/parser-prefilter.js?v=20260816-main1"></script>
+  <script src="preview/parser-turn-gap-fix.js?v=20260816-main1"></script>
+  <script src="preview/parser-v4.js?v=20260816-main1"></script>
+  <script src="preview/stardesign-finder.js?v=20260816-main1"></script>
+  <script src="preview/schedule-mobile-ui.js?v=20260816-main1"></script>
+  <script src="preview/day-rollover.js?v=20260816-main1"></script>
+  <script src="preview/header-program-context.js?v=20260816-main1"></script>
+
+  <!-- weather-warning-test.js ist absichtlich NICHT in der Main-App -->
+</body>
+</html>
