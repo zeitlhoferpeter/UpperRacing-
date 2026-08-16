@@ -27,7 +27,10 @@
       const frame=document.getElementById('previewFrame');
       const boot=document.getElementById('bootState');
       const indicator=document.getElementById('pullRefresh');
-      const build=Date.now().toString();
+      // Stabile Build-ID: Browser darf Dateien jetzt wieder cachen.
+      // Bei Änderungen an der Testversion wird diese ID mitgeändert.
+      const build='20260816-fastcup2';
+      let cupModulePromise=null;
 
       function installPullRefresh(){
         const d=frame.contentDocument;
@@ -58,9 +61,56 @@
         },{passive:true});
       }
 
+      function prepareCupButton(){
+        const d=frame.contentDocument;if(!d)return;
+        const page=d.getElementById('pageCup');if(!page)return;
+        const openBtn=page.querySelector('button[onclick*="openCupInBrowser"]');
+        const saveBtn=page.querySelector('button[onclick*="saveCupUrl"]');
+        const actions=openBtn&&openBtn.parentElement;
+        const title=page.querySelector('.setup-box h3');
+        const intro=page.querySelector('.setup-box p');
+        if(title)title.textContent='Cup-Jahreswertung';
+        if(intro)intro.textContent='Aktuelle Jahreswertung direkt von Stardesign.';
+        if(actions){actions.style.display='flex';actions.style.flexDirection='column';actions.style.gap='8px'}
+        if(openBtn){
+          openBtn.textContent='🏆 Jahreswertung öffnen ↗';openBtn.style.order='-1';openBtn.style.width='100%';openBtn.style.flex='none';
+          openBtn.style.background='#ffd400';openBtn.style.color='#0b0b0b';openBtn.style.fontWeight='900';openBtn.style.fontSize='1rem';
+          openBtn.style.padding='14px 12px';openBtn.style.borderRadius='8px';
+        }
+        if(saveBtn){saveBtn.textContent='Fallback-Link speichern';saveBtn.style.width='100%';saveBtn.style.flex='none';saveBtn.style.background='#2a2a2a';saveBtn.style.color='#aaa';saveBtn.style.fontSize='.78rem';saveBtn.style.padding='9px'}
+      }
+
+      function loadCupModule(){
+        if(cupModulePromise)return cupModulePromise;
+        cupModulePromise=new Promise(function(resolve,reject){
+          const s=document.createElement('script');
+          s.src='../preview/cup-auto-test.js?dashboardtest='+build;
+          s.onload=function(){resolve()};
+          s.onerror=function(){cupModulePromise=null;reject(new Error('Cup-Modul konnte nicht geladen werden'))};
+          document.head.appendChild(s);
+        });
+        return cupModulePromise;
+      }
+
+      function installCupLazyLoader(){
+        const w=frame.contentWindow;if(!w||w.__upperCupLazyLoader)return;
+        w.__upperCupLazyLoader=true;
+        const original=w.switchPage;
+        if(typeof original!=='function')return;
+        w.switchPage=function(page){
+          const result=original.apply(this,arguments);
+          if(page==='cup'){
+            prepareCupButton();
+            loadCupModule().then(function(){
+              if(w.upperCupAutoTest&&typeof w.upperCupAutoTest.activate==='function')w.upperCupAutoTest.activate();
+            }).catch(function(err){console.warn('[Cup Lazy]',err)});
+          }
+          return result;
+        };
+      }
+
       const scripts=[
         '../preview/proxy.js',
-        '../preview/cup-auto-test.js',
         '../preview/preview.js',
         '../preview/parser-prefilter.js',
         '../preview/parser-turn-gap-fix.js',
@@ -77,15 +127,13 @@
       ];
 
       function fetchText(url){
-        return fetch(url,{cache:'no-store'}).then(function(res){
+        return fetch(url,{cache:'default'}).then(function(res){
           if(!res.ok)throw new Error(url+' HTTP '+res.status);
           return res.text();
         });
       }
 
       function installScripts(texts){
-        // Alle Dateien werden parallel geladen, aber bewusst in der bisherigen Reihenfolge
-        // ausgeführt. Dadurch bleiben die iframe-load-Listener deterministisch.
         texts.forEach(function(code,i){
           const s=document.createElement('script');
           s.textContent=code+'\n//# sourceURL='+scripts[i];
@@ -97,39 +145,28 @@
         navigator.serviceWorker.getRegistration('/UpperRacing-/').then(function(reg){if(reg)reg.update().catch(()=>{})}).catch(()=>{});
       }
 
-      const scriptPromise=Promise.all(scripts.map(function(src){
-        return fetchText(src+'?dashboardtest='+build);
-      }));
+      const scriptPromise=Promise.all(scripts.map(function(src){return fetchText(src+'?dashboardtest='+build)}));
       const appPromise=fetchText('../app-base.html?dashboardtest='+build);
 
-      // Wichtig: Preview-Skripte UND app-base werden gleichzeitig geladen.
-      // Erst wenn beides da ist, registrieren wir die Listener und starten das iframe.
       Promise.all([scriptPromise,appPromise])
         .then(function(result){
-          const texts=result[0];
-          let html=result[1];
+          const texts=result[0];let html=result[1];
           installScripts(texts);
-
           html=html.replace('<head>','<head><base href="/UpperRacing-/">');
           html=html.replace(/(src|href)="(?!https?:|\/\/|data:|#)([^"]+)"/g,function(match,attr,url){
-            let clean=url;
-            if(clean==='weather.js'||clean==='./weather.js')clean='preview/weather.js';
-            const sep=clean.indexOf('?')>=0?'&':'?';
-            return attr+'="'+clean+sep+'dashboardtest='+build+'"';
+            let clean=url;if(clean==='weather.js'||clean==='./weather.js')clean='preview/weather.js';
+            const sep=clean.indexOf('?')>=0?'&':'?';return attr+'="'+clean+sep+'dashboardtest='+build+'"';
           });
-
           frame.addEventListener('load',function(){
             if(boot)boot.style.display='none';
             installPullRefresh();
+            installCupLazyLoader();
           },{once:true});
           frame.srcdoc=html;
         })
         .catch(function(err){
           console.error('[Dashboard Test] Ladefehler:',err);
-          if(boot){
-            boot.textContent='Ladefehler – bitte Seite neu öffnen';
-            boot.style.color='#ff6b5d';
-          }
+          if(boot){boot.textContent='Ladefehler – bitte Seite neu öffnen';boot.style.color='#ff6b5d'}
         });
     })();
   </script>
