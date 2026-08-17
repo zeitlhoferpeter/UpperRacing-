@@ -6,132 +6,117 @@
     const w=frame.contentWindow,d=frame.contentDocument;
     if(!w||!d)return;
 
-    const weekdays=['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+    const style=d.createElement('style');
+    style.id='previewHeaderContextStyles';
+    style.textContent=`
+      #headerScheduleWidget.preview-context-mode::before{content:attr(data-context-label)!important}
+      #headerScheduleWidget.preview-context-mode .preview-context-time{font-size:1.18rem;font-weight:900;color:#fff;line-height:1.15}
+      #headerScheduleWidget.preview-context-mode .preview-context-note{font-size:.68rem;font-weight:800;color:#aaa}
+    `;
+    d.head.appendChild(style);
 
-    function mins(t){
-      if(!t)return NaN;
-      const p=String(t).trim().replace('.',':').split(':');
-      if(p.length<2)return NaN;
-      const h=Number(p[0]),m=Number(p[1]);
-      return Number.isFinite(h)&&Number.isFinite(m)?h*60+m:NaN;
-    }
-
-    function fmtMinutes(total){
-      total=Math.max(0,Math.round(total));
-      return String(Math.floor(total/60)%24).padStart(2,'0')+':'+String(total%60).padStart(2,'0');
-    }
-
-    function data(){
+    function mins(t){if(!t)return 0;const p=String(t).trim().replace('.',':').split(':');return(+p[0]||0)*60+(+p[1]||0)}
+    function fmtTime(t){return String(t||'').trim().replace('.',':')}
+    function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+    function loadItems(){
       try{
-        const days=JSON.parse(w.localStorage.getItem('upper_schedule_days')||'{}')||{};
-        let active=w.localStorage.getItem('upper_schedule_activeday');
-        if(!active||!days[active])active=Object.keys(days)[0]||'';
-        const items=(Array.isArray(days[active])?days[active]:[])
-          .filter(it=>it&&it.start&&Number.isFinite(mins(it.start)))
-          .slice()
-          .sort((a,b)=>mins(a.start)-mins(b.start)||Number(a.sequence||0)-Number(b.sequence||0));
-        return{days,active,items};
-      }catch(_){return{days:{},active:'',items:[]}}
+        const days=JSON.parse(w.localStorage.getItem('upper_schedule_days')||'{}');
+        let day=w.localStorage.getItem('upper_schedule_activeday');
+        if(!day||!days[day])day=Object.keys(days)[0];
+        return Array.isArray(days[day])?days[day].slice():[];
+      }catch(_){return[]}
     }
-
-    function selectedGroup(){return w.localStorage.getItem('upper_schedule_mygroup')||'A'}
-
-    function isOwnTurn(item,group){
-      if(!item||item.type!=='turn')return false;
-      if(group==='ALL')return true;
-      return item.group===group||item.group==='A+B+C+D';
+    function isOrga(it){return it&&(it.type==='orga'||['Anmeldung','Pause','Briefing','REGROUPING','Siegerehrung'].includes(it.group))}
+    function contextLabel(it){
+      if(!it)return'PROGRAMM';
+      if(it.group==='Anmeldung')return'ANMELDUNG';
+      if(it.group==='Pause')return'MITTAGSPAUSE';
+      if(it.group==='Briefing')return String(it.title||'Fahrerbesprechung').toUpperCase();
+      if(it.group==='REGROUPING')return'REGROUPING';
+      if(it.group==='Siegerehrung')return'SIEGEREHRUNG';
+      return String(it.title||'PROGRAMM').toUpperCase();
     }
-
-    function itemTitle(item){
-      if(!item)return'Programmpunkt';
-      if(item.title)return String(item.title);
-      if(item.group==='Pause')return'Mittagspause';
-      if(item.group==='Anmeldung')return'Anmeldung';
-      if(item.group==='Briefing')return'Fahrerbesprechung';
-      if(item.group==='REGROUPING')return'REGROUPING';
-      if(item.group==='Siegerehrung')return'Siegerehrung';
-      return String(item.group||'Programmpunkt');
-    }
-
     function effectiveEnd(items,index){
-      const item=items[index];
-      const start=mins(item.start);
-      const explicit=mins(item.end);
-      if(Number.isFinite(explicit)&&explicit>start)return explicit;
-      for(let i=index+1;i<items.length;i++){
-        const n=mins(items[i].start);
-        if(Number.isFinite(n)&&n>start)return n;
+      const it=items[index];if(!it)return 0;
+      if(it.end&&mins(it.end)>mins(it.start))return mins(it.end);
+      const start=mins(it.start);
+      for(let j=index+1;j<items.length;j++){
+        const n=mins(items[j].start);
+        if(n>start)return n;
       }
-      return start+20;
+      return start+30;
+    }
+    function nextTurnAfter(items,startM){
+      return items.find(it=>it&&it.type==='turn'&&it.start&&mins(it.start)>startM)||null;
+    }
+    function displayRange(it,endM){
+      const start=fmtTime(it.start);
+      const end=it.end?fmtTime(it.end):(endM>mins(it.start)?String(Math.floor(endM/60)).padStart(2,'0')+':'+String(Math.round(endM%60)).padStart(2,'0'):'');
+      return end?start+'–'+end:start;
+    }
+    function releaseHeader(widget){
+      widget.classList.remove('preview-context-mode');
+      widget.removeAttribute('data-context-label');
     }
 
-    function selectedDayIsLive(state,now){
-      const idx=weekdays.indexOf(state.active);
-      if(idx>=0)return idx===now.getDay();
-      return !!state.active;
-    }
-
-    function writeProgram(widget,kicker,title,timeText){
-      widget.classList.remove('preview-warning-10','preview-warning-5');
-      widget.innerHTML=
-        '<div class="header-status-label">'+kicker+'</div>'+ 
-        '<div class="header-status-value" style="line-height:1.2">'+title+'</div>'+ 
-        (timeText?'<div style="font-size:.62rem;color:#969696;font-weight:800;margin-top:4px">'+timeText+'</div>':'');
-      widget.dataset.upperProgramOwned='1';
-    }
-
-    function release(widget){
-      if(widget.dataset.upperProgramOwned==='1')delete widget.dataset.upperProgramOwned;
-    }
-
+    let applying=false;
     function render(){
+      if(applying)return;
       const widget=d.getElementById('headerScheduleWidget');
-      if(!widget)return;
-      const state=data();
-      if(!state.active||!state.items.length){release(widget);return}
+      const side=d.querySelector('.preview-next-turn-time');
+      if(!widget||!side)return;
+      const items=loadItems().filter(it=>it&&it.start).sort((a,b)=>mins(a.start)-mins(b.start)||((a.sequence||0)-(b.sequence||0)));
+      if(!items.length){releaseHeader(widget);return}
 
-      const now=new Date();
-      if(!selectedDayIsLive(state,now)){release(widget);return}
+      const now=new Date(),nowM=now.getHours()*60+now.getMinutes()+now.getSeconds()/60;
+      let latestContext=null,activeContext=null,activeEnd=0;
 
-      const nowM=now.getHours()*60+now.getMinutes()+now.getSeconds()/60;
-      const group=selectedGroup();
-
-      // Die gewohnte A-D-Logik bekommt exakt in den letzten 10 Minuten vor
-      // dem eigenen Turn und während des eigenen Turns wieder freie Hand.
-      const nextOwn=state.items.find(it=>isOwnTurn(it,group)&&mins(it.start)>nowM)||null;
-      const ownActive=state.items.some((it,i)=>isOwnTurn(it,group)&&nowM>=mins(it.start)&&nowM<effectiveEnd(state.items,i));
-      if(ownActive||(nextOwn&&mins(nextOwn.start)-nowM<=10&&mins(nextOwn.start)-nowM>0)){
-        release(widget);
-        return;
+      for(let i=0;i<items.length;i++){
+        const it=items[i];
+        if(!isOrga(it)||mins(it.start)>nowM)continue;
+        const endM=effectiveEnd(items,i);
+        if(nowM>=mins(it.start)&&nowM<endM){activeContext=it;activeEnd=endM}
+        const firstTurn=nextTurnAfter(items,mins(it.start));
+        if(firstTurn&&nowM<mins(firstTurn.start))latestContext={item:it,firstTurn:firstTurn,endM:endM};
       }
 
-      // Außerhalb dieses 10-Minuten-Fensters bestimmt ausschließlich der
-      // chronologische Zeitplan, was im Header steht.
-      let activeIndex=-1;
-      for(let i=0;i<state.items.length;i++){
-        const start=mins(state.items[i].start),end=effectiveEnd(state.items,i);
-        if(nowM>=start&&nowM<end){activeIndex=i;break}
+      let mode=null;
+      if(latestContext){
+        const diff=mins(latestContext.firstTurn.start)-nowM;
+        if(diff>0&&diff<=10){
+          // Ab 10 Minuten vor dem ERSTEN Turn nach Anmeldung/Mittagspause
+          // übernimmt wieder vollständig die bewährte A-D-Headerlogik.
+          releaseHeader(widget);
+          return;
+        }
+        if(diff>10)mode={item:latestContext.item,endM:latestContext.endM,firstTurn:latestContext.firstTurn};
+      }else if(activeContext){
+        mode={item:activeContext,endM:activeEnd,firstTurn:null};
       }
 
-      if(activeIndex>=0){
-        const item=state.items[activeIndex];
-        const end=effectiveEnd(state.items,activeIndex);
-        writeProgram(widget,'PROGRAMM',itemTitle(item),String(item.start).replace('.',':')+'–'+fmtMinutes(end));
-        return;
-      }
+      if(!mode){releaseHeader(widget);return}
 
-      const next=state.items.find(it=>mins(it.start)>nowM)||null;
-      if(next){
-        writeProgram(widget,'NÄCHSTER PROGRAMMPUNKT',itemTitle(next),String(next.start).replace('.',':'));
-        return;
-      }
+      applying=true;
+      widget.classList.add('preview-context-mode');
+      widget.classList.remove('preview-warning-10','preview-warning-5');
+      widget.setAttribute('data-context-label',contextLabel(mode.item));
+      const range=displayRange(mode.item,mode.endM);
+      const html='<span class="preview-context-time">'+esc(range)+'</span>';
+      if(widget.innerHTML!==html)widget.innerHTML=html;
 
-      release(widget);
+      if(mode.firstTurn){
+        const sideHtml='<div class="pnt-label">ERSTER TURN</div><div class="pnt-group">GR. '+esc(mode.firstTurn.group||'A')+'</div><div class="pnt-time">'+esc(fmtTime(mode.firstTurn.start))+'</div>';
+        if(side.innerHTML!==sideHtml)side.innerHTML=sideHtml;
+      }else{
+        const sideHtml='<div class="pnt-label">PROGRAMM</div><div class="pnt-time">läuft</div>';
+        if(side.innerHTML!==sideHtml)side.innerHTML=sideHtml;
+      }
+      applying=false;
     }
 
-    // Die Basis-Zeitplanlogik aktualisiert denselben Header regelmäßig. Darum
-    // setzen wir die Programmanzeige bewusst häufiger danach wieder korrekt.
+    const widget=d.getElementById('headerScheduleWidget');
+    if(widget)new MutationObserver(function(){setTimeout(render,0)}).observe(widget,{childList:true,subtree:true,characterData:true,attributes:true});
     setInterval(render,200);
-    setTimeout(render,100);
+    setTimeout(render,700);
   });
 })();
