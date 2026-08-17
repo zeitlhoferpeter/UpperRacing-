@@ -19,7 +19,7 @@
   <script>
     (function(){
       const frame=document.getElementById('previewFrame'),boot=document.getElementById('boot');
-      const build='20260817-raceheader4-stable';
+      const build='20260817-raceheader5-no-legacy-flash';
       const scripts=[
         '../preview/proxy.js',
         '../preview/preview.js',
@@ -40,10 +40,18 @@
       Promise.all([Promise.all(scripts.map(s=>fetchText(s+'?v='+build))),fetchText('../app-base.html?v='+build)])
         .then(([codes,html])=>{
           codes.forEach((code,i)=>{const s=document.createElement('script');s.textContent=code+'\n//# sourceURL='+scripts[i];document.head.appendChild(s)});
-          html=html.replace('<head>','<head><base href="/UpperRacing-/">');
+          html=html.replace('<head>','<head><base href="/UpperRacing-/"><style id="upperInitialHeaderGuard">.app-header{visibility:hidden!important}</style>');
           html=html.replace(/(src|href)="(?!https?:|\/\/|data:|#)([^"]+)"/g,(m,a,u)=>{let clean=u;if(clean==='weather.js'||clean==='./weather.js')clean='preview/weather.js';return a+'="'+clean+(clean.includes('?')?'&':'?')+'v='+build+'"'});
           frame.addEventListener('load',()=>{
-            setTimeout(()=>{frame.classList.add('ready');boot.style.display='none'},140);
+            setTimeout(()=>{
+              const d=frame.contentDocument;
+              const guard=d&&d.getElementById('upperInitialHeaderGuard');
+              if(guard)guard.remove();
+              const header=d&&d.querySelector('.app-header');
+              if(header)header.style.visibility='visible';
+              frame.classList.add('ready');
+              boot.style.display='none';
+            },180);
           },{once:true});
           frame.srcdoc=html;
         })
