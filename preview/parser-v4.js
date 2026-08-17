@@ -64,9 +64,22 @@
     function splitPanels(items){
       const det=detectPanelAxis(items),axis=det.axis,coord=axis==='y'?5:4;
       let centers=det.centers.slice();
-      if(!centers.length)return[{axis:'x',center:null,items}];
+      if(!centers.length)return[{axis:'x',center:null,items,topDown:true}];
       if(centers.length>3)centers=centers.slice(0,3).sort((a,b)=>a-b);
-      if(centers.length===1)return[{axis:'x',center:null,items}];
+
+      // Eine einzelne Zeitspalte ist kein geteiltes Tages-Panel.
+      if(centers.length===1)return[{axis:'x',center:null,items,topDown:true}];
+
+      // Stardesign-A4: Zeitbereiche (09:00-09:20) und Einzelzeiten (14:00)
+      // können in derselben linken Zeitspalte unterschiedlich eingerückt sein.
+      // Nahe X-Zentren sind daher nur Formatierung, keine getrennten Tage.
+      // Echte nebeneinanderliegende Tages-Panels (z.B. Samstag/Sonntag) liegen
+      // deutlich weiter auseinander und bleiben unverändert getrennt.
+      if(axis==='x'){
+        const span=centers[centers.length-1]-centers[0];
+        if(span<180)return[{axis:'x',center:null,items,topDown:true}];
+      }
+
       const out=[];
       centers.forEach((c,i)=>{
         const left=i===0?-Infinity:(centers[i-1]+c)/2;
@@ -139,11 +152,7 @@
         const page=await pdf.getPage(p),tc=await page.getTextContent();
         const allText=(tc.items||[]).map(it=>clean(it.str)).join(' ');
         const pageDay=detectDay(allText);
-        const viewport=page.getViewport({scale:1});
-        const isPortrait=viewport.height>=viewport.width;
-        const panels=isPortrait
-          ? [{axis:'x',center:null,items:tc.items||[],topDown:true}]
-          : splitPanels(tc.items||[]);
+        const panels=splitPanels(tc.items||[]);
         for(let i=0;i<panels.length;i++){
           const lines=linesForPanel(panels[i]);
           const items=buildItems(lines);
@@ -158,7 +167,7 @@
           parsed[day]=items;previousDay=day;
         }
       }
-      console.info('[UpperRacing Parser v8.5 portrait-safe]',Object.keys(parsed),parsed);
+      console.info('[UpperRacing Parser v8.6 panel-distance]',Object.keys(parsed),parsed);
       return parsed;
     }
 
@@ -168,7 +177,7 @@
     async function importFile(file,input){
       if(hasExisting()&&!w.confirm('Es ist bereits ein Zeitplan vorhanden. Wirklich ersetzen?')){input.value='';return}
       try{const keys=saveParsed(await analyze(await file.arrayBuffer()));input.value='';w.sessionStorage.setItem('upper_preview_open_schedule','1');w.alert('Zeitplan erfolgreich importiert! Erkannt: '+keys.length+' Tage – '+keys.join(', ')+'.');w.location.reload()}
-      catch(err){console.error('[Parser v8.5 portrait-safe]',err);input.value='';w.alert('Fehler beim Lesen der PDF-Datei: '+(err.message||err))}
+      catch(err){console.error('[Parser v8.6 panel-distance]',err);input.value='';w.alert('Fehler beim Lesen der PDF-Datei: '+(err.message||err))}
     }
 
     d.addEventListener('change',function(ev){const input=ev.target;if(!input||input.id!=='schedulePdfFile')return;const file=input.files&&input.files[0];if(!file)return;ev.preventDefault();ev.stopImmediatePropagation();importFile(file,input)},true);
