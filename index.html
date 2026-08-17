@@ -12,24 +12,30 @@
   <title>UpperRacing - Trackday App</title>
   <style>
     html,body{margin:0;width:100%;height:100%;background:#090909;overflow:hidden}
-    #previewFrame{display:block;width:100%;height:100%;border:0;background:#121212}
-    #pullRefresh{position:fixed;left:50%;top:9px;z-index:99999;transform:translate(-50%,-56px);background:#181818;border:1px solid #3d3d3d;border-radius:18px;color:#ddd;font:800 11px system-ui;padding:8px 13px;opacity:0;transition:transform .16s ease,opacity .16s ease;pointer-events:none;box-shadow:0 5px 18px rgba(0,0,0,.35)}
+    #previewFrame{display:block;width:100%;height:100%;border:0;background:#121212;opacity:0;transition:opacity .12s ease}
+    #previewFrame.ready{opacity:1}
+    #bootState{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#090909;color:#aaa;font:600 14px system-ui;z-index:10}
+    #pullRefresh{position:fixed;left:50%;top:9px;z-index:99999;transform:translate(-50%,-56px);background:#181818;border:1px solid #3d3d3d;border-radius:18px;color:#ddd;font:800 11px system-ui;padding:8px 13px;opacity:0;transition:transform .16s ease,opacity .16s;pointer-events:none;box-shadow:0 5px 18px rgba(0,0,0,.35)}
     #pullRefresh.show{opacity:1;transform:translate(-50%,0)}
     #pullRefresh.ready{color:#ffd400;border-color:#756300}
   </style>
 </head>
 <body>
+  <div id="bootState">UpperRacing wird geladen …</div>
   <div id="pullRefresh">↓ Zum Aktualisieren ziehen</div>
   <iframe id="previewFrame" title="UpperRacing"></iframe>
+
   <script>
     (function(){
       const frame=document.getElementById('previewFrame');
+      const boot=document.getElementById('bootState');
       const indicator=document.getElementById('pullRefresh');
-      const build=Date.now().toString();
+      const build='20260817-stable-main1';
+      let cupModulePromise=null;
 
       function installPullRefresh(){
-        const w=frame.contentWindow,d=frame.contentDocument;
-        if(!w||!d||d.__upperPullRefreshInstalled)return;
+        const d=frame.contentDocument;
+        if(!d||d.__upperPullRefreshInstalled)return;
         d.__upperPullRefreshInstalled=true;
         let startY=0,dy=0,tracking=false;
         const scrollTop=()=>Math.max(0,(d.scrollingElement&&d.scrollingElement.scrollTop)||d.documentElement.scrollTop||d.body.scrollTop||0);
@@ -56,42 +62,118 @@
         },{passive:true});
       }
 
-      frame.addEventListener('load',installPullRefresh);
+      function prepareCupButton(){
+        const d=frame.contentDocument;if(!d)return;
+        const page=d.getElementById('pageCup');if(!page)return;
+        const box=page.querySelector('.setup-box');
+        const openBtn=page.querySelector('button[onclick*="openCupInBrowser"]');
+        const saveBtn=page.querySelector('button[onclick*="saveCupUrl"]');
+        const actions=openBtn&&openBtn.parentElement;
+        const title=page.querySelector('.setup-box h3');
+        const intro=page.querySelector('.setup-box p');
+        if(title)title.style.display='none';
+        if(intro)intro.style.display='none';
+        if(actions){actions.style.display='flex';actions.style.flexDirection='column';actions.style.gap='8px'}
+        if(openBtn){
+          if(box&&box.firstChild!==openBtn)box.insertBefore(openBtn,box.firstChild);
+          openBtn.textContent='🏆 Jahreswertung öffnen ↗';openBtn.style.width='100%';openBtn.style.flex='none';
+          openBtn.style.background='#ffd400';openBtn.style.color='#0b0b0b';openBtn.style.fontWeight='900';openBtn.style.fontSize='1rem';
+          openBtn.style.padding='15px 12px';openBtn.style.borderRadius='8px';openBtn.style.marginBottom='14px';openBtn.style.border='none';
+        }
+        if(saveBtn){saveBtn.textContent='Fallback-Link speichern';saveBtn.style.width='100%';saveBtn.style.flex='none';saveBtn.style.background='#2a2a2a';saveBtn.style.color='#aaa';saveBtn.style.fontSize='.78rem';saveBtn.style.padding='9px'}
+      }
 
-      fetch('app-base.html?main='+build,{cache:'no-store'})
-        .then(function(res){if(!res.ok)throw new Error('HTTP '+res.status);return res.text();})
-        .then(function(html){
+      function loadCupModule(){
+        if(cupModulePromise)return cupModulePromise;
+        cupModulePromise=new Promise(function(resolve,reject){
+          const s=document.createElement('script');
+          s.src='preview/cup-auto-test.js?main='+build;
+          s.onload=function(){resolve()};
+          s.onerror=function(){cupModulePromise=null;reject(new Error('Cup-Modul konnte nicht geladen werden'))};
+          document.head.appendChild(s);
+        });
+        return cupModulePromise;
+      }
+
+      function installLazyFeatures(){
+        const w=frame.contentWindow;if(!w||w.__upperLazyFeatures)return;
+        w.__upperLazyFeatures=true;
+        const original=w.switchPage;
+        if(typeof original!=='function')return;
+        w.switchPage=function(page){
+          const result=original.apply(this,arguments);
+          if(page==='cup'){
+            prepareCupButton();
+            loadCupModule().then(function(){
+              if(w.upperCupAutoTest&&typeof w.upperCupAutoTest.activate==='function')w.upperCupAutoTest.activate();
+            }).catch(function(err){console.warn('[Cup Lazy]',err)});
+          }
+          return result;
+        };
+      }
+
+      const scripts=[
+        'preview/proxy.js',
+        'preview/preview.js',
+        'preview/parser-prefilter.js',
+        'preview/parser-turn-gap-fix.js',
+        'preview/parser-v4.js',
+        'preview/stardesign-finder.js',
+        'preview/schedule-mobile-ui.js',
+        'preview/day-rollover.js',
+        'preview/header-schedule-context.js',
+        'preview/tire-setup-test.js',
+        'preview/dashboard-ui-v3.js',
+        'preview/dashboard-refine-v4.js',
+        'preview/dashboard-style-v5.js'
+      ];
+
+      function fetchText(url){
+        return fetch(url,{cache:'no-store'}).then(function(res){
+          if(!res.ok)throw new Error(url+' HTTP '+res.status);
+          return res.text();
+        });
+      }
+
+      function installScripts(texts){
+        texts.forEach(function(code,i){
+          const s=document.createElement('script');
+          s.textContent=code+'\n//# sourceURL='+scripts[i];
+          document.head.appendChild(s);
+        });
+      }
+
+      if('serviceWorker' in navigator){
+        navigator.serviceWorker.register('./sw.js').then(function(reg){reg.update().catch(()=>{})}).catch(function(err){console.log('Service Worker Fehler:',err)});
+      }
+
+      const scriptPromise=Promise.all(scripts.map(function(src){return fetchText(src+'?main='+build)}));
+      const appPromise=fetchText('app-base.html?main='+build);
+
+      Promise.all([scriptPromise,appPromise])
+        .then(function(result){
+          const texts=result[0];let html=result[1];
+          installScripts(texts);
           html=html.replace('<head>','<head><base href="/UpperRacing-/">');
           html=html.replace(/(src|href)="(?!https?:|\/\/|data:|#)([^"]+)"/g,function(match,attr,url){
-            const sep=url.indexOf('?')>=0?'&':'?';
-            return attr+'="'+url+sep+'main='+build+'"';
+            let clean=url;if(clean==='weather.js'||clean==='./weather.js')clean='preview/weather.js';
+            const sep=clean.indexOf('?')>=0?'&':'?';return attr+'="'+clean+sep+'main='+build+'"';
           });
+          frame.addEventListener('load',function(){
+            installPullRefresh();
+            installLazyFeatures();
+            setTimeout(function(){
+              frame.classList.add('ready');
+              if(boot)boot.style.display='none';
+            },280);
+          },{once:true});
           frame.srcdoc=html;
         })
         .catch(function(err){
-          console.warn('[UpperRacing] Frischer App-Load fehlgeschlagen, Fallback:',err);
-          frame.src='app-base.html?main='+build;
+          console.error('[UpperRacing] Ladefehler:',err);
+          if(boot){boot.textContent='Ladefehler – bitte Seite neu öffnen';boot.style.color='#ff6b5d'}
         });
-
-      if('serviceWorker' in navigator){
-        window.addEventListener('load',function(){
-          navigator.serviceWorker.register('./sw.js').then(function(reg){reg.update().catch(()=>{})}).catch(function(err){console.log('Service Worker Fehler:',err)});
-        });
-      }
     })();
   </script>
-
-  <!-- Getestete produktive Erweiterungen aus dem bisherigen Preview-Stand -->
-  <script src="preview/proxy.js?v=20260816-main2"></script>
-  <script src="preview/preview.js?v=20260816-main2"></script>
-  <script src="preview/parser-prefilter.js?v=20260816-main2"></script>
-  <script src="preview/parser-turn-gap-fix.js?v=20260816-main2"></script>
-  <script src="preview/parser-v4.js?v=20260816-main2"></script>
-  <script src="preview/stardesign-finder.js?v=20260816-main2"></script>
-  <script src="preview/schedule-mobile-ui.js?v=20260816-main2"></script>
-  <script src="preview/day-rollover.js?v=20260816-main2"></script>
-  <script src="preview/header-program-context.js?v=20260816-main2"></script>
-
-  <!-- weather-warning-test.js ist absichtlich NICHT in der Main-App -->
 </body>
 </html>
