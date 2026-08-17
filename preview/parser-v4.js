@@ -17,6 +17,7 @@
     function tm(t){const p=normTime(t).split(':');return p.length===2?(+p[0])*60+(+p[1]):0}
     function nextDay(name){const i=DAYS.indexOf(name);return i<0?'':DAYS[(i+1)%7]}
     function detectDay(text){for(const [name,re] of DAY_PATTERNS)if(re.test(text||''))return name;return''}
+    function detectDays(text){return DAY_PATTERNS.filter(function(entry){return entry[1].test(text||'')}).map(function(entry){return entry[0]})}
     function lapsSuffix(t){const m=String(t||'').match(/(\d+)\s*(?:Laps?|Runden)/i);return m?' – '+m[1]+' Laps':''}
 
     function classify(raw){
@@ -61,25 +62,36 @@
       return{axis,centers:cs.map(c=>c.center)};
     }
 
-    function splitPanels(items){
+    function splitPanelsLegacy(items){
+      const det=detectPanelAxis(items),axis=det.axis,coord=axis==='y'?5:4;
+      let centers=det.centers.slice();
+      if(!centers.length)return[{axis,center:null,items}];
+      if(centers.length>3)centers=centers.slice(0,3).sort((a,b)=>a-b);
+      if(centers.length===1){
+        const c=centers[0];
+        const band=axis==='y'?190:220;
+        return[{axis,center:c,items:items.filter(it=>Math.abs((it.transform?.[coord]||0)-c)<=band)}];
+      }
+      const out=[];
+      centers.forEach((c,i)=>{
+        const left=i===0?-Infinity:(centers[i-1]+c)/2;
+        const right=i===centers.length-1?Infinity:(c+centers[i+1])/2;
+        const selected=items.filter(it=>{const v=it.transform?.[coord]||0;return v>=left&&v<right});
+        out.push({axis,center:c,items:selected});
+      });
+      return out;
+    }
+
+    function splitPanelsSafe(items){
       const det=detectPanelAxis(items),axis=det.axis,coord=axis==='y'?5:4;
       let centers=det.centers.slice();
       if(!centers.length)return[{axis:'x',center:null,items,topDown:true}];
       if(centers.length>3)centers=centers.slice(0,3).sort((a,b)=>a-b);
-
-      // Eine einzelne Zeitspalte ist kein geteiltes Tages-Panel.
       if(centers.length===1)return[{axis:'x',center:null,items,topDown:true}];
-
-      // Stardesign-A4: Zeitbereiche (09:00-09:20) und Einzelzeiten (14:00)
-      // können in derselben linken Zeitspalte unterschiedlich eingerückt sein.
-      // Nahe X-Zentren sind daher nur Formatierung, keine getrennten Tage.
-      // Echte nebeneinanderliegende Tages-Panels (z.B. Samstag/Sonntag) liegen
-      // deutlich weiter auseinander und bleiben unverändert getrennt.
       if(axis==='x'){
         const span=centers[centers.length-1]-centers[0];
         if(span<180)return[{axis:'x',center:null,items,topDown:true}];
       }
-
       const out=[];
       centers.forEach((c,i)=>{
         const left=i===0?-Infinity:(centers[i-1]+c)/2;
@@ -151,8 +163,9 @@
       for(let p=1;p<=pdf.numPages;p++){
         const page=await pdf.getPage(p),tc=await page.getTextContent();
         const allText=(tc.items||[]).map(it=>clean(it.str)).join(' ');
-        const pageDay=detectDay(allText);
-        const panels=splitPanels(tc.items||[]);
+        const pageDays=detectDays(allText);
+        const pageDay=pageDays[0]||'';
+        const panels=pageDays.length>1 ? splitPanelsLegacy(tc.items||[]) : splitPanelsSafe(tc.items||[]);
         for(let i=0;i<panels.length;i++){
           const lines=linesForPanel(panels[i]);
           const items=buildItems(lines);
@@ -161,13 +174,12 @@
           const panelDay=detectDay(lines.join(' '));
           if(panelDay)day=panelDay;
           else if(i===0&&pageDay)day=pageDay;
-          else if(previousDay)day=nextDay(previousDay);
           else day='Tag '+(Object.keys(parsed).length+1);
           if(parsed[day]){let n=2,base=day;while(parsed[base+' '+n])n++;day=base+' '+n}
           parsed[day]=items;previousDay=day;
         }
       }
-      console.info('[UpperRacing Parser v8.6 panel-distance]',Object.keys(parsed),parsed);
+      console.info('[UpperRacing Parser v8.7 hybrid-legacy-3day]',Object.keys(parsed),parsed);
       return parsed;
     }
 
@@ -177,7 +189,7 @@
     async function importFile(file,input){
       if(hasExisting()&&!w.confirm('Es ist bereits ein Zeitplan vorhanden. Wirklich ersetzen?')){input.value='';return}
       try{const keys=saveParsed(await analyze(await file.arrayBuffer()));input.value='';w.sessionStorage.setItem('upper_preview_open_schedule','1');w.alert('Zeitplan erfolgreich importiert! Erkannt: '+keys.length+' Tage – '+keys.join(', ')+'.');w.location.reload()}
-      catch(err){console.error('[Parser v8.6 panel-distance]',err);input.value='';w.alert('Fehler beim Lesen der PDF-Datei: '+(err.message||err))}
+      catch(err){console.error('[Parser v8.7 hybrid-legacy-3day]',err);input.value='';w.alert('Fehler beim Lesen der PDF-Datei: '+(err.message||err))}
     }
 
     d.addEventListener('change',function(ev){const input=ev.target;if(!input||input.id!=='schedulePdfFile')return;const file=input.files&&input.files[0];if(!file)return;ev.preventDefault();ev.stopImmediatePropagation();importFile(file,input)},true);
