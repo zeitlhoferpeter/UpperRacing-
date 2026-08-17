@@ -66,9 +66,6 @@
       let centers=det.centers.slice();
       if(!centers.length)return[{axis:'x',center:null,items}];
       if(centers.length>3)centers=centers.slice(0,3).sort((a,b)=>a-b);
-      // Eine einzelne erkannte Zeitspalte ist kein geteiltes Tages-Panel.
-      // Die komplette Seite wird in normaler Zeilenrichtung gelesen. Die bestehende
-      // 2-/3-Panel-Erkennung für geteilte Stardesign-Seiten bleibt unverändert.
       if(centers.length===1)return[{axis:'x',center:null,items}];
       const out=[];
       centers.forEach((c,i)=>{
@@ -91,7 +88,7 @@
         if(!row){row={r,items:[]};rows.push(row)}
         row.items.push({t,text});
       });
-      rows.sort((a,b)=>a.r-b.r);
+      rows.sort(panel.topDown?(a,b)=>b.r-a.r:(a,b)=>a.r-b.r);
       return rows.map(row=>{row.items.sort((a,b)=>a.t-b.t);return clean(row.items.map(i=>i.text).join(' '))}).filter(Boolean);
     }
 
@@ -106,9 +103,6 @@
       if(m)return[{kind:'timed',start:normTime(m[1]),end:normTime(m[2]),rawTitle:clean(m[3])}];
       m=s.match(/^(?:(?:ab|ca\.?|circa)\s+)?(\d{1,2}[:.]\d{2})\s+(.+)$/i);
       if(m)return[{kind:'timed',start:normTime(m[1]),end:'',rawTitle:clean(m[2])}];
-      /* Anmeldung/Registration ohne eigene Uhrzeit ignorieren wir bewusst. Die englische
-         Wiederholungszeile hat in Stardesign-PDFs sonst die zuletzt gelesene Zeit geerbt
-         und dadurch mehrere falsche Anmeldungen am Tagesende erzeugt. */
       if(/ANMELDUNG|REGISTRATION/i.test(s))return[];
       if(/REGROUPING|MITTAGSPAUSE|LUNCH BREAK|FAHRERBESPRECHUNG|SIEGEREHRUNG|PRICEGIVING/i.test(s))return[{kind:'untimed',rawTitle:s}];
       return[];
@@ -145,7 +139,11 @@
         const page=await pdf.getPage(p),tc=await page.getTextContent();
         const allText=(tc.items||[]).map(it=>clean(it.str)).join(' ');
         const pageDay=detectDay(allText);
-        const panels=splitPanels(tc.items||[]);
+        const viewport=page.getViewport({scale:1});
+        const isPortrait=viewport.height>=viewport.width;
+        const panels=isPortrait
+          ? [{axis:'x',center:null,items:tc.items||[],topDown:true}]
+          : splitPanels(tc.items||[]);
         for(let i=0;i<panels.length;i++){
           const lines=linesForPanel(panels[i]);
           const items=buildItems(lines);
@@ -160,7 +158,7 @@
           parsed[day]=items;previousDay=day;
         }
       }
-      console.info('[UpperRacing Parser v8.1-single-column-x-axis]',Object.keys(parsed),parsed);
+      console.info('[UpperRacing Parser v8.5 portrait-safe]',Object.keys(parsed),parsed);
       return parsed;
     }
 
@@ -170,7 +168,7 @@
     async function importFile(file,input){
       if(hasExisting()&&!w.confirm('Es ist bereits ein Zeitplan vorhanden. Wirklich ersetzen?')){input.value='';return}
       try{const keys=saveParsed(await analyze(await file.arrayBuffer()));input.value='';w.sessionStorage.setItem('upper_preview_open_schedule','1');w.alert('Zeitplan erfolgreich importiert! Erkannt: '+keys.length+' Tage – '+keys.join(', ')+'.');w.location.reload()}
-      catch(err){console.error('[Parser v8.1-single-column-x-axis]',err);input.value='';w.alert('Fehler beim Lesen der PDF-Datei: '+(err.message||err))}
+      catch(err){console.error('[Parser v8.5 portrait-safe]',err);input.value='';w.alert('Fehler beim Lesen der PDF-Datei: '+(err.message||err))}
     }
 
     d.addEventListener('change',function(ev){const input=ev.target;if(!input||input.id!=='schedulePdfFile')return;const file=input.files&&input.files[0];if(!file)return;ev.preventDefault();ev.stopImmediatePropagation();importFile(file,input)},true);
