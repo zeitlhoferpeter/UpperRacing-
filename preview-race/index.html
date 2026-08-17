@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#090909">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <title>UpperRacing Race Header Test</title>
+  <style>
+    html,body{margin:0;width:100%;height:100%;background:#090909;overflow:hidden}
+    #previewFrame{display:block;width:100%;height:100%;border:0;background:#121212;opacity:0;transition:opacity .12s ease}
+    #previewFrame.ready{opacity:1}
+    #boot{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#090909;color:#aaa;font:600 14px system-ui;z-index:10}
+  </style>
+</head>
+<body>
+  <div id="boot">Header-Test wird geladen …</div>
+  <iframe id="previewFrame" title="UpperRacing Race Header Test"></iframe>
+  <script>
+    (function(){
+      const frame=document.getElementById('previewFrame'),boot=document.getElementById('boot');
+      const build='20260817-raceheader1';
+      const scripts=[
+        '../preview/proxy.js',
+        '../preview/preview.js',
+        '../preview/parser-prefilter.js',
+        '../preview/parser-turn-gap-fix.js',
+        '../preview/parser-v4.js',
+        '../preview/stardesign-finder.js',
+        '../preview/schedule-mobile-ui.js',
+        '../preview/day-rollover.js',
+        '../preview/header-race-context-test.js',
+        '../preview/tire-setup-test.js',
+        '../preview/dashboard-ui-v3.js',
+        '../preview/dashboard-refine-v4.js',
+        '../preview/dashboard-style-v5.js'
+      ];
+      function fetchText(url){return fetch(url,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(url+' HTTP '+r.status);return r.text()})}
+      Promise.all([Promise.all(scripts.map(s=>fetchText(s+'?v='+build))),fetchText('../app-base.html?v='+build)])
+        .then(([codes,html])=>{
+          codes.forEach((code,i)=>{const s=document.createElement('script');s.textContent=code+'\n//# sourceURL='+scripts[i];document.head.appendChild(s)});
+          html=html.replace('<head>','<head><base href="/UpperRacing-/">');
+          html=html.replace(/(src|href)="(?!https?:|\/\/|data:|#)([^"]+)"/g,(m,a,u)=>{let clean=u;if(clean==='weather.js'||clean==='./weather.js')clean='preview/weather.js';return a+'="'+clean+(clean.includes('?')?'&':'?')+'v='+build+'"'});
+          frame.addEventListener('load',()=>{setTimeout(()=>{frame.classList.add('ready');boot.style.display='none'},280)},{once:true});
+          frame.srcdoc=html;
+        })
+        .catch(err=>{console.error(err);boot.textContent='Ladefehler – bitte Seite neu öffnen';boot.style.color='#ff6b5d'});
+    })();
+  </script>
+</body>
+</html>
