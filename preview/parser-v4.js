@@ -6,7 +6,6 @@
     const w=frame.contentWindow,d=frame.contentDocument;
     if(!w||!d)return;
 
-    const DAYS=['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
     const DAY_PATTERNS=[
       ['Sonntag',/(Sonntag|Sunday)/i],['Montag',/(Montag|Monday)/i],['Dienstag',/(Dienstag|Tuesday)/i],
       ['Mittwoch',/(Mittwoch|Wednesday)/i],['Donnerstag',/(Donnerstag|Thursday)/i],['Freitag',/(Freitag|Friday|Fri\s*\/\s*day)/i],['Samstag',/(Samstag|Saturday)/i]
@@ -15,7 +14,6 @@
     function clean(s){return String(s||'').replace(/\s+/g,' ').trim()}
     function normTime(t){const m=String(t||'').trim().replace('.',':').match(/^(\d{1,2}):(\d{2})$/);if(!m)return'';const h=+m[1],mi=+m[2];if(h>23||mi>59)return'';return String(h).padStart(2,'0')+':'+String(mi).padStart(2,'0')}
     function tm(t){const p=normTime(t).split(':');return p.length===2?(+p[0])*60+(+p[1]):0}
-    function nextDay(name){const i=DAYS.indexOf(name);return i<0?'':DAYS[(i+1)%7]}
     function detectDay(text){for(const [name,re] of DAY_PATTERNS)if(re.test(text||''))return name;return''}
     function lapsSuffix(t){const m=String(t||'').match(/(\d+)\s*(?:Laps?|Runden)/i);return m?' – '+m[1]+' Laps':''}
 
@@ -124,8 +122,7 @@
     }
 
     async function analyze(buffer){
-      const lib=await loadPdfJs(),pdf=await lib.getDocument({data:buffer}).promise;const parsed={};let previousDay='';
-      const fallbackFirstDay=DAYS[new Date().getDay()];
+      const lib=await loadPdfJs(),pdf=await lib.getDocument({data:buffer}).promise;const parsed={};
       for(let p=1;p<=pdf.numPages;p++){
         const page=await pdf.getPage(p),tc=await page.getTextContent();
         const allText=(tc.items||[]).map(it=>clean(it.str)).join(' ');
@@ -135,14 +132,18 @@
           const lines=linesForPanel(panels[i]);
           const items=buildItems(lines);
           if(items.filter(x=>x.type==='turn').length<3)continue;
+
+          // Wochentage NUR übernehmen, wenn sie im zugehörigen PDF-Bereich wirklich
+          // erkannt werden. Niemals vom heutigen Datum oder vom vorherigen Tag ableiten.
           let day=detectDay(lines.join(' '));
-          if(!day&&i===0&&pageDay)day=pageDay;
-          if(!day)day=previousDay?nextDay(previousDay):fallbackFirstDay;
+          if(!day&&panels.length===1&&pageDay)day=pageDay;
+          if(!day)day='Tag '+(Object.keys(parsed).length+1);
+
           if(parsed[day]){let n=2,base=day;while(parsed[base+' '+n])n++;day=base+' '+n}
-          parsed[day]=items;previousDay=day.replace(/\s+\d+$/,'');
+          parsed[day]=items;
         }
       }
-      console.info('[UpperRacing Parser v8.3]',Object.keys(parsed),parsed);
+      console.info('[UpperRacing Parser v8.4]',Object.keys(parsed),parsed);
       return parsed;
     }
 
@@ -152,7 +153,7 @@
     async function importFile(file,input){
       if(hasExisting()&&!w.confirm('Es ist bereits ein Zeitplan vorhanden. Wirklich ersetzen?')){input.value='';return}
       try{const keys=saveParsed(await analyze(await file.arrayBuffer()));input.value='';w.sessionStorage.setItem('upper_preview_open_schedule','1');w.alert('Zeitplan erfolgreich importiert! Erkannt: '+keys.length+' Tage – '+keys.join(', ')+'.');w.location.reload()}
-      catch(err){console.error('[Parser v8.3]',err);input.value='';w.alert('Fehler beim Lesen der PDF-Datei: '+(err.message||err))}
+      catch(err){console.error('[Parser v8.4]',err);input.value='';w.alert('Fehler beim Lesen der PDF-Datei: '+(err.message||err))}
     }
 
     d.addEventListener('change',function(ev){const input=ev.target;if(!input||input.id!=='schedulePdfFile')return;const file=input.files&&input.files[0];if(!file)return;ev.preventDefault();ev.stopImmediatePropagation();importFile(file,input)},true);
