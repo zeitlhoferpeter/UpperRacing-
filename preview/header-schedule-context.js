@@ -12,6 +12,9 @@
       #headerScheduleWidget.preview-context-mode::before{content:attr(data-context-label)!important}
       #headerScheduleWidget.preview-context-mode .preview-context-main{font-size:1.18rem;font-weight:900;color:#fff;line-height:1.18}
       #headerScheduleWidget.preview-context-mode .preview-context-sub{font-size:.68rem;font-weight:800;color:#aaa;margin-top:3px}
+      #headerScheduleWidget.preview-context-mode .preview-turn-countdown{display:inline-flex;align-items:center;gap:10px;margin-top:4px;padding:7px 12px;border:2px solid var(--turn-color,#888);border-radius:10px;background:color-mix(in srgb,var(--turn-color,#888) 12%,#101010);box-shadow:0 0 0 1px color-mix(in srgb,var(--turn-color,#888) 24%,transparent);font-size:1.7rem;font-weight:950;line-height:1;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:.2px}
+      #headerScheduleWidget.preview-context-mode .preview-turn-countdown .preview-turn-group{color:var(--turn-color,#fff);min-width:1.05em;text-align:center}
+      #headerScheduleWidget.preview-context-mode .preview-turn-countdown .preview-turn-time{color:#fff}
     `;
     d.head.appendChild(style);
 
@@ -42,6 +45,14 @@
       if(it.group==='Briefing')return'FAHRERBESPRECHUNG';
       return'PROGRAMM';
     }
+    function groupColor(group){
+      if(group==='A')return'#4CAF50';
+      if(group==='B')return'#2196F3';
+      if(group==='C')return'#FF9800';
+      if(group==='D')return'#E91E63';
+      if(group==='A+B+C+D')return'#FFD700';
+      return'#888';
+    }
     function effectiveEnd(items,index){
       const it=items[index];if(!it)return 0;
       if(it.end&&mins(it.end)>mins(it.start))return mins(it.end);
@@ -53,6 +64,9 @@
       const totalSec=Math.max(0,Math.ceil(diffMinutes*60));
       const mm=Math.floor(totalSec/60),ss=String(totalSec%60).padStart(2,'0');
       return mm+':'+ss;
+    }
+    function turnCountdown(group,time){
+      return '<div class="preview-turn-countdown" style="--turn-color:'+groupColor(group)+'"><span class="preview-turn-group">'+esc(group||'')+'</span><span class="preview-turn-time">'+esc(time)+'</span></div>';
     }
 
     let applying=false;
@@ -78,14 +92,14 @@
       }
       const active=activeIndex>=0?items[activeIndex]:null;
 
-      let leftLabel='PROGRAMM',leftMain='',leftSub='';
+      let leftLabel='PROGRAMM',leftMain='',leftSub='',leftHtml='';
 
       if(active&&isOrga(active)){
         const after=trackTurns.find(it=>mins(it.start)>nowM)||null;
         const diff=after?mins(after.start)-nowM:Infinity;
         if(after&&diff>0&&diff<=10){
           leftLabel='TURN';
-          leftMain='Nächstes: Gr. '+esc(after.group||'')+' in '+countdownText(diff);
+          leftHtml=turnCountdown(after.group,countdownText(diff));
           leftSub=fmt(after.start);
         }else{
           leftLabel=label(active);
@@ -95,12 +109,11 @@
       }else if(active&&isTurn(active)){
         const end=effectiveEnd(items,activeIndex);
         leftLabel='TURN';
-        leftMain='Gr. '+esc(active.group||'')+' läuft';
-        leftSub='noch '+countdownText(end-nowM);
+        leftHtml=turnCountdown(active.group,countdownText(end-nowM));
       }else if(nextTrack){
         const diff=mins(nextTrack.start)-nowM;
         leftLabel='TURN';
-        leftMain='Nächstes: Gr. '+esc(nextTrack.group||'')+' in '+countdownText(diff);
+        leftHtml=turnCountdown(nextTrack.group,countdownText(diff));
         leftSub=fmt(nextTrack.start);
       }else{
         const nextItem=items.find(it=>mins(it.start)>nowM)||null;
@@ -112,12 +125,13 @@
       widget.classList.add('preview-context-mode');
       widget.classList.remove('preview-warning-10','preview-warning-5');
       widget.setAttribute('data-context-label',leftLabel);
-      const html='<div class="preview-context-main">'+leftMain+'</div>'+(leftSub?'<div class="preview-context-sub">'+leftSub+'</div>':'');
-      if(widget.innerHTML!==html)widget.innerHTML=html;
+      const html=leftHtml||(leftMain?'<div class="preview-context-main">'+leftMain+'</div>':'')+(leftSub?'<div class="preview-context-sub">'+leftSub+'</div>':'');
+      const finalHtml=leftHtml+(leftSub?'<div class="preview-context-sub">'+leftSub+'</div>':'') || html;
+      if(widget.innerHTML!==finalHtml)widget.innerHTML=finalHtml;
 
       let sideHtml='';
       if(nextOwn){
-        sideHtml='<div class="pnt-label">MEIN NÄCHSTER TURN</div><div class="pnt-group">GR. '+esc(group==='ALL'?(nextOwn.group||''):group)+'</div><div class="pnt-time">'+esc(fmt(nextOwn.start))+'</div>';
+        sideHtml='<div class="pnt-label">MEIN NÄCHSTER TURN</div><div class="pnt-group">'+esc(group==='ALL'?(nextOwn.group||''):group)+'</div><div class="pnt-time">'+esc(fmt(nextOwn.start))+'</div>';
       }else{
         sideHtml='<div class="pnt-label">MEIN NÄCHSTER TURN</div><div class="pnt-time">—</div>';
       }
