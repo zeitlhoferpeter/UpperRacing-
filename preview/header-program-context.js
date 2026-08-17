@@ -108,6 +108,14 @@
       return mins(item.start)+20;
     }
 
+    function shouldTreatAsToday(active,days,now){
+      const selectedIndex=weekdays.indexOf(active);
+      if(selectedIndex>=0)return selectedIndex===now.getDay();
+      // Bei neutralen Bezeichnungen wie Tag 1/Tag 2 ist der vom Benutzer aktuell
+      // ausgewählte Tag der Zeitplan, den der Header live verfolgen soll.
+      return /^Tag\s*\d+$/i.test(active)||Object.prototype.hasOwnProperty.call(days,active);
+    }
+
     function render(){
       const state=data();
       const items=state.items.filter(function(it){return it&&it.start}).sort(function(a,b){return mins(a.start)-mins(b.start)||((a.sequence||0)-(b.sequence||0))});
@@ -127,20 +135,20 @@
         if(diff>=4){clearContext();return}
       }
 
-      if(selectedIndex===todayIndex){
+      if(shouldTreatAsToday(state.active,state.days,now)){
         const nowM=now.getHours()*60+now.getMinutes()+now.getSeconds()/60;
         const group=selectedGroup();
         const nextOwnTurn=items.filter(function(it){return belongsToSelectedTurn(it,group)&&mins(it.start)>nowM}).sort(function(a,b){return mins(a.start)-mins(b.start)})[0]||null;
         const minsToOwnTurn=nextOwnTurn?mins(nextOwnTurn.start)-nowM:Infinity;
 
-        // Ab 10 Minuten vor dem eigenen Turn übernimmt wieder die bestehende
-        // A-D-Logik im normalen Header (Countdown, Warnung, aktiver Turn).
+        // Erst in den letzten 10 Minuten vor dem eigenen Turn darf die normale
+        // A-D-Countdownlogik übernehmen.
         if(nextOwnTurn&&minsToOwnTurn<=10&&minsToOwnTurn>0){
           clearContext();
           return;
         }
 
-        // Während des eigenen Turns ebenfalls die bestehende Live-Turn-Logik zeigen.
+        // Während des eigenen Turns bleibt der normale Live-Turn-Timer sichtbar.
         const ownActive=items.some(function(it,index){
           return belongsToSelectedTurn(it,group)&&nowM>=mins(it.start)&&nowM<effectiveEnd(items,index);
         });
@@ -149,8 +157,7 @@
           return;
         }
 
-        // Sonst zeigt der Header immer, was laut Zeitplan gerade läuft – auch
-        // Anmeldung, Fahrerbesprechung, Mittagspause oder Turns anderer Gruppen.
+        // Sonst zeigt der Header den chronologisch laufenden Programmpunkt.
         let activeIndex=-1;
         for(let i=0;i<items.length;i++){
           const start=mins(items[i].start);
@@ -160,7 +167,8 @@
         if(activeIndex>=0){
           const active=items[activeIndex];
           const end=effectiveEnd(items,activeIndex);
-          setContext('PROGRAMM',itemTitle(active),fmt(active.start)+'–'+fmt(String(Math.floor(end/60)).padStart(2,'0')+':'+String(Math.floor(end%60)).padStart(2,'0')));
+          const endText=String(Math.floor(end/60)).padStart(2,'0')+':'+String(Math.floor(end%60)).padStart(2,'0');
+          setContext('PROGRAMM',itemTitle(active),fmt(active.start)+'–'+endText);
           return;
         }
 
