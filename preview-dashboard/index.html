@@ -10,7 +10,8 @@
   <title>UpperRacing Dashboard Test</title>
   <style>
     html,body{margin:0;width:100%;height:100%;background:#090909;overflow:hidden}
-    #previewFrame{display:block;width:100%;height:100%;border:0;background:#121212}
+    #previewFrame{display:block;width:100%;height:100%;border:0;background:#121212;opacity:0;transition:opacity .12s ease}
+    #previewFrame.ready{opacity:1}
     #bootState{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#090909;color:#aaa;font:600 14px system-ui;z-index:10}
     #pullRefresh{position:fixed;left:50%;top:9px;z-index:99999;transform:translate(-50%,-56px);background:#181818;border:1px solid #3d3d3d;border-radius:18px;color:#ddd;font:800 11px system-ui;padding:8px 13px;opacity:0;transition:transform .16s ease,opacity .16s;pointer-events:none;box-shadow:0 5px 18px rgba(0,0,0,.35)}
     #pullRefresh.show{opacity:1;transform:translate(-50%,0)}
@@ -27,7 +28,7 @@
       const frame=document.getElementById('previewFrame');
       const boot=document.getElementById('bootState');
       const indicator=document.getElementById('pullRefresh');
-      const build='20260817-parser-singlecolumn1';
+      const build='20260817-parser-axis2';
       let cupModulePromise=null;
       let cloudModulePromise=null;
 
@@ -145,7 +146,7 @@
       ];
 
       function fetchText(url){
-        return fetch(url,{cache:'default'}).then(function(res){
+        return fetch(url,{cache:'no-store'}).then(function(res){
           if(!res.ok)throw new Error(url+' HTTP '+res.status);
           return res.text();
         });
@@ -176,9 +177,12 @@
             const sep=clean.indexOf('?')>=0?'&':'?';return attr+'="'+clean+sep+'dashboardtest='+build+'"';
           });
           frame.addEventListener('load',function(){
-            if(boot)boot.style.display='none';
             installPullRefresh();
             installLazyFeatures();
+            setTimeout(function(){
+              frame.classList.add('ready');
+              if(boot)boot.style.display='none';
+            },280);
           },{once:true});
           frame.srcdoc=html;
         })
