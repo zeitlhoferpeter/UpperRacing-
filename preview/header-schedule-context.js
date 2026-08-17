@@ -23,6 +23,9 @@
       @keyframes ur-inner-alert-5{0%,100%{box-shadow:0 0 0 1px rgba(255,50,35,.28),0 0 8px rgba(255,45,25,.28)}50%{box-shadow:0 0 0 2px rgba(255,75,50,.70),0 0 18px rgba(255,45,25,.62)}}
       #headerScheduleWidget.preview-alert-5{border-color:#ff2d19!important;background:linear-gradient(145deg,#3b0d07,#1d0906)!important;animation:ur-header-alert-5 .85s ease-in-out infinite!important}
       #headerScheduleWidget.preview-alert-5 .preview-turn-countdown{border-color:#ff2d19!important;animation:ur-inner-alert-5 .85s ease-in-out infinite!important}
+
+      #headerScheduleWidget.preview-own-active{border-color:#4CAF50!important;box-shadow:0 0 0 1px rgba(76,175,80,.34),0 0 18px rgba(76,175,80,.30)!important;background:linear-gradient(145deg,#102a14,#101a12)!important}
+      #headerScheduleWidget.preview-own-active .preview-turn-countdown{border-color:#4CAF50!important;box-shadow:0 0 0 1px rgba(76,175,80,.22),0 0 12px rgba(76,175,80,.22)!important}
     `;
     d.head.appendChild(style);
 
@@ -100,6 +103,7 @@
         if(nowM>=start&&nowM<end){activeIndex=i;break}
       }
       const active=activeIndex>=0?items[activeIndex]:null;
+      const ownActive=!!(active&&isOwnTurn(active,group));
 
       let leftLabel='PROGRAMM',leftMain='',leftSub='',leftHtml='';
 
@@ -132,10 +136,11 @@
 
       applying=true;
       widget.classList.add('preview-context-mode');
-      widget.classList.remove('preview-warning-10','preview-warning-5','preview-alert-10','preview-alert-5');
+      widget.classList.remove('preview-warning-10','preview-warning-5','preview-alert-10','preview-alert-5','preview-own-active');
       const alert10=w.localStorage.getItem('upper_schedule_alert10m')!=='false';
       const alert5=w.localStorage.getItem('upper_schedule_alert5m')!=='false';
-      if(minsToOwn>0&&minsToOwn<=5&&alert5)widget.classList.add('preview-alert-5');
+      if(ownActive)widget.classList.add('preview-own-active');
+      else if(minsToOwn>0&&minsToOwn<=5&&alert5)widget.classList.add('preview-alert-5');
       else if(minsToOwn>5&&minsToOwn<=10&&alert10)widget.classList.add('preview-alert-10');
       widget.setAttribute('data-context-label',leftLabel);
       const html=leftHtml||(leftMain?'<div class="preview-context-main">'+leftMain+'</div>':'')+(leftSub?'<div class="preview-context-sub">'+leftSub+'</div>':'');
