@@ -19,7 +19,7 @@
   <script>
     (function(){
       const frame=document.getElementById('previewFrame'),boot=document.getElementById('boot');
-      const build='20260817-race-detached1';
+      const build='20260817-header-frame1';
       const scripts=[
         '../preview/proxy.js',
         '../preview/preview.js',
@@ -40,7 +40,7 @@
       Promise.all([Promise.all(scripts.map(s=>fetchText(s+'?v='+build))),fetchText('../app-base.html?v='+build)])
         .then(([codes,html])=>{
           codes.forEach((code,i)=>{const s=document.createElement('script');s.textContent=code+'\n//# sourceURL='+scripts[i];document.head.appendChild(s)});
-          html=html.replace('<head>','<head><base href="/UpperRacing-/"><style id="upperInitialHeaderGuard">.app-header{visibility:hidden!important}</style>');
+          html=html.replace('<head>','<head><base href="/UpperRacing-/"><style id="upperInitialHeaderGuard">.app-header{visibility:hidden!important}</style><style id="upperHeaderFrameTest">\nhtml,body{background:#090909!important}\n.app-container{padding-top:7px!important}\n.app-header{position:relative!important;box-sizing:border-box!important;margin:0 8px 17px!important;border:1px solid transparent!important;border-radius:15px!important;background:linear-gradient(155deg,#151515 0%,#0b0b0b 72%,#0d0d0d 100%) padding-box,linear-gradient(118deg,#f3cf18 0%,#e5b900 28%,#8a6b12 48%,#85231c 72%,#e53935 100%) border-box!important;box-shadow:0 8px 22px rgba(0,0,0,.42),0 0 0 1px rgba(255,255,255,.025) inset!important;overflow:hidden!important}\n.app-header:after{content:\"\";position:absolute;left:15px;right:15px;bottom:0;height:2px;border-radius:2px;background:linear-gradient(90deg,rgba(243,207,24,.9),rgba(229,185,0,.55) 38%,rgba(229,57,53,.72) 78%,rgba(229,57,53,.95));opacity:.72;pointer-events:none}\n.header-brand-row{padding-top:2px!important}\nmain{position:relative!important}\nmain:before{content:\"ÜBERSICHT\";display:block;margin:1px 13px 9px;color:#6f6f6f;font-size:.55rem;font-weight:900;letter-spacing:1.35px}\n@media(max-width:360px){.app-header{margin-left:6px!important;margin-right:6px!important;border-radius:13px!important}main:before{margin-left:11px}}\n</style>');
           html=html.replace(/(src|href)="(?!https?:|\/\/|data:|#)([^"]+)"/g,(m,a,u)=>{let clean=u;if(clean==='weather.js'||clean==='./weather.js')clean='preview/weather.js';return a+'="'+clean+(clean.includes('?')?'&':'?')+'v='+build+'"'});
           frame.addEventListener('load',()=>{
             setTimeout(()=>{
