@@ -107,8 +107,7 @@
       const todayIndex=now.getDay();
       const selectedIndex=weekdays.indexOf(state.active);
 
-      // Wenn bewusst ein kommender Wochentag gewählt wurde, zeigt der Header
-      // dessen ersten Programmpunkt. Tag 1/Tag 2 bleiben absichtlich unangetastet.
+      // Kommender gewählter Tag: erster echter Punkt dieses Tages.
       if(selectedIndex>=0){
         const diff=(selectedIndex-todayIndex+7)%7;
         if(diff>0&&diff<=3){
@@ -119,27 +118,44 @@
         if(diff>=4){clearContext();return}
       }
 
-      // Für den heutigen Tag nur dann einen Programmpunkt vorziehen, wenn er
-      // vor dem nächsten eigenen Turn kommt oder gar kein eigener Turn mehr folgt.
       if(selectedIndex===todayIndex){
         const nowM=now.getHours()*60+now.getMinutes()+now.getSeconds()/60;
+        const group=selectedGroup();
 
-        const activeProgram=items.find(function(it){
-          if(it.type==='turn'||!it.end)return false;
+        const selectedActiveTurn=items.find(function(it){
+          if(!belongsToSelectedTurn(it,group)||!it.end)return false;
           const start=mins(it.start),end=mins(it.end);
           return end>start&&nowM>=start&&nowM<end;
         });
-        if(activeProgram){
-          setContext('PROGRAMM',itemTitle(activeProgram),fmt(activeProgram.start)+'–'+fmt(activeProgram.end));
+        if(selectedActiveTurn){
+          // Während des eigenen Turns bleibt der normale Live-Turn-Timer sichtbar.
+          clearContext();
           return;
         }
 
-        const group=selectedGroup();
         const nextTurn=items.filter(function(it){return belongsToSelectedTurn(it,group)&&mins(it.start)>nowM}).sort(function(a,b){return mins(a.start)-mins(b.start)})[0]||null;
-        const nextProgram=items.filter(function(it){return it.type!=='turn'&&mins(it.start)>nowM}).sort(function(a,b){return mins(a.start)-mins(b.start)||((a.sequence||0)-(b.sequence||0))})[0]||null;
+        const minsToTurn=nextTurn?mins(nextTurn.start)-nowM:Infinity;
 
-        if(nextProgram&&(!nextTurn||mins(nextProgram.start)<mins(nextTurn.start))){
-          setContext('NÄCHSTER PROGRAMMPUNKT',fmt(nextProgram.start)+' · '+itemTitle(nextProgram),'');
+        // Erst ab 10 Minuten vor dem eigenen Turn übernimmt der Gruppen-Countdown.
+        if(nextTurn&&minsToTurn<=10&&minsToTurn>0){
+          clearContext();
+          return;
+        }
+
+        // Davor zeigt der Header immer den Punkt, der auch chronologisch im Zeitplan steht.
+        const activeItem=items.find(function(it){
+          if(!it.end)return false;
+          const start=mins(it.start),end=mins(it.end);
+          return end>start&&nowM>=start&&nowM<end;
+        });
+        if(activeItem){
+          setContext('PROGRAMM',itemTitle(activeItem),fmt(activeItem.start)+'–'+fmt(activeItem.end));
+          return;
+        }
+
+        const nextItem=items.filter(function(it){return mins(it.start)>nowM}).sort(function(a,b){return mins(a.start)-mins(b.start)||((a.sequence||0)-(b.sequence||0))})[0]||null;
+        if(nextItem){
+          setContext('NÄCHSTER PROGRAMMPUNKT',fmt(nextItem.start)+' · '+itemTitle(nextItem),'');
           return;
         }
       }
