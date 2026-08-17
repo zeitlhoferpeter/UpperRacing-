@@ -163,9 +163,10 @@
       for(let p=1;p<=pdf.numPages;p++){
         const page=await pdf.getPage(p),tc=await page.getTextContent();
         const allText=(tc.items||[]).map(it=>clean(it.str)).join(' ');
-        const pageDays=detectDays(allText);
-        const pageDay=pageDays[0]||'';
-        const panels=pageDays.length>1 ? splitPanelsLegacy(tc.items||[]) : splitPanelsSafe(tc.items||[]);
+        const pageDay=detectDay(allText);
+        const viewport=page.getViewport({scale:1});
+        const isLandscape=viewport.width>viewport.height;
+        const panels=isLandscape ? splitPanelsLegacy(tc.items||[]) : splitPanelsSafe(tc.items||[]);
         for(let i=0;i<panels.length;i++){
           const lines=linesForPanel(panels[i]);
           const items=buildItems(lines);
@@ -174,12 +175,13 @@
           const panelDay=detectDay(lines.join(' '));
           if(panelDay)day=panelDay;
           else if(i===0&&pageDay)day=pageDay;
+          else if(isLandscape&&previousDay&&DAYS.includes(previousDay))day=nextDay(previousDay);
           else day='Tag '+(Object.keys(parsed).length+1);
           if(parsed[day]){let n=2,base=day;while(parsed[base+' '+n])n++;day=base+' '+n}
           parsed[day]=items;previousDay=day;
         }
       }
-      console.info('[UpperRacing Parser v8.7 hybrid-legacy-3day]',Object.keys(parsed),parsed);
+      console.info('[UpperRacing Parser v8.8 orientation-split]',Object.keys(parsed),parsed);
       return parsed;
     }
 
@@ -189,7 +191,7 @@
     async function importFile(file,input){
       if(hasExisting()&&!w.confirm('Es ist bereits ein Zeitplan vorhanden. Wirklich ersetzen?')){input.value='';return}
       try{const keys=saveParsed(await analyze(await file.arrayBuffer()));input.value='';w.sessionStorage.setItem('upper_preview_open_schedule','1');w.alert('Zeitplan erfolgreich importiert! Erkannt: '+keys.length+' Tage – '+keys.join(', ')+'.');w.location.reload()}
-      catch(err){console.error('[Parser v8.7 hybrid-legacy-3day]',err);input.value='';w.alert('Fehler beim Lesen der PDF-Datei: '+(err.message||err))}
+      catch(err){console.error('[Parser v8.8 orientation-split]',err);input.value='';w.alert('Fehler beim Lesen der PDF-Datei: '+(err.message||err))}
     }
 
     d.addEventListener('change',function(ev){const input=ev.target;if(!input||input.id!=='schedulePdfFile')return;const file=input.files&&input.files[0];if(!file)return;ev.preventDefault();ev.stopImmediatePropagation();importFile(file,input)},true);
