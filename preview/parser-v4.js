@@ -17,7 +17,6 @@
     function tm(t){const p=normTime(t).split(':');return p.length===2?(+p[0])*60+(+p[1]):0}
     function nextDay(name){const i=DAYS.indexOf(name);return i<0?'':DAYS[(i+1)%7]}
     function detectDay(text){for(const [name,re] of DAY_PATTERNS)if(re.test(text||''))return name;return''}
-    function detectDays(text){return DAY_PATTERNS.filter(([name,re])=>re.test(text||'')).map(([name])=>name)}
     function lapsSuffix(t){const m=String(t||'').match(/(\d+)\s*(?:Laps?|Runden)/i);return m?' – '+m[1]+' Laps':''}
 
     function classify(raw){
@@ -51,50 +50,36 @@
 
     function isTimeText(s){return /(?:^|\s)\d{1,2}[:.]\d{2}(?:\s|$)/.test(clean(s))}
 
-    function detectPanelAxis(items){
-      const times=items.filter(it=>isTimeText(it.str));
-      if(times.length<8)return{axis:'x',centers:[]};
-      const xs=cluster(times.map(it=>it.transform?.[4]||0),14).filter(c=>c.vals.length>=6);
-      const ys=cluster(times.map(it=>it.transform?.[5]||0),28).filter(c=>c.vals.length>=6);
-      const xMax=xs[0]?.vals.length||0,yMax=ys[0]?.vals.length||0;
-      const axis=yMax>xMax?'y':'x';
-      const cs=(axis==='y'?ys:xs).filter(c=>c.vals.length>=6).sort((a,b)=>a.center-b.center);
-      return{axis,centers:cs.map(c=>c.center)};
-    }
-
+    // Geteilte Stardesign-Seiten sind nebeneinanderliegende Tages-Spalten.
+    // Deshalb ausschließlich X-Spalten erkennen. Y-Cluster sind nur Zeitzeilen
+    // und dürfen NIE als Vormittag/Nachmittag getrennt werden.
     function splitPanels(items){
-      const det=detectPanelAxis(items),axis=det.axis,coord=axis==='y'?5:4;
-      let centers=det.centers.slice();
-      if(!centers.length)return[{axis,center:null,items}];
-      if(centers.length>3)centers=centers.slice(0,3).sort((a,b)=>a-b);
-      if(centers.length===1){
-        const c=centers[0];
-        const band=axis==='y'?190:220;
-        return[{axis,center:c,items:items.filter(it=>Math.abs((it.transform?.[coord]||0)-c)<=band)}];
-      }
-      const out=[];
-      centers.forEach((c,i)=>{
+      const times=items.filter(it=>isTimeText(it.str));
+      if(times.length<8)return[{axis:'x',center:null,items}];
+      let centers=cluster(times.map(it=>it.transform?.[4]||0),14)
+        .filter(c=>c.vals.length>=6)
+        .map(c=>c.center)
+        .sort((a,b)=>a-b);
+      if(centers.length<=1)return[{axis:'x',center:centers[0]||null,items}];
+      if(centers.length>3)centers=centers.slice(0,3);
+      return centers.map((c,i)=>{
         const left=i===0?-Infinity:(centers[i-1]+c)/2;
         const right=i===centers.length-1?Infinity:(c+centers[i+1])/2;
-        const selected=items.filter(it=>{const v=it.transform?.[coord]||0;return v>=left&&v<right});
-        out.push({axis,center:c,items:selected});
+        return{axis:'x',center:c,items:items.filter(it=>{const x=it.transform?.[4]||0;return x>=left&&x<right})};
       });
-      return out;
     }
 
     function linesForPanel(panel){
-      const rowCoord=panel.axis==='y'?4:5;
-      const textCoord=panel.axis==='y'?5:4;
       const rows=[];
       panel.items.forEach(it=>{
         const text=clean(it.str);if(!text)return;
-        const r=it.transform?.[rowCoord]||0,t=it.transform?.[textCoord]||0;
-        let row=rows.find(q=>Math.abs(q.r-r)<=4.5);
-        if(!row){row={r,items:[]};rows.push(row)}
-        row.items.push({t,text});
+        const y=it.transform?.[5]||0,x=it.transform?.[4]||0;
+        let row=rows.find(q=>Math.abs(q.y-y)<=4.5);
+        if(!row){row={y,items:[]};rows.push(row)}
+        row.items.push({x,text});
       });
-      rows.sort((a,b)=>a.r-b.r);
-      return rows.map(row=>{row.items.sort((a,b)=>a.t-b.t);return clean(row.items.map(i=>i.text).join(' '))}).filter(Boolean);
+      rows.sort((a,b)=>b.y-a.y);
+      return rows.map(row=>{row.items.sort((a,b)=>a.x-b.x);return clean(row.items.map(i=>i.text).join(' '))}).filter(Boolean);
     }
 
     function parseLine(line){
@@ -140,35 +125,24 @@
 
     async function analyze(buffer){
       const lib=await loadPdfJs(),pdf=await lib.getDocument({data:buffer}).promise;const parsed={};let previousDay='';
+      const fallbackFirstDay=DAYS[new Date().getDay()];
       for(let p=1;p<=pdf.numPages;p++){
         const page=await pdf.getPage(p),tc=await page.getTextContent();
         const allText=(tc.items||[]).map(it=>clean(it.str)).join(' ');
         const pageDay=detectDay(allText);
-        const pageDays=detectDays(allText);
-
-        // Hat eine PDF-Seite genau EINEN Tageskopf (z.B. Montag/Monday), ist die ganze
-        // Seite ein Zeitplan. Dann darf die Layout-Erkennung die Seite nicht in obere/
-        // untere Teilbereiche zerlegen – sonst verschwinden bei hohen Seitenformaten
-        // die Vormittagszeilen und es bleibt fälschlich nur der Nachmittag übrig.
-        const panels=pageDays.length===1
-          ? [{axis:'x',center:null,items:tc.items||[]}]
-          : splitPanels(tc.items||[]);
-
+        const panels=splitPanels(tc.items||[]);
         for(let i=0;i<panels.length;i++){
           const lines=linesForPanel(panels[i]);
           const items=buildItems(lines);
           if(items.filter(x=>x.type==='turn').length<3)continue;
-          let day='';
-          const panelDay=detectDay(lines.join(' '));
-          if(panelDay)day=panelDay;
-          else if(i===0&&pageDay)day=pageDay;
-          else if(previousDay)day=nextDay(previousDay);
-          else day='Tag '+(Object.keys(parsed).length+1);
+          let day=detectDay(lines.join(' '));
+          if(!day&&i===0&&pageDay)day=pageDay;
+          if(!day)day=previousDay?nextDay(previousDay):fallbackFirstDay;
           if(parsed[day]){let n=2,base=day;while(parsed[base+' '+n])n++;day=base+' '+n}
-          parsed[day]=items;previousDay=day;
+          parsed[day]=items;previousDay=day.replace(/\s+\d+$/,'');
         }
       }
-      console.info('[UpperRacing Parser v8.2]',Object.keys(parsed),parsed);
+      console.info('[UpperRacing Parser v8.3]',Object.keys(parsed),parsed);
       return parsed;
     }
 
@@ -178,7 +152,7 @@
     async function importFile(file,input){
       if(hasExisting()&&!w.confirm('Es ist bereits ein Zeitplan vorhanden. Wirklich ersetzen?')){input.value='';return}
       try{const keys=saveParsed(await analyze(await file.arrayBuffer()));input.value='';w.sessionStorage.setItem('upper_preview_open_schedule','1');w.alert('Zeitplan erfolgreich importiert! Erkannt: '+keys.length+' Tage – '+keys.join(', ')+'.');w.location.reload()}
-      catch(err){console.error('[Parser v8.2]',err);input.value='';w.alert('Fehler beim Lesen der PDF-Datei: '+(err.message||err))}
+      catch(err){console.error('[Parser v8.3]',err);input.value='';w.alert('Fehler beim Lesen der PDF-Datei: '+(err.message||err))}
     }
 
     d.addEventListener('change',function(ev){const input=ev.target;if(!input||input.id!=='schedulePdfFile')return;const file=input.files&&input.files[0];if(!file)return;ev.preventDefault();ev.stopImmediatePropagation();importFile(file,input)},true);
