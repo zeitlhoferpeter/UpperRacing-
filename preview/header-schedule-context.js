@@ -17,7 +17,7 @@
 
     function mins(t){if(!t)return 0;const p=String(t).trim().replace('.',':').split(':');return(+p[0]||0)*60+(+p[1]||0)}
     function fmt(t){return String(t||'').trim().replace('.',':')}
-    function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+    function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;')}
     function loadItems(){
       try{const days=JSON.parse(w.localStorage.getItem('upper_schedule_days')||'{}');let day=w.localStorage.getItem('upper_schedule_activeday');if(!day||!days[day])day=Object.keys(days)[0];return Array.isArray(days[day])?days[day].slice():[]}catch(_){return[]}
     }
@@ -49,7 +49,11 @@
       for(let j=index+1;j<items.length;j++){const n=mins(items[j].start);if(n>start)return n}
       return start+(isTurn(it)?20:30);
     }
-    function timeText(total){const m=Math.max(0,Math.ceil(total));return m+'m'}
+    function countdownText(diffMinutes){
+      const totalSec=Math.max(0,Math.ceil(diffMinutes*60));
+      const mm=Math.floor(totalSec/60),ss=String(totalSec%60).padStart(2,'0');
+      return mm+':'+ss;
+    }
 
     let applying=false;
     function render(){
@@ -81,7 +85,7 @@
         const diff=after?mins(after.start)-nowM:Infinity;
         if(after&&diff>0&&diff<=10){
           leftLabel='TURN';
-          leftMain='Nächstes: Gr. '+esc(after.group||'')+' in '+timeText(diff);
+          leftMain='Nächstes: Gr. '+esc(after.group||'')+' in '+countdownText(diff);
           leftSub=fmt(after.start);
         }else{
           leftLabel=label(active);
@@ -92,11 +96,11 @@
         const end=effectiveEnd(items,activeIndex);
         leftLabel='TURN';
         leftMain='Gr. '+esc(active.group||'')+' läuft';
-        leftSub='noch '+timeText(end-nowM);
+        leftSub='noch '+countdownText(end-nowM);
       }else if(nextTrack){
         const diff=mins(nextTrack.start)-nowM;
         leftLabel='TURN';
-        leftMain='Nächstes: Gr. '+esc(nextTrack.group||'')+' in '+timeText(diff);
+        leftMain='Nächstes: Gr. '+esc(nextTrack.group||'')+' in '+countdownText(diff);
         leftSub=fmt(nextTrack.start);
       }else{
         const nextItem=items.find(it=>mins(it.start)>nowM)||null;
