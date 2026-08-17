@@ -1,6 +1,6 @@
 // sw.js - UpperRacing Service Worker
-// Netzwerk zuerst für aktuelle App-/Preview-Dateien, Cache nur als Offline-Fallback.
-const CACHE_NAME = 'upperracing-v10.1-refresh-fix';
+// Netzwerk zuerst für aktuelle App-Dateien, Cache nur als Offline-Fallback.
+const CACHE_NAME = 'upperracing-v11-stable-main';
 const assetsToCache = [
   './',
   './index.html',
@@ -21,7 +21,13 @@ const assetsToCache = [
   './preview/stardesign-finder.js',
   './preview/schedule-mobile-ui.js',
   './preview/day-rollover.js',
-  './preview/header-program-context.js'
+  './preview/header-schedule-context.js',
+  './preview/weather.js',
+  './preview/tire-setup-test.js',
+  './preview/dashboard-ui-v3.js',
+  './preview/dashboard-refine-v4.js',
+  './preview/dashboard-style-v5.js',
+  './preview/cup-auto-test.js'
 ];
 
 self.addEventListener('install', (event) => {
