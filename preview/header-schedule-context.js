@@ -12,9 +12,17 @@
       #headerScheduleWidget.preview-context-mode::before{content:attr(data-context-label)!important}
       #headerScheduleWidget.preview-context-mode .preview-context-main{font-size:1.18rem;font-weight:900;color:#fff;line-height:1.18}
       #headerScheduleWidget.preview-context-mode .preview-context-sub{font-size:.68rem;font-weight:800;color:#aaa;margin-top:3px}
-      #headerScheduleWidget.preview-context-mode .preview-turn-countdown{display:inline-flex;align-items:center;gap:10px;margin-top:4px;padding:7px 12px;border:2px solid var(--turn-color,#888);border-radius:10px;background:color-mix(in srgb,var(--turn-color,#888) 12%,#101010);box-shadow:0 0 0 1px color-mix(in srgb,var(--turn-color,#888) 24%,transparent);font-size:1.7rem;font-weight:950;line-height:1;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:.2px}
+      #headerScheduleWidget.preview-context-mode .preview-turn-countdown{display:inline-flex;align-items:center;gap:10px;margin-top:4px;padding:7px 12px;border:2px solid #4a4a4a;border-radius:10px;background:#101010;box-shadow:none;font-size:1.7rem;font-weight:950;line-height:1;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:.2px;transition:border-color .18s,box-shadow .18s,background .18s}
       #headerScheduleWidget.preview-context-mode .preview-turn-countdown .preview-turn-group{color:var(--turn-color,#fff);min-width:1.05em;text-align:center}
       #headerScheduleWidget.preview-context-mode .preview-turn-countdown .preview-turn-time{color:#fff}
+
+      #headerScheduleWidget.preview-alert-10{border-color:#ffd400!important;box-shadow:0 0 0 1px rgba(255,212,0,.34),0 0 18px rgba(255,212,0,.30)!important;background:linear-gradient(145deg,#272300,#171600)!important}
+      #headerScheduleWidget.preview-alert-10 .preview-turn-countdown{border-color:#ffd400!important;box-shadow:0 0 0 1px rgba(255,212,0,.22),0 0 12px rgba(255,212,0,.20)!important}
+
+      @keyframes ur-header-alert-5{0%,100%{box-shadow:0 0 0 1px rgba(255,50,35,.42),0 0 15px rgba(255,45,25,.42)}50%{box-shadow:0 0 0 2px rgba(255,75,50,.82),0 0 28px rgba(255,45,25,.78)}}
+      @keyframes ur-inner-alert-5{0%,100%{box-shadow:0 0 0 1px rgba(255,50,35,.28),0 0 8px rgba(255,45,25,.28)}50%{box-shadow:0 0 0 2px rgba(255,75,50,.70),0 0 18px rgba(255,45,25,.62)}}
+      #headerScheduleWidget.preview-alert-5{border-color:#ff2d19!important;background:linear-gradient(145deg,#3b0d07,#1d0906)!important;animation:ur-header-alert-5 .85s ease-in-out infinite!important}
+      #headerScheduleWidget.preview-alert-5 .preview-turn-countdown{border-color:#ff2d19!important;animation:ur-inner-alert-5 .85s ease-in-out infinite!important}
     `;
     d.head.appendChild(style);
 
@@ -84,6 +92,7 @@
       const ownTurns=items.filter(it=>isOwnTurn(it,group));
       const nextTrack=trackTurns.find(it=>mins(it.start)>nowM)||null;
       const nextOwn=ownTurns.find(it=>mins(it.start)>nowM)||null;
+      const minsToOwn=nextOwn?mins(nextOwn.start)-nowM:Infinity;
 
       let activeIndex=-1;
       for(let i=0;i<items.length;i++){
@@ -123,7 +132,11 @@
 
       applying=true;
       widget.classList.add('preview-context-mode');
-      widget.classList.remove('preview-warning-10','preview-warning-5');
+      widget.classList.remove('preview-warning-10','preview-warning-5','preview-alert-10','preview-alert-5');
+      const alert10=w.localStorage.getItem('upper_schedule_alert10m')!=='false';
+      const alert5=w.localStorage.getItem('upper_schedule_alert5m')!=='false';
+      if(minsToOwn>0&&minsToOwn<=5&&alert5)widget.classList.add('preview-alert-5');
+      else if(minsToOwn>5&&minsToOwn<=10&&alert10)widget.classList.add('preview-alert-10');
       widget.setAttribute('data-context-label',leftLabel);
       const html=leftHtml||(leftMain?'<div class="preview-context-main">'+leftMain+'</div>':'')+(leftSub?'<div class="preview-context-sub">'+leftSub+'</div>':'');
       const finalHtml=leftHtml+(leftSub?'<div class="preview-context-sub">'+leftSub+'</div>':'') || html;
