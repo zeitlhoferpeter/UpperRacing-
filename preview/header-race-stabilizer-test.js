@@ -42,7 +42,11 @@
     const widgetObserver=new MutationObserver(function(){
       if(restoring)return;
       if(isRaceHeaderOwned()){
-        Promise.resolve().then(capture);
+        // Nur ein gueltiger Schreibvorgang der Race-Header-Logik darf
+        // Widget UND rechte Statusbox gemeinsam als neuen Stand speichern.
+        Promise.resolve().then(function(){
+          if(isRaceHeaderOwned())capture();
+        });
       }else if(armed){
         restore();
       }
@@ -51,13 +55,11 @@
 
     const sideObserver=new MutationObserver(function(){
       if(restoring||!armed)return;
-      if(isRaceHeaderOwned()){
-        Promise.resolve().then(function(){
-          if(isRaceHeaderOwned())lastSideHtml=side.innerHTML;
-        });
-      }else{
-        restore();
-      }
+      // Die alte Preview-Logik aktualisiert diese Box weiterhin alle 500 ms.
+      // Solche isolierten Aenderungen duerfen NICHT als gueltiger neuer Stand
+      // uebernommen werden, sonst flackert z. B. zwischen Rennblock und
+      // Siegerehrung kurz wieder der spaetere freie Turn auf.
+      if(side.innerHTML!==lastSideHtml)restore();
     });
     sideObserver.observe(side,{childList:true,subtree:true,characterData:true});
 
