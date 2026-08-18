@@ -19,7 +19,7 @@
   <script>
     (function(){
       const frame=document.getElementById('previewFrame'),boot=document.getElementById('boot');
-      const build='20260818-header-frame3-full';
+      const build='20260818-cloud-sync-v2-1';
       const scripts=[
         '../preview/proxy.js',
         '../preview/preview.js',
@@ -35,7 +35,8 @@
         '../preview/dashboard-refine-v4.js',
         '../preview/dashboard-style-v5.js',
         '../preview/weather-trackday-test.js',
-        '../preview/header-frame-clean-test.js'
+        '../preview/header-frame-clean-test.js',
+        '../preview/cloud-sync-v2-test.js'
       ];
       function fetchText(url){return fetch(url,{cache:'default'}).then(r=>{if(!r.ok)throw new Error(url+' HTTP '+r.status);return r.text()})}
       Promise.all([Promise.all(scripts.map(s=>fetchText(s+'?v='+build))),fetchText('../app-base.html?v='+build)])
