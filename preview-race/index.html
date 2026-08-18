@@ -19,7 +19,7 @@
   <script>
     (function(){
       const frame=document.getElementById('previewFrame'),boot=document.getElementById('boot');
-      const build='20260818-cloud-sync-v2-3-mountfix';
+      const build='20260818-header-visible-after-schedule1';
       const scripts=[
         '../preview/proxy.js',
         '../preview/preview.js',
@@ -38,7 +38,8 @@
         '../preview/header-frame-clean-test.js',
         '../preview/cloud-v2-bootstrap-test.js',
         '../preview/cloud-sync-v2-test.js',
-        '../preview/cloud-sync-mount-fix-test.js'
+        '../preview/cloud-sync-mount-fix-test.js',
+        '../preview/header-visibility-guard-test.js'
       ];
       function fetchText(url){return fetch(url,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(url+' HTTP '+r.status);return r.text()})}
       Promise.all([Promise.all(scripts.map(s=>fetchText(s+'?v='+build))),fetchText('../app-base.html?v='+build)])
