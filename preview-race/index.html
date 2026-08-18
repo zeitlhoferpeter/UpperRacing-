@@ -19,7 +19,7 @@
   <script>
     (function(){
       const frame=document.getElementById('previewFrame'),boot=document.getElementById('boot');
-      const build='20260818-header-visible-after-schedule1';
+      const build='20260818-cloud-autosave-15m1';
       const scripts=[
         '../preview/proxy.js',
         '../preview/preview.js',
@@ -44,7 +44,15 @@
       function fetchText(url){return fetch(url,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(url+' HTTP '+r.status);return r.text()})}
       Promise.all([Promise.all(scripts.map(s=>fetchText(s+'?v='+build))),fetchText('../app-base.html?v='+build)])
         .then(([codes,html])=>{
-          codes.forEach((code,i)=>{const s=document.createElement('script');s.textContent=code+'\n//# sourceURL='+scripts[i];document.head.appendChild(s)});
+          codes.forEach((code,i)=>{
+            if(scripts[i].endsWith('/cloud-sync-v2-test.js')){
+              code=code.replace('const AUTOSAVE_DELAY=45000;','const AUTOSAVE_DELAY=900000;')
+                       .replace('Autospeichern: ca. 45 Sek. nach Änderungen','Autospeichern: ca. 15 Min. nach Änderungen');
+            }
+            const s=document.createElement('script');
+            s.textContent=code+'\n//# sourceURL='+scripts[i];
+            document.head.appendChild(s);
+          });
           html=html.replace('<head>','<head><base href="/UpperRacing-/"><style id="upperInitialHeaderGuard">.app-header{visibility:hidden!important}</style>');
           html=html.replace(/(src|href)="(?!https?:|\/\/|data:|#)([^"]+)"/g,(m,a,u)=>{let clean=u;if(clean==='weather.js'||clean==='./weather.js')clean='preview/weather.js';return a+'="'+clean+(clean.includes('?')?'&':'?')+'v='+build+'"'});
           frame.addEventListener('load',()=>{
