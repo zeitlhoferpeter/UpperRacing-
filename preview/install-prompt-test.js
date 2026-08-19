@@ -10,6 +10,12 @@
   function isAndroid(){return /android/i.test(navigator.userAgent||'')}
   function alreadySeen(){try{return localStorage.getItem(STORAGE_KEY)==='true'}catch(_){return false}}
   function markSeen(){try{localStorage.setItem(STORAGE_KEY,'true')}catch(_){}}
+  function hasInnerModal(){
+    try{
+      const d=frame&&frame.contentDocument;
+      return !!(d&&d.getElementById('ucModal'));
+    }catch(_){return false}
+  }
 
   function removeModal(){const old=document.getElementById('upperInstallPrompt');if(old)old.remove()}
   function showModal(mode){
@@ -56,16 +62,25 @@
     wrap.appendChild(box);document.body.appendChild(wrap);
   }
 
+  function showWhenClear(mode){
+    if(isStandalone()||alreadySeen()||document.getElementById('upperInstallPrompt'))return;
+    if(hasInnerModal()){
+      setTimeout(function(){showWhenClear(mode)},450);
+      return;
+    }
+    showModal(mode);
+  }
+
   window.addEventListener('beforeinstallprompt',function(e){
     e.preventDefault();
     deferredPrompt=e;
-    if(!isStandalone()&&!alreadySeen())setTimeout(function(){showModal('android')},600);
+    if(!isStandalone()&&!alreadySeen())setTimeout(function(){showWhenClear('android')},600);
   });
   window.addEventListener('appinstalled',function(){markSeen();removeModal();deferredPrompt=null});
 
   function maybeIOS(){
     if(isStandalone()||alreadySeen()||!isIOS())return;
-    setTimeout(function(){showModal('ios')},1100);
+    setTimeout(function(){showWhenClear('ios')},1100);
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',maybeIOS,{once:true});else maybeIOS();
