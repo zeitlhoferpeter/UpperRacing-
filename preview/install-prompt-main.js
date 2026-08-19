@@ -9,9 +9,15 @@
   function alreadySeen(){try{return localStorage.getItem(STORAGE_KEY)==='true'}catch(_){return false}}
   function markSeen(){try{localStorage.setItem(STORAGE_KEY,'true')}catch(_){}}
   function removeModal(){const old=document.getElementById('upperInstallPrompt');if(old)old.remove()}
+  function cloudModalOpen(){
+    const frame=document.getElementById('previewFrame');
+    const d=frame&&frame.contentDocument;
+    return !!(d&&d.getElementById('ucModal'));
+  }
 
   function showModal(mode){
     if(isStandalone()||alreadySeen()||document.getElementById('upperInstallPrompt'))return;
+    if(cloudModalOpen()){setTimeout(function(){showModal(mode)},500);return;}
     const wrap=document.createElement('div');
     wrap.id='upperInstallPrompt';
     wrap.style.cssText='position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.78);display:flex;align-items:flex-end;justify-content:center;padding:14px;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif';
