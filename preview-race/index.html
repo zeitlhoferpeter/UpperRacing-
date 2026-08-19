@@ -24,7 +24,7 @@
   <script>
     (function(){
       const frame=document.getElementById('previewFrame'),boot=document.getElementById('boot');
-      const build='20260819-cloud-hint-contrast1';
+      const build='20260819-code-audit-clean1';
       const scripts=[
         '../preview/proxy.js',
         '../preview/preview.js',
@@ -43,7 +43,6 @@
         '../preview/header-frame-clean-test.js',
         '../preview/cloud-v2-bootstrap-test.js',
         '../preview/cloud-sync-v2-test.js',
-        '../preview/cloud-sync-mount-fix-test.js',
         '../preview/header-visibility-guard-test.js',
         '../preview/track-persistence-test.js',
         '../preview/schedule-track-header-only-test.js',
@@ -59,7 +58,9 @@
           codes.forEach((code,i)=>{
             if(scripts[i].endsWith('/cloud-sync-v2-test.js')){
               code=code.replace('const AUTOSAVE_DELAY=45000;','const AUTOSAVE_DELAY=900000;')
-                       .replace('Autospeichern: ca. 45 Sek. nach Änderungen','Autospeichern: ca. 15 Min. nach Änderungen');
+                       .replace('Autospeichern: ca. 45 Sek. nach Änderungen','Autospeichern: ca. 15 Min. nach Änderungen')
+                       .replace("if(currentUser||d.getElementById('ucModal'))return;","if(currentUser||d.getElementById('ucModal'))return;if(document.getElementById('upperInstallPrompt')){setTimeout(function(){maybeHint(w,d)},500);return;}")
+                       .replace("if(frame.contentDocument&&frame.contentDocument.readyState==='complete')activate();else frame.addEventListener('load',activate,{once:true});","let activated=false;function activateWhenReady(){const d=frame.contentDocument;if(activated||!d||!d.getElementById('pageBackup'))return;activated=true;activate()}frame.addEventListener('load',activateWhenReady);activateWhenReady();");
             }
             const s=document.createElement('script');
             s.textContent=code+'\n//# sourceURL='+scripts[i];
