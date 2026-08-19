@@ -7,6 +7,15 @@
     if(!w||!d||d.__upperPackCategoriesTest)return;
     d.__upperPackCategoriesTest=true;
 
+    const style=d.createElement('style');
+    style.id='upperPackCategoriesStyles';
+    style.textContent=`
+      .up-pack-status{background:linear-gradient(90deg,#181818,#111);border:1px solid #313131;border-radius:11px;padding:11px 12px;margin:0 0 12px;display:grid;grid-template-columns:92px minmax(0,1fr);grid-template-areas:'k v' 'k s' 'p p';align-items:center}
+      .up-pack-status .k{grid-area:k;font-size:.56rem;color:#888;font-weight:800;letter-spacing:.5px}.up-pack-status .v{grid-area:v;text-align:right;font-size:.92rem;color:#ffd400;font-weight:900}.up-pack-status .s{grid-area:s;text-align:right;font-size:.57rem;color:#777;margin-top:2px}.up-pack-status .p{grid-area:p;margin-top:9px;height:5px;border-radius:4px;background:#222;overflow:hidden}.up-pack-status .p span{display:block;height:100%;background:linear-gradient(90deg,#d9b800,#ffd400);width:0%;transition:width .2s ease}
+      .up-pack-add-category{margin-top:12px!important;border-color:#4a4a4a!important}.up-pack-add-category .up-pack-add-title{font-size:.72rem;font-weight:900;color:#ffd400;letter-spacing:.5px;margin-bottom:8px}
+    `;
+    d.head.appendChild(style);
+
     function esc(value){
       return String(value==null?'':value)
         .replace(/&/g,'&amp;')
@@ -26,6 +35,23 @@
 
     function saveCategories(categories){
       w.localStorage.setItem('upper_pack_list',JSON.stringify(categories));
+    }
+
+    function packStats(categories,checked){
+      let total=0,done=0;
+      (categories||[]).forEach(function(cat,cIndex){
+        (cat.items||[]).forEach(function(_,iIndex){
+          total++;
+          if(checked[cIndex+'_'+iIndex])done++;
+        });
+      });
+      return{total:total,done:done,percent:total?Math.round(done/total*100):0};
+    }
+
+    function renameResetButton(){
+      const page=d.getElementById('pagePack');if(!page)return;
+      const btn=page.querySelector('button[onclick*="resetPackList"]');
+      if(btn)btn.textContent='Reset';
     }
 
     w.addPackCategory=function(){
@@ -75,7 +101,6 @@
       w.renderPackList();
     };
 
-    // Beim Löschen eines Gegenstands Häkchen derselben Kategorie sauber nachrücken.
     w.deletePackItem=function(cIndex,iIndex){
       const categories=w.getPackData();
       if(!categories[cIndex]||!categories[cIndex].items)return;
@@ -106,16 +131,18 @@
       const container=d.getElementById('packContainer');
       if(!container)return;
 
+      renameResetButton();
       const categories=w.getPackData();
       const checkedItems=getChecked();
+      const stats=packStats(categories,checkedItems);
       let html='';
 
-      html += '<div class="setup-box" style="margin-bottom:12px;border-color:#4a4a4a;">'
-        +'<div style="font-size:.72rem;font-weight:900;color:#FFD700;letter-spacing:.5px;margin-bottom:8px;">KATEGORIEN VERWALTEN</div>'
-        +'<div style="display:flex;gap:6px;">'
-        +'<input type="text" id="new_pack_category_input" placeholder="Neue Kategorie hinzufügen..." style="flex:1;min-width:0;padding:8px;background:#111;border:1px solid #444;color:#fff;border-radius:6px;font-size:.85rem;">'
-        +'<button type="button" onclick="addPackCategory()" style="background:#2196F3;color:#fff;border:none;padding:8px 11px;border-radius:6px;cursor:pointer;font-size:.82rem;font-weight:800;">+ Hinzufügen</button>'
-        +'</div></div>';
+      html += '<div class="up-pack-status">'
+        +'<div class="k">PACKLISTE</div>'
+        +'<div class="v">'+stats.done+' / '+stats.total+'</div>'
+        +'<div class="s">'+stats.percent+' % erledigt</div>'
+        +'<div class="p"><span style="width:'+stats.percent+'%"></span></div>'
+        +'</div>';
 
       categories.forEach(function(cat,cIndex){
         html += '<div class="setup-box" style="margin-bottom:12px;">'
@@ -149,6 +176,13 @@
           +'</div></div>';
       });
 
+      html += '<div class="setup-box up-pack-add-category">'
+        +'<div class="up-pack-add-title">KATEGORIE HINZUFÜGEN</div>'
+        +'<div style="display:flex;gap:6px;">'
+        +'<input type="text" id="new_pack_category_input" placeholder="Neue Kategorie..." style="flex:1;min-width:0;padding:8px;background:#111;border:1px solid #444;color:#fff;border-radius:6px;font-size:.85rem;">'
+        +'<button type="button" onclick="addPackCategory()" style="background:#2196F3;color:#fff;border:none;padding:8px 11px;border-radius:6px;cursor:pointer;font-size:.82rem;font-weight:800;">+ Hinzufügen</button>'
+        +'</div></div>';
+
       container.innerHTML=html;
 
       const catInput=d.getElementById('new_pack_category_input');
@@ -159,7 +193,7 @@
       });
     };
 
-    // Falls die Packliste bereits offen ist, sofort neu zeichnen.
+    renameResetButton();
     if(d.getElementById('packContainer'))w.renderPackList();
   });
 })();
