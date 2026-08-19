@@ -19,7 +19,7 @@
   <script>
     (function(){
       const frame=document.getElementById('previewFrame'),boot=document.getElementById('boot');
-      const build='20260819-dashboard-layout-v6-1';
+      const build='20260819-pages-unified-design1';
       const scripts=[
         '../preview/proxy.js',
         '../preview/preview.js',
@@ -43,7 +43,8 @@
         '../preview/track-persistence-test.js',
         '../preview/schedule-track-header-only-test.js',
         '../preview/pack-categories-test.js',
-        '../preview/dashboard-layout-v6-test.js'
+        '../preview/dashboard-layout-v6-test.js',
+        '../preview/pages-design-unify-test.js'
       ];
       function fetchText(url){return fetch(url,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(url+' HTTP '+r.status);return r.text()})}
       Promise.all([Promise.all(scripts.map(s=>fetchText(s+'?v='+build))),fetchText('../app-base.html?v='+build)])
