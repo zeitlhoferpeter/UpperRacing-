@@ -56,7 +56,7 @@
         tag:tag,
         renotify:true,
         requireInteraction:!!urgent,
-        vibrate:urgent?[250,120,250,120,400]:[180,100,180],
+        vibrate:urgent?[260,110,260,110,450]:[130,100,130],
         data:{url:location.origin+'/UpperRacing-/preview-race/'}
       });
       return true;
@@ -79,13 +79,13 @@
       if(diff<=5.25){
         const key=sentKey(w,day,it,5);
         if(!wasSent(w,key)){
-          const ok=await showSystem('🚨 Turn '+it.group+' in 5 Minuten','Dein Turn startet um '+String(it.start).replace('.',':')+'. Jetzt fertig machen.', 'upper-turn-5-'+day+'-'+it.start+'-'+it.group,true);
+          const ok=await showSystem('🚨 UpperRacing – Turn '+it.group+' in 5 Minuten','Dein Turn startet um '+String(it.start).replace('.',':')+'. Gleich geht’s los – ab zur Boxenausfahrt!', 'upper-turn-5-'+day+'-'+it.start+'-'+it.group,true);
           if(ok)markSent(w,key);
         }
       }else{
         const key=sentKey(w,day,it,10);
         if(!wasSent(w,key)){
-          const ok=await showSystem('🏁 Turn '+it.group+' in 10 Minuten','Dein Turn startet um '+String(it.start).replace('.',':')+'.', 'upper-turn-10-'+day+'-'+it.start+'-'+it.group,false);
+          const ok=await showSystem('🏁 UpperRacing – Turn '+it.group+' in 10 Minuten','Dein Turn startet um '+String(it.start).replace('.',':')+'. Zeit zum Vorbereiten.', 'upper-turn-10-'+day+'-'+it.start+'-'+it.group,false);
           if(ok)markSent(w,key);
         }
       }
@@ -146,7 +146,7 @@
     }
 
     const card=d.createElement('div');card.id='upperTurnNotifyCard';
-    card.innerHTML='<div class="utn-head"><div class="utn-title">TURN-ERINNERUNG</div></div><div class="utn-state"></div><button type="button" class="utn-btn">🔔 Turn-Benachrichtigungen aktivieren</button><div class="utn-note">Erinnert dich 10 und 5 Minuten vor den Turns deiner gewählten Gruppe.</div>';
+    card.innerHTML='<div class="utn-head"><div class="utn-title">TURN-ERINNERUNG</div></div><div class="utn-state"></div><button type="button" class="utn-btn">🔔 Turn-Benachrichtigungen aktivieren</button><div class="utn-note">Erinnert dich 10 und 5 Minuten vor den Turns deiner aktuell gewählten Gruppe.</div>';
     const top=d.getElementById('previewScheduleTop');
     if(top&&top.parentNode)top.parentNode.insertBefore(card,top.nextSibling);else page.insertBefore(card,page.firstChild);
     card.querySelector('.utn-btn').addEventListener('click',enable);
