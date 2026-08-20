@@ -104,6 +104,10 @@
       const now=new Date(),nowM=now.getHours()*60+now.getMinutes()+now.getSeconds()/60;
       const group=selectedGroup();
       const trackTurns=items.filter(isTurn),ownTurns=items.filter(it=>isOwnTurn(it,group));
+      const firstTrack=trackTurns[0]||null;
+      const firstTrackStart=firstTrack?mins(firstTrack.start):Infinity;
+      const beforeFirstTrack=!!(firstTrack&&nowM<firstTrackStart);
+      const minsToFirstTrack=beforeFirstTrack?firstTrackStart-nowM:Infinity;
       const nextTrack=trackTurns.find(it=>mins(it.start)>nowM)||null;
       const nextOwn=ownTurns.find(it=>mins(it.start)>nowM)||null;
       const minsToOwn=nextOwn?mins(nextOwn.start)-nowM:Infinity;
@@ -124,12 +128,22 @@
       let leftLabel='PROGRAMM',leftMain='',leftSub='',leftHtml='';
       if(inRaceBlock){leftLabel='RENNEN';leftHtml=raceListHtml(race)}
       else if(waitingAfterRace){leftLabel='NÄCHSTER PROGRAMMPUNKT';leftMain=fmt(race.after.start)+' · '+esc(title(race.after));leftSub='nach dem Rennblock'}
+      else if(active&&isTurn(active)&&!postRacePhase){const end=effectiveEnd(items,activeIndex);leftLabel='TURN';leftHtml=turnCountdown(active.group,countdownText(end-nowM))}
+      else if(beforeFirstTrack&&minsToFirstTrack>0&&minsToFirstTrack<=10){leftLabel='TURN';leftHtml=turnCountdown(firstTrack.group,countdownText(minsToFirstTrack));leftSub=fmt(firstTrack.start)}
+      else if(beforeFirstTrack){
+        if(active&&isOrga(active)){
+          leftLabel=label(active);leftMain=esc(title(active));leftSub=fmt(active.start)+(effectiveEnd(items,activeIndex)>mins(active.start)?'–'+String(Math.floor(effectiveEnd(items,activeIndex)/60)).padStart(2,'0')+':'+String(Math.floor(effectiveEnd(items,activeIndex)%60)).padStart(2,'0'):'')
+        }else{
+          const nextProgram=items.find(it=>!isRace(it)&&!isTurn(it)&&mins(it.start)>nowM&&mins(it.start)<firstTrackStart)||null;
+          if(nextProgram){leftLabel=label(nextProgram);leftMain=fmt(nextProgram.start)+' · '+esc(title(nextProgram))}
+          else{leftLabel='NÄCHSTER PROGRAMMPUNKT';leftMain=fmt(firstTrack.start)+' · '+esc(title(firstTrack))}
+        }
+      }
       else if(active&&isOrga(active)){
         const after=trackTurns.find(it=>mins(it.start)>nowM)||null,diff=after?mins(after.start)-nowM:Infinity;
         if(!postRacePhase&&after&&diff>0&&diff<=10){leftLabel='TURN';leftHtml=turnCountdown(after.group,countdownText(diff));leftSub=fmt(after.start)}
         else{leftLabel=label(active);leftMain=esc(title(active));leftSub=fmt(active.start)+(effectiveEnd(items,activeIndex)>mins(active.start)?'–'+String(Math.floor(effectiveEnd(items,activeIndex)/60)).padStart(2,'0')+':'+String(Math.floor(effectiveEnd(items,activeIndex)%60)).padStart(2,'0'):'')}
       }
-      else if(active&&isTurn(active)&&!postRacePhase){const end=effectiveEnd(items,activeIndex);leftLabel='TURN';leftHtml=turnCountdown(active.group,countdownText(end-nowM))}
       else if(nextTrack&&!postRacePhase){const diff=mins(nextTrack.start)-nowM;leftLabel='TURN';leftHtml=turnCountdown(nextTrack.group,countdownText(diff));leftSub=fmt(nextTrack.start)}
       else{
         const nextProgram=items.find(it=>!isRace(it)&&!isTurn(it)&&mins(it.start)>nowM)||null;
