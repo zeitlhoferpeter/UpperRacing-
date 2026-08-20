@@ -1,0 +1,3 @@
+UpperRacing preview deployment check
+Created: 2026-08-20
+Purpose: harmless test file to verify whether Cloudflare automatically deploys changes from the test/preview branch.
