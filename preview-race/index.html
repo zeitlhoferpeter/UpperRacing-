@@ -24,7 +24,7 @@
   <script>
     (function(){
       const frame=document.getElementById('previewFrame'),boot=document.getElementById('boot');
-      const build='20260820-header-alert-priority-test1';
+      const build='20260820-anon-usage-test1';
       const scripts=[
         '../preview/proxy.js',
         '../preview/preview.js',
@@ -52,7 +52,8 @@
         '../preview/pages-design-unify-test.js',
         '../preview/install-prompt-test.js',
         '../preview/cloud-hint-button-contrast-test.js',
-        '../preview/turn-notifications-test.js'
+        '../preview/turn-notifications-test.js',
+        '../preview/anonymous-usage-test.js'
       ];
       function fetchText(url){return fetch(url,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(url+' HTTP '+r.status);return r.text()})}
       Promise.all([Promise.all(scripts.map(s=>fetchText(s+'?v='+build))),fetchText('../app-base.html?v='+build)])
