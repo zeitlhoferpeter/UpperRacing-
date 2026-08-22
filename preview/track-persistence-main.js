@@ -11,7 +11,8 @@
     if(!select)return;
 
     const saved=w.localStorage.getItem('upper_selected_track');
-    if(saved&&[...select.options].some(o=>o.value===saved)){
+    const savedIsValid=!!(saved&&[...select.options].some(o=>o.value===saved));
+    if(savedIsValid){
       select.value=saved;
     }
 
@@ -27,6 +28,18 @@
     }else{
       w.localStorage.setItem('upper_selected_track',select.value);
       select.addEventListener('change',()=>w.localStorage.setItem('upper_selected_track',select.value));
+    }
+
+    // Wetter-Fix: Wenn die gespeicherte Strecke beim Start wiederhergestellt wurde,
+    // nach Abschluss aller Load-Initialisierungen einmal den normalen Change-Zyklus
+    // auslösen. So liest das Wetter die finale Strecke statt des frühen Defaults.
+    if(savedIsValid){
+      setTimeout(function(){
+        const live=d.getElementById('trackSelect');
+        if(!live)return;
+        if(live.value!==saved)live.value=saved;
+        live.dispatchEvent(new Event('change',{bubbles:true}));
+      },1200);
     }
   });
 })();
