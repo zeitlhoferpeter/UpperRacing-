@@ -74,15 +74,9 @@
     const turns=items.filter(it=>isOwnTurn(it,group)&&Number.isFinite(mins(it.start)));
     for(const it of turns){
       const diff=mins(it.start)-nowM;
-      if(diff>10.25||diff<-1.25)continue;
+      if(diff<=0||diff>10.25)continue;
 
-      if(diff<=0.25){
-        const key=sentKey(w,day,it,0);
-        if(!wasSent(w,key)){
-          const ok=await showSystem('🏁 UpperRacing – Turn '+it.group+' startet jetzt','Dein Turn beginnt jetzt. Ab zur Boxenausfahrt!', 'upper-turn-now-'+day+'-'+it.start+'-'+it.group,true);
-          if(ok)markSent(w,key);
-        }
-      }else if(diff<=5.25){
+      if(diff<=5.25){
         const key=sentKey(w,day,it,5);
         if(!wasSent(w,key)){
           const ok=await showSystem('🚨 UpperRacing – Turn '+it.group+' in 5 Minuten','Dein Turn startet um '+String(it.start).replace('.',':')+'. Gleich geht’s los – ab zur Boxenausfahrt!', 'upper-turn-5-'+day+'-'+it.start+'-'+it.group,true);
@@ -102,7 +96,7 @@
   function statusText(w){
     if(!notificationSupported())return'Auf diesem Gerät nicht unterstützt';
     if(permission()==='denied')return'Benachrichtigungen im Browser blockiert';
-    if(permission()==='granted'&&w.localStorage.getItem(ENABLE_KEY)==='true')return'Aktiv · 10 Min. + 5 Min. + Turnstart';
+    if(permission()==='granted'&&w.localStorage.getItem(ENABLE_KEY)==='true')return'Aktiv · 10 Min. + 5 Min. vor deinem Turn';
     return'Noch nicht aktiviert';
   }
 
@@ -152,7 +146,7 @@
     }
 
     const card=d.createElement('div');card.id='upperTurnNotifyCard';
-    card.innerHTML='<div class="utn-head"><div class="utn-title">TURN-ERINNERUNG</div></div><div class="utn-state"></div><button type="button" class="utn-btn">🔔 Turn-Benachrichtigungen aktivieren</button><div class="utn-note">Erinnert dich 10 und 5 Minuten vorher sowie direkt zum Start der Turns deiner aktuell gewählten Gruppe.</div>';
+    card.innerHTML='<div class="utn-head"><div class="utn-title">TURN-ERINNERUNG</div></div><div class="utn-state"></div><button type="button" class="utn-btn">🔔 Turn-Benachrichtigungen aktivieren</button><div class="utn-note">Erinnert dich 10 und 5 Minuten vor den Turns deiner aktuell gewählten Gruppe.</div>';
     const top=d.getElementById('previewScheduleTop');
     if(top&&top.parentNode)top.parentNode.insertBefore(card,top.nextSibling);else page.insertBefore(card,page.firstChild);
     card.querySelector('.utn-btn').addEventListener('click',enable);
