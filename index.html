@@ -137,22 +137,46 @@
         'preview/pack-categories-test.js',
         'preview/dashboard-layout-v6-test.js',
         'preview/pages-design-unify-test.js',
-        'preview/install-prompt-main.js',
+        'preview/install-prompt-main.js'
+      ];
+      const optionalScripts=[
         'preview/anonymous-usage-main.js'
       ];
 
-      function fetchText(url){
-        return fetch(url,{cache:'no-store'}).then(function(res){
-          if(!res.ok)throw new Error(url+' HTTP '+res.status);
-          return res.text();
-        });
+      function wait(ms){return new Promise(function(resolve){setTimeout(resolve,ms)})}
+
+      async function fetchText(url){
+        let lastError=null;
+        const delays=[0,300,900];
+        for(let attempt=0;attempt<delays.length;attempt++){
+          if(delays[attempt])await wait(delays[attempt]);
+          try{
+            const res=await fetch(url,{cache:'no-store'});
+            if(!res.ok)throw new Error(url+' HTTP '+res.status);
+            return await res.text();
+          }catch(err){
+            lastError=err;
+            console.warn('[UpperRacing] Ladeversuch '+(attempt+1)+' fehlgeschlagen:',url,err);
+          }
+        }
+        throw lastError||new Error(url+' konnte nicht geladen werden');
+      }
+
+      function installCode(code,source){
+        const s=document.createElement('script');
+        s.textContent=code+'\n//# sourceURL='+source;
+        document.head.appendChild(s);
       }
 
       function installScripts(texts){
-        texts.forEach(function(code,i){
-          const s=document.createElement('script');
-          s.textContent=code+'\n//# sourceURL='+scripts[i];
-          document.head.appendChild(s);
+        texts.forEach(function(code,i){installCode(code,scripts[i])});
+      }
+
+      function loadOptionalScripts(){
+        optionalScripts.forEach(function(src){
+          fetchText(src+'?main='+build)
+            .then(function(code){installCode(code,src)})
+            .catch(function(err){console.warn('[UpperRacing] Optionales Modul übersprungen:',src,err)});
         });
       }
 
@@ -183,12 +207,13 @@
               if(header)header.style.visibility='visible';
               frame.classList.add('ready');
               if(boot)boot.style.display='none';
+              loadOptionalScripts();
             },180);
           },{once:true});
           frame.srcdoc=html;
         })
         .catch(function(err){
-          console.error('[UpperRacing] Ladefehler:',err);
+          console.error('[UpperRacing] Ladefehler nach Wiederholungsversuchen:',err);
           if(boot){boot.textContent='Ladefehler – bitte Seite neu öffnen';boot.style.color='#ff6b5d'}
         });
     })();
