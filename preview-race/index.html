@@ -24,7 +24,7 @@
   <script>
     (function(){
       const frame=document.getElementById('previewFrame'),boot=document.getElementById('boot');
-      const build='20260822-weather-track-init-test1';
+      const build='20260826-startup-retry-test1';
       const scripts=[
         '../preview/proxy.js',
         '../preview/preview.js',
@@ -53,10 +53,45 @@
         '../preview/pages-design-unify-test.js',
         '../preview/install-prompt-test.js',
         '../preview/cloud-hint-button-contrast-test.js',
-        '../preview/turn-notifications-test.js',
+        '../preview/turn-notifications-test.js'
+      ];
+      const optionalScripts=[
         '../preview/anonymous-usage-test.js'
       ];
-      function fetchText(url){return fetch(url,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(url+' HTTP '+r.status);return r.text()})}
+
+      function wait(ms){return new Promise(resolve=>setTimeout(resolve,ms))}
+
+      async function fetchText(url){
+        let lastError=null;
+        const delays=[0,300,900];
+        for(let attempt=0;attempt<delays.length;attempt++){
+          if(delays[attempt])await wait(delays[attempt]);
+          try{
+            const r=await fetch(url,{cache:'no-store'});
+            if(!r.ok)throw new Error(url+' HTTP '+r.status);
+            return await r.text();
+          }catch(err){
+            lastError=err;
+            console.warn('[UpperRacing Test] Ladeversuch '+(attempt+1)+' fehlgeschlagen:',url,err);
+          }
+        }
+        throw lastError||new Error(url+' konnte nicht geladen werden');
+      }
+
+      function installCode(code,source){
+        const s=document.createElement('script');
+        s.textContent=code+'\n//# sourceURL='+source;
+        document.head.appendChild(s);
+      }
+
+      function loadOptionalScripts(){
+        optionalScripts.forEach(function(src){
+          fetchText(src+'?v='+build)
+            .then(function(code){installCode(code,src)})
+            .catch(function(err){console.warn('[UpperRacing Test] Optionales Modul übersprungen:',src,err)});
+        });
+      }
+
       Promise.all([Promise.all(scripts.map(s=>fetchText(s+'?v='+build))),fetchText('../app-base.html?v='+build)])
         .then(([codes,html])=>{
           codes.forEach((code,i)=>{
@@ -66,9 +101,7 @@
                        .replace("if(currentUser||d.getElementById('ucModal'))return;","if(currentUser||d.getElementById('ucModal'))return;if(document.getElementById('upperInstallPrompt')){setTimeout(function(){maybeHint(w,d)},500);return;}")
                        .replace("if(frame.contentDocument&&frame.contentDocument.readyState==='complete')activate();else frame.addEventListener('load',activate,{once:true});","let activated=false;function activateWhenReady(){const d=frame.contentDocument;if(activated||!d||!d.getElementById('pageBackup'))return;activated=true;activate()}frame.addEventListener('load',activateWhenReady);activateWhenReady();");
             }
-            const s=document.createElement('script');
-            s.textContent=code+'\n//# sourceURL='+scripts[i];
-            document.head.appendChild(s);
+            installCode(code,scripts[i]);
           });
           html=html.replace('<head>','<head><base href="/UpperRacing-/"><style id="upperInitialHeaderGuard">.app-header{visibility:hidden!important}</style>');
           html=html.replace(/(src|href)="(?!https?:|\/\/|data:|#)([^"]+)"/g,(m,a,u)=>{let clean=u;if(clean==='weather.js'||clean==='./weather.js')clean='preview/weather.js';return a+'="'+clean+(clean.includes('?')?'&':'?')+'v='+build+'"'});
@@ -81,11 +114,12 @@
               if(header)header.style.visibility='visible';
               frame.classList.add('ready');
               boot.style.display='none';
+              loadOptionalScripts();
             },180);
           },{once:true});
           frame.srcdoc=html;
         })
-        .catch(err=>{console.error(err);boot.textContent='Ladefehler – bitte Seite neu öffnen';boot.style.color='#ff6b5d'});
+        .catch(err=>{console.error('[UpperRacing Test] Ladefehler nach Wiederholungsversuchen:',err);boot.textContent='Ladefehler – bitte Seite neu öffnen';boot.style.color='#ff6b5d'});
     })();
   </script>
 </body>
