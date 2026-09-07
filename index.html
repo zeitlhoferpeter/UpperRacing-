@@ -30,7 +30,7 @@
       const frame=document.getElementById('previewFrame');
       const boot=document.getElementById('bootState');
       const indicator=document.getElementById('pullRefresh');
-      const build='20260820-header-alert-main-fix1';
+      const build='20260907-weather-main-fix1';
       let cupModulePromise=null;
 
       function installPullRefresh(){
@@ -127,8 +127,6 @@
         'preview/dashboard-ui-v3.js',
         'preview/dashboard-refine-v4.js',
         'preview/dashboard-style-v5.js',
-        'preview/weather-trackday-test.js',
-        'preview/weather-future-alert-main.js',
         'preview/header-frame-clean-test.js',
         'preview/header-alert-priority-fix-main.js',
         'preview/cloud-main-bootstrap.js',
@@ -195,7 +193,7 @@
           installScripts(texts);
           html=html.replace('<head>','<head><base href="/UpperRacing-/"><style id="upperInitialHeaderGuard">.app-header{visibility:hidden!important}</style>');
           html=html.replace(/(src|href)="(?!https?:|\/\/|data:|#)([^"]+)"/g,function(match,attr,url){
-            let clean=url;if(clean==='weather.js'||clean==='./weather.js')clean='preview/weather.js';
+            let clean=url;if(clean==='weather.js'||clean==='./weather.js')clean='preview/weather-main.js';
             const sep=clean.indexOf('?')>=0?'&':'?';return attr+'="'+clean+sep+'main='+build+'"';
           });
           frame.addEventListener('load',function(){

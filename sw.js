@@ -1,6 +1,6 @@
 // sw.js - UpperRacing Service Worker
 // Netzwerk zuerst für aktuelle App-Dateien, Cache nur als Offline-Fallback.
-const CACHE_NAME = 'upperracing-v13-header-alert-main-fix';
+const CACHE_NAME = 'upperracing-v14-weather-main-fix';
 const assetsToCache = [
   './',
   './index.html',
@@ -23,7 +23,9 @@ const assetsToCache = [
   './preview/day-rollover.js',
   './preview/header-race-detached-test.js',
   './preview/weather.js',
+  './preview/weather-main.js',
   './preview/tire-setup-test.js',
+  './preview/setup-baselines-main.js',
   './preview/dashboard-ui-v3.js',
   './preview/dashboard-refine-v4.js',
   './preview/dashboard-style-v5.js',
