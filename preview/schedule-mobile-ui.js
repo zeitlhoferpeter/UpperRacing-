@@ -53,8 +53,8 @@
     function hasSchedule(){return Object.values(getDays()).some(v=>Array.isArray(v)&&v.length>0)}
     function dayCount(){return Object.values(getDays()).filter(v=>Array.isArray(v)&&v.length>0).length}
     function scheduleSignature(){const days=getDays();return Object.keys(days).map(k=>k+':'+(Array.isArray(days[k])?days[k].length:0)).join('|')}
-    function currentWeekday(){return ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'][selectedDate().getDay()]}
-    function autoSelectCurrentDayOnce(){const sig=scheduleSignature();if(!sig||sig===lastScheduleSignature)return;lastScheduleSignature=sig;if(!hasSchedule())return;const days=getDays(),wanted=currentWeekday();if(days[wanted]&&w.localStorage.getItem('upper_schedule_activeday')!==wanted&&typeof w.switchScheduleDay==='function'){setTimeout(()=>w.switchScheduleDay(wanted),60)}}
+    function currentWeekday(date){return ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'][(date||selectedDate()).getDay()]}
+    function autoSelectCurrentDayOnce(startup=false){const sig=scheduleSignature();if(!sig||sig===lastScheduleSignature)return;lastScheduleSignature=sig;if(!hasSchedule())return;const days=getDays(),wanted=currentWeekday(startup?new Date():null);if(days[wanted]&&w.localStorage.getItem('upper_schedule_activeday')!==wanted&&typeof w.switchScheduleDay==='function'){if(startup)w.switchScheduleDay(wanted);else setTimeout(()=>w.switchScheduleDay(wanted),60)}}
     function rerunFinder(){if(typeof w.__runStardesignFinder==='function'){setTimeout(()=>w.__runStardesignFinder(),80)}}
 
     function updateCollapsedState(){
@@ -139,6 +139,9 @@
       updateCollapsedState();autoSelectCurrentDayOnce();rerunFinder();
     }
 
+    // Beim Start zählt heute, nicht das gespeicherte Suchdatum. Vor dem Header
+    // synchron auswählen; die Signatur schützt danach die manuelle Tageswahl.
+    autoSelectCurrentDayOnce(true);
     setInterval(function(){setup();updateCollapsedState();autoSelectCurrentDayOnce()},500);
     setTimeout(function(){setup();updateCollapsedState();autoSelectCurrentDayOnce()},350);
   });
