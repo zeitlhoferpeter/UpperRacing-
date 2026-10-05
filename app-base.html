@@ -91,6 +91,7 @@
             <button type="button" class="tab-btn" onclick="switchPage('laps')">Runden</button>
             <button type="button" class="tab-btn" onclick="switchPage('schedule')">Zeitplan</button>
             <button type="button" class="tab-btn" onclick="switchPage('cup')">Cup</button>
+            <button type="button" class="tab-btn" onclick="switchPage('photos')">Fotos</button>
             <button type="button" class="tab-btn" onclick="switchPage('pack')">Packliste</button>
             <button type="button" class="tab-btn" onclick="switchPage('backup'); if(typeof initBackup==='function') initBackup();">Backup</button>
         </nav>
@@ -209,6 +210,19 @@
                 </div>
             </div>
 
+            <div id="pagePhotos" class="page-content" style="display:none;">
+                <div class="setup-box">
+                    <a id="photosOpenLink" target="_blank" rel="noopener noreferrer" aria-disabled="true" style="display:block; width:100%; box-sizing:border-box; text-align:center; text-decoration:none; background:#ffd400; color:#0b0b0b; font-weight:900; font-size:1rem; padding:15px 12px; border-radius:8px; margin-bottom:14px;">📸 Gemeinsame Fotos öffnen ↗</a>
+                    <p style="font-size:0.85rem; color:#ccc; line-height:1.5;">Unser gemeinsames Amazon-Fotos-Album für alle Rennstrecken und Events. Fotos ansehen und als Gruppenmitglied eigene Bilder hinzufügen.</p>
+                    <form id="photosLinkForm">
+                        <label for="photosUrlInput" style="font-size:0.75rem;">Amazon-Fotos-Gruppenlink</label>
+                        <input type="url" id="photosUrlInput" placeholder="https://…" required style="width:100%; box-sizing:border-box; padding:10px; background:#222; border:1px solid #444; color:#fff; border-radius:7px; margin:6px 0 8px;">
+                        <button type="submit" style="width:100%; background:#2a2a2a; color:#aaa; border:none; font-size:0.78rem; padding:9px; border-radius:4px; cursor:pointer;">Link auf diesem Gerät speichern</button>
+                    </form>
+                    <p id="photosLinkStatus" role="status" aria-live="polite" style="font-size:0.78rem; color:#aaa; line-height:1.4; margin-bottom:0;">Noch kein Album verlinkt. Bitte den gemeinsamen Gruppenlink einfügen.</p>
+                </div>
+            </div>
+
             <div id="pagePack" class="page-content" style="display:none;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                     <h2 style="margin:0; font-size:1.1rem;">Packliste</h2>
@@ -255,6 +269,48 @@
     <script src="schedule.js"></script>
     <script src="app.js"></script>
     <script src="weather.js"></script>
+    <script>
+      (function () {
+        const DEFAULT_PHOTOS_URL = '';
+        const storageKey = 'upper_photos_url';
+        const input = document.getElementById('photosUrlInput');
+        const link = document.getElementById('photosOpenLink');
+        const status = document.getElementById('photosLinkStatus');
+        function validUrl(value) {
+          try {
+            const url = new URL(value);
+            return url.protocol === 'https:' && !url.username && !url.password ? url.href : '';
+          } catch (_) { return ''; }
+        }
+        function showLink(url) {
+          input.value = url;
+          if (url) link.href = url;
+          else link.removeAttribute('href');
+          link.setAttribute('aria-disabled', String(!url));
+          link.style.opacity = url ? '1' : '.5';
+          if (url) status.textContent = 'Öffnet Amazon Photos. Zum Hinzufügen von Bildern der Gruppe mit deinem Amazon-Konto beitreten.';
+        }
+        let saved = '';
+        try { saved = localStorage.getItem(storageKey) || ''; } catch (_) { }
+        showLink(validUrl(DEFAULT_PHOTOS_URL || saved));
+        document.getElementById('photosLinkForm').addEventListener('submit', function (event) {
+          event.preventDefault();
+          const url = validUrl(input.value.trim());
+          if (!url) {
+            status.textContent = 'Bitte einen gültigen Freigabelink mit https:// einfügen.';
+            input.focus();
+            return;
+          }
+          try {
+            localStorage.setItem(storageKey, url);
+            showLink(url);
+            status.textContent = 'Foto-Link auf diesem Gerät gespeichert.';
+          } catch (_) {
+            status.textContent = 'Der Link konnte nicht gespeichert werden. Bitte Browsereinstellungen prüfen.';
+          }
+        });
+      })();
+    </script>
     <script>
       // Service Worker registrieren
       if ('serviceWorker' in navigator) {

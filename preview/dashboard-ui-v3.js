@@ -90,6 +90,7 @@
       <button class="ur3-more-btn" data-page="setup">⚙️ Setup<span>Motorrad, Fahrwerk & Sessions</span></button>
       <button class="ur3-more-btn" data-page="curves">🏁 Kurven<span>Strecken-Guide & Notizen</span></button>
       <button class="ur3-more-btn" data-page="cup">🏆 Cup<span>Reglement & Informationen</span></button>
+      <button class="ur3-more-btn" data-page="photos">📸 Fotos<span>Gemeinsames Amazon-Fotos-Album</span></button>
       <button class="ur3-more-btn" data-page="backup">💾 Backup<span>Daten sichern & wiederherstellen</span></button>
     </div></div>`;
     d.body.appendChild(more);
