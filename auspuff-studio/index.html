@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RD350 31K - 21 Segmente - Ø108 außen - Auspuff Studio</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body { font-family: system-ui, sans-serif; background: #121212; color: #fff; padding: 20px; display: flex; gap: 20px; margin: 0; height: 100vh; box-sizing: border-box; overflow: hidden; }
+        .panel { background: #1e1e1e; padding: 15px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); display: flex; flex-direction: column; }
+        
+        .sidebar { min-width: 380px; max-width: 380px; display: flex; flex-direction: column; gap: 10px; z-index: 100; }
+        .segment-list { flex-grow: 1; overflow-y: auto; background: #181818; border: 1px solid #333; border-radius: 4px; padding: 10px; }
+        
+        .segment-card { background: #2a2a2a; border: 1px solid #444; border-radius: 4px; padding: 10px; margin-bottom: 10px; position: relative; }
+        .segment-card.active { border-color: #1976d2; box-shadow: 0 0 8px rgba(25,118,210,0.5); }
+        .segment-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: bold; font-size: 14px; cursor: pointer; }
+        .del-btn { background: #d32f2f; color: white; border: none; border-radius: 3px; cursor: pointer; padding: 2px 6px; font-size: 12px; }
+        
+        .param-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .param-group { display: flex; flex-direction: column; }
+        .param-group label { font-size: 11px; color: #aaa; margin-bottom: 2px; }
+        .param-group input { background: #333; border: 1px solid #555; color: #fff; padding: 4px; border-radius: 3px; font-size: 12px; width: 100%; box-sizing: border-box; pointer-events: auto; }
+        
+        button.action-btn { width: 100%; padding: 10px; background: #2e7d32; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 5px; }
+        button.action-btn:hover { background: #1b5e20; }
+        button.export-btn { background: #1976d2; margin-top: 5px; } button.export-btn:hover { background: #115293; }
+        button.silhouette-btn { background: #d84315; margin-top: 15px; border-top: 2px solid #ff7043; } button.silhouette-btn:hover { background: #bf360c; }
+        
+        .project-btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 5px; }
+        button.proj-btn { background: #555; font-size: 11px; padding: 8px; } button.proj-btn:hover { background: #777; }
+
+        .views { flex-grow: 1; display: flex; flex-direction: column; gap: 15px; }
+        .view-box { flex: 1; background: #2a2a2a; border-radius: 8px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid #444; }
+        .view-title { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 5px 10px; border-radius: 4px; font-size: 12px; z-index: 10; pointer-events: none; }
+        svg { max-width: 100%; max-height: 100%; background: #ffffff; }
+
+        .global-settings { background: #222; padding: 10px; border-radius: 4px; margin-bottom: 10px; border: 1px solid #333; }
+        .global-settings h3 { margin: 0 0 10px 0; font-size: 13px; color: #ddd; display: flex; justify-content: space-between;}
+
+        #printArea { display: none; }
+        @media print {
+            body, html { height: auto !important; margin: 0; padding: 0; background: white; }
+            .panel, .views { display: none !important; }
+            #printArea { display: block !important; position: relative; width: 100%; }
+            #printArea * { visibility: visible; }
+            .a4-page { width: 210mm; height: 297mm; page-break-after: always; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+            .a4-page:last-child { page-break-after: auto; } 
+            .a4-page svg { width: 190mm; height: 277mm; } 
+            .single-page { display: flex; justify-content: flex-start; align-items: flex-start; page-break-after: auto; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="panel sidebar" id="ui-sidebar">
+    
+    <!-- NEU: PROJEKT VERWALTUNG -->
+    <div class="global-settings" style="border-color: #555;">
+        <h3>Projekt-Verwaltung <span>💾</span></h3>
+        <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="loadFromFile(event)">
+        <div class="project-btn-group">
+            <button class="action-btn proj-btn" onclick="document.getElementById('fileInput').click()">📂 Datei Laden</button>
+            <button class="action-btn proj-btn" onclick="saveToFile()">💾 Als Datei Speichern</button>
+        </div>
+        <button class="action-btn proj-btn" style="background:#b71c1c; width: 100%; grid-column: span 2;" onclick="resetProject()">🗑️ Neues Projekt (Alles löschen)</button>
+    </div>
+
+    <div class="global-settings">
+        <h3>Fertigungs-Parameter</h3>
+        <div class="param-grid">
+            <div class="param-group">
+                <label>Blechdicke (mm)</label>
+                <input type="number" id="global-thick" value="1" step="0.1" onchange="renderAll()">
+            </div>
+            <div class="param-group">
+                <label>Klebelasche (mm)</label>
+                <input type="number" id="global-tab" value="0" step="1" onchange="renderAll()">
+            </div>
+        </div>
+        <div style="margin-top: 10px;">
+            <label style="font-size: 12px; display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                <input type="checkbox" id="splitPages" checked> 📐 Automatisch A4/A3 · 1:1 (A3 statt 2× A4)
+            </label>
+        </div>
+    </div>
+
+    <button class="action-btn" onclick="addSegment()">+ Neues Segment anfügen</button>
+    <div class="segment-list" id="segmentList"></div>
+
+    <div style="background: #222; padding: 10px; border-radius: 4px; margin-top: 10px; border: 1px solid #333;">
+        <h3 style="margin: 0 0 5px 0; font-size: 12px; color: #aaa;">Export: Aktives Segment (Blechzuschnitt)</h3>
+        <button class="action-btn export-btn" onclick="printAllPackedA4()">Alle Segmente gemeinsam A4/A3 (1:1)</button>
+        <button class="action-btn export-btn" onclick="printActiveSegment()">🖨️ Aktives Blech drucken</button>
+        <button class="action-btn export-btn" style="background:#5e35b1;" onclick="downloadSVG()">📥 Aktives Blech als SVG (2D)</button>
+        <button class="action-btn export-btn" style="background:#6a1b9a;" onclick="downloadAllSVGZip()">📦 Alle Bleche einzeln als SVG-ZIP</button>
+        <button class="action-btn export-btn" style="background:#455a64;" onclick="downloadAllOnLargeSVG()">🧩 Alle Bleche auf großer SVG</button>
+    </div>
+
+    <button class="action-btn silhouette-btn" onclick="printSilhouette()">📏 Silhouetten-Plan (Ganze Anlage) auf A4 drucken</button>
+</div>
+
+<div class="views">
+    <div class="view-box" id="container3D">
+        <div class="view-title">3D Auspuff Assembly (Ganze Anlage)</div>
+    </div>
+    <div class="view-box" id="container2D" style="flex: 0.8;">
+        <div class="view-title" id="title2D">2D Abwicklung (Aktives Segment)</div>
+    </div>
+</div>
+
+<div id="printArea"></div>
+
+<script>
+    // Standard-Startwerte
+    let defaultSegments = [
+        {
+                "id": 1,
+                "d1": 35.0,
+                "d2": 36.49,
+                "len": 28.5,
+                "a1": 0,
+                "a2": 0
+        },
+        {
+                "id": 2,
+                "d1": 36.49,
+                "d2": 37.98,
+                "len": 28.5,
+                "a1": 0,
+                "a2": 0
+        },
+        {
+                "id": 3,
+                "d1": 37.98,
+                "d2": 39.47,
+                "len": 28.5,
+                "a1": 0,
+                "a2": 0
+        },
+        {
+                "id": 4,
+                "d1": 39.47,
+                "d2": 40.96,
+                "len": 28.5,
+                "a1": 0,
+                "a2": 0
+        },
+        {
+                "id": 5,
+                "d1": 40.96,
+                "d2": 42.45,
+                "len": 28.5,
+                "a1": 0,
+                "a2": 0
+        },
+        {
+                "id": 6,
+                "d1": 42.45,
+                "d2": 43.94,
+                "len": 28.5,
+                "a1": 0,
+                "a2": 0
+        },
+        {
+                "id": 7,
+                "d1": 43.94,
+                "d2": 45.43,
+                "len": 28.5,
+                "a1": 0,
+                "a2": 0
+        },
+        {
+                "id": 8,
+                "d1": 45.43,
+                "d2": 46.92,
+                "len": 28.5,
+                "a1": 0,
+                "a2": 0
+        },
+        {
+                "id": 9,
+                "d1": 46.92,
+                "d2": 48.41,
+                "len": 28.5,
+                "a1": 0,
+                "a2": 0
+        },
+        {
+                "id": 10,
+                "d1": 48.41,
+                "d2": 49.9,
+                "len": 28.5,
+                "a1": 0,
+                "a2": 0
+        },
+        {
+                "id": 11,
+                "d1": 49.9,
+                "d2": 58.952311,
+                "len": 79.5,
+                "a1": 0,
+                "a2": 0
+        },
+        {
+                "id": 12,
+                "d1": 58.952311,
+                "d2": 67.947689,
+                "len": 79,
+                "a1": 0,
+                "a2": 0
+        },
+        {
+                "id": 13,
+                "d1": 67.947689,
+                "d2": 77.0,
+                "len": 79.5,
+                "a1": 0,
+                "a2": 0
+        },
+        {
+                "id": 14,
+                "d1": 77.0,
+                "d2": 92.5,
+                "len": 59.5,
+                "a1": 0,
+                "a2": 0
+        },
+        {
+                "id": 15,
+                "d1": 92.5,
+                "d2": 108.0,
+                "len": 59.5,
+                "a1": 0,
+                "a2": 0
+        },
+        {
+                "id": 16,
+                "d1": 108.0,
+                "d2": 108.0,
+                "len": 90,
+                "a1": 0,
+                "a2": 0
+        },
+        {
+                "id": 17,
+                "d1": 108.0,
+                "d2": 88.3,
+                "len": 85,
+                "a1": 0,
+                "a2": 0
+        },
+        {
+                "id": 18,
+                "d1": 88.3,
+                "d2": 73.136842,
+                "len": 43,
+                "a1": 0,
+                "a2": 0
+        },
+        {
+                "id": 19,
+                "d1": 73.136842,
+                "d2": 58.15,
+                "len": 42.5,
+                "a1": 0,
+                "a2": 0
+        },
+        {
+                "id": 20,
+                "d1": 58.15,
+                "d2": 43.163158,
+                "len": 42.5,
+                "a1": 0,
+                "a2": 0
+        },
+        {
+                "id": 21,
+                "d1": 43.163158,
+                "d2": 28.0,
+                "len": 43,
+                "a1": 0,
+                "a2": 0
+        },
+        {
+                "id": 22,
+                "d1": 28,
+                "d2": 28,
+                "len": 150,
+                "a1": 0,
+                "a2": 0
+        }
+];
+    let segments = JSON.parse(JSON.stringify(defaultSegments));
+    let activeSegmentId = 1;
+    let nextId = 23;
+
+    let scene, camera, renderer, controls;
+    let meshGroup = new THREE.Group();
+    let currentSVGData = null;
+    let silhouetteData = null;
+
+    // --- SPEICHER-FUNKTIONEN (NEU) ---
+    function saveToLocal() {
+        const data = {
+            segments: segments,
+            nextId: nextId,
+            thick: document.getElementById('global-thick').value,
+            tab: document.getElementById('global-tab').value,
+            split: document.getElementById('splitPages').checked
+        };
+        localStorage.setItem('auspuff_rd350_21_segmente_D108_v1', JSON.stringify(data));
+    }
+
+    function loadFromLocal() {
+        const saved = localStorage.getItem('auspuff_rd350_21_segmente_D108_v1');
+        if (saved) {
+            try {
+                const data = JSON.parse(saved);
+                if (data.segments && data.segments.length > 0) {
+                    segments = data.segments;
+                    nextId = data.nextId || (Math.max(...segments.map(s => s.id)) + 1);
+                    activeSegmentId = segments[0].id;
+                }
+                if (data.thick) document.getElementById('global-thick').value = data.thick;
+                if (data.tab) document.getElementById('global-tab').value = data.tab;
+                if (data.split !== undefined) document.getElementById('splitPages').checked = data.split;
+            } catch (e) {
+                console.error("Fehler beim Laden des Auto-Saves", e);
+            }
+        }
+    }
+
+    function saveToFile() {
+        const data = {
+            appName: "AuspuffStudioPro",
+            version: "1.0",
+            date: new Date().toISOString(),
+            segments: segments,
+            thick: document.getElementById('global-thick').value,
+            tab: document.getElementById('global-tab').value
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `Auspuff_Projekt_${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+    }
+
+    function loadFromFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (data.segments && data.segments.length > 0) {
+                    segments = data.segments;
+                    nextId = Math.max(...segments.map(s => s.id)) + 1;
+                    activeSegmentId = segments[0].id;
+                    if (data.thick) document.getElementById('global-thick').value = data.thick;
+                    if (data.tab) document.getElementById('global-tab').value = data.tab;
+                    renderAll();
+                    alert("Projekt erfolgreich geladen!");
+                } else {
+                    alert("Diese Datei enthält keine gültigen Segment-Daten.");
+                }
+            } catch (error) {
+                alert("Fehler beim Lesen der Datei!");
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = ''; // Reset Input
+    }
+
+    function resetProject() {
+        if(confirm("Möchtest du wirklich alles löschen und von vorne beginnen? (Nicht gespeicherte Daten gehen verloren)")) {
+            segments = JSON.parse(JSON.stringify(defaultSegments));
+            nextId = 23;
+            activeSegmentId = 1;
+            document.getElementById('global-thick').value = 1;
+            document.getElementById('global-tab').value = 0;
+            renderAll();
+        }
+    }
+
+    // --- GEOMETRIE & 3D ---
+    function distance3D(p1, p2) { return Math.sqrt((p1.x - p2.x)**2 + (p1.y - p2.y)**2 + (p1.z - p2.z)**2); }
+    function getThirdPoint(pA, pB, distAC, distBC, sign) {
+        let d = Math.hypot(pB.x - pA.x, pB.y - pA.y);
+        let a = (distAC**2 - distBC**2 + d**2) / (2 * d);
+        let h = Math.sqrt(Math.max(0, distAC**2 - a**2));
+        let p2x = pA.x + a * (pB.x - pA.x) / d, p2y = pA.y + a * (pB.y - pA.y) / d;
+        return { x: p2x - sign * h * (pB.y - pA.y) / d, y: p2y + sign * h * (pB.x - pA.x) / d };
+    }
+
+    function createLabelSprite(text) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 128; canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'rgba(0,0,0,0)'; ctx.fillRect(0,0,128,128);
+        ctx.font = 'bold 80px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.strokeStyle = 'black'; ctx.lineWidth = 8; ctx.strokeText(text, 64, 64);
+        ctx.fillStyle = 'white'; ctx.fillText(text, 64, 64);
+        const texture = new THREE.CanvasTexture(canvas);
+        const spriteMat = new THREE.SpriteMaterial({ map: texture, depthTest: false });
+        const sprite = new THREE.Sprite(spriteMat);
+        sprite.scale.set(40, 40, 1);
+        return sprite;
+    }
+
+    function init3D() {
+        const container = document.getElementById('container3D');
+        scene = new THREE.Scene();
+        scene.add(meshGroup);
+        
+        camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 2000);
+        camera.position.set(0, 300, 500);
+        
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        container.appendChild(renderer.domElement);
+        
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        
+        const light1 = new THREE.DirectionalLight(0xffffff, 0.8); light1.position.set(1, 1, 1); scene.add(light1);
+        const light2 = new THREE.DirectionalLight(0xffffff, 0.5); light2.position.set(-1, -1, -1); scene.add(light2);
+        scene.add(new THREE.AmbientLight(0x606060));
+        
+        const grid = new THREE.GridHelper(1000, 50, 0x444444, 0x222222);
+        grid.position.y = -100;
+        scene.add(grid);
+
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+
+        animate3D();
+    }
+
+    function animate3D() {
+        requestAnimationFrame(animate3D);
+        controls.update();
+        renderer.render(scene, camera);
+    }
+
+    // Zusatzanzeige: Außenkanten in der lokalen Schnittebene (+X / -X).
+    // Die Uhrposition bleibt am Segment fest, unabhängig von der Kamera.
+    function getEdgeMeasurements(seg) {
+        const r1 = Number(seg.d1) / 2, r2 = Number(seg.d2) / 2;
+        const length = Number(seg.len);
+        const a1 = Number(seg.a1) * Math.PI / 180, a2 = Number(seg.a2) * Math.PI / 180;
+        const edge = sign => {
+            const start = { x: sign * r1, y: 0, z: -sign * r1 * Math.tan(a1) };
+            const end = { x: sign * r2, y: 0, z: length + sign * r2 * Math.tan(a2) };
+            const axial = end.z - start.z;
+            return { start, end, axial, length: Math.hypot(end.x - start.x, axial), valid: axial > 0 };
+        };
+        return { twelve: edge(1), six: edge(-1) };
+    }
+
+    function edgeMeasurementText(edge) {
+        if (!Number.isFinite(edge.length)) return 'Ungültige Eingabe';
+        if (!edge.valid) return 'Schnittkanten überkreuzt';
+        return edge.length.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' mm';
+    }
+
+    // Eine Kantenlänge bestimmt bei fester Mittellänge und festem Winkel Oben
+    // den Winkel Unten. Die vorhandene Winkel-Verknüpfung bleibt erhalten.
+    function angleFromEdgeLength(seg, side, value) {
+        const length = Number(seg.len), r1 = Number(seg.d1) / 2, r2 = Number(seg.d2) / 2;
+        const edge = Number(String(value).replace(',', '.'));
+        if (![length, r1, r2, edge, Number(seg.a1)].every(Number.isFinite) ||
+            length <= 0 || r1 <= 0 || r2 <= 0 || edge <= Math.abs(r2 - r1) ||
+            (side !== 1 && side !== -1)) return null;
+        const axial = Math.sqrt(edge * edge - (r2 - r1) * (r2 - r1));
+        // Beide Seiten müssen eine positive Länge in Achsrichtung behalten.
+        if (axial <= 0 || axial >= 2 * length) return null;
+        return Math.atan((side * (axial - length) - r1 * Math.tan(Number(seg.a1) * Math.PI / 180)) / r2) * 180 / Math.PI;
+    }
+
+    function updateEdgeLength(id, side, value) {
+        const seg = segments.find(s => s.id === id);
+        if (!seg) return;
+        const angle = angleFromEdgeLength(seg, side, value);
+        if (angle === null || !Number.isFinite(angle)) {
+            alert('Diese Kantenlänge ist bei der aktuellen Mittellänge und den Durchmessern nicht möglich. Beide Segmentseiten müssen eine positive Länge behalten.');
+            updateUI();
+            return;
+        }
+        updateSeg(id, 'a2', angle);
+    }
+
+    function updateUI() {
+        const list = document.getElementById('segmentList');
+        const scrollTop = list.scrollTop; 
+        list.innerHTML = '';
+        
+        segments.forEach((seg, index) => {
+            const isActive = seg.id === activeSegmentId;
+            const edgeMeasures = getEdgeMeasurements(seg);
+            const html = `
+            <div class="segment-card ${isActive ? 'active' : ''}" onclick="setActive(${seg.id})">
+                <div class="segment-header">
+                    <span style="color: ${isActive ? '#64b5f6' : '#fff'}">Segment ${index + 1}</span>
+                    <button class="del-btn" onclick="event.stopPropagation(); deleteSegment(${seg.id})">X</button>
+                </div>
+                <div class="param-grid">
+                    <div class="param-group"><label>D1 (mm)</label><input type="number" value="${seg.d1}" step="0.1" onclick="event.stopPropagation();" onchange="updateSeg(${seg.id}, 'd1', this.value)"></div>
+                    <div class="param-group"><label>D2 (mm)</label><input type="number" value="${seg.d2}" step="0.1" onclick="event.stopPropagation();" onchange="updateSeg(${seg.id}, 'd2', this.value)"></div>
+                    <div class="param-group"><label>Länge (mm)</label><input type="number" value="${seg.len}" step="0.1" onclick="event.stopPropagation();" onchange="updateSeg(${seg.id}, 'len', this.value)"></div>
+                    <div class="param-group"></div>
+                    <div class="param-group"><label>Winkel Oben</label><input type="number" value="${seg.a1}" step="0.1" onclick="event.stopPropagation();" onchange="updateSeg(${seg.id}, 'a1', this.value)"></div>
+                    <div class="param-group"><label>Winkel Unten</label><input type="number" value="${seg.a2}" step="0.1" onclick="event.stopPropagation();" onchange="updateSeg(${seg.id}, 'a2', this.value)"></div>
+                    <div class="param-group"><label style="color:#ffb74d">Kantenlänge 12 Uhr</label><input type="number" aria-label="Kantenlänge 12 Uhr in mm" title="Außenkantenlänge in mm; berechnet Winkel Unten. Mittellänge und Winkel Oben bleiben fest." value="${edgeMeasures.twelve.valid && Number.isFinite(edgeMeasures.twelve.length) ? edgeMeasures.twelve.length.toFixed(3) : ''}" min="0" step="0.1" style="color:#ffb74d" onclick="event.stopPropagation();" onchange="updateEdgeLength(${seg.id}, 1, this.value)"></div>
+                    <div class="param-group"><label style="color:#4dd0e1">Kantenlänge 6 Uhr</label><input type="number" aria-label="Kantenlänge 6 Uhr in mm" title="Außenkantenlänge in mm; berechnet Winkel Unten. Mittellänge und Winkel Oben bleiben fest." value="${edgeMeasures.six.valid && Number.isFinite(edgeMeasures.six.length) ? edgeMeasures.six.length.toFixed(3) : ''}" min="0" step="0.1" style="color:#4dd0e1" onclick="event.stopPropagation();" onchange="updateEdgeLength(${seg.id}, -1, this.value)"></div>
+                </div>
+            </div>`;
+            list.innerHTML += html;
+        });
+        
+        list.scrollTop = scrollTop;
+    }
+
+    function addSegment() {
+        let newD1 = 58;
+        let prevA2 = 0;
+        if(segments.length > 0) {
+            newD1 = segments[segments.length-1].d2;
+            prevA2 = segments[segments.length-1].a2;
+        }
+        segments.push({ id: nextId++, d1: newD1, d2: newD1, len: 100, a1: prevA2, a2: 0 });
+        activeSegmentId = nextId - 1;
+        renderAll();
+        
+        setTimeout(() => {
+            const list = document.getElementById('segmentList');
+            list.scrollTop = list.scrollHeight;
+        }, 50);
+    }
+
+    function deleteSegment(id) {
+        if(segments.length <= 1) return;
+        segments = segments.filter(s => s.id !== id);
+        if(activeSegmentId === id) activeSegmentId = segments[0].id;
+        renderAll();
+    }
+
+    function setActive(id) {
+        activeSegmentId = id;
+        renderAll();
+    }
+
+    function updateSeg(id, field, value) {
+        const seg = segments.find(s => s.id === id);
+        if(seg) {
+            seg[field] = parseFloat(value) || 0;
+            const idx = segments.indexOf(seg);
+            if(field === 'd2' && idx < segments.length - 1) segments[idx+1].d1 = seg.d2;
+            if(field === 'a2' && idx < segments.length - 1) segments[idx+1].a1 = seg.a2;
+        }
+        renderAll();
+    }
+
+    function toGlobal(localX, localZ, cX, cY, G) {
+        return {
+            x: cX + localZ * Math.cos(G) + localX * Math.cos(G + Math.PI/2),
+            y: cY + localZ * Math.sin(G) + localX * Math.sin(G + Math.PI/2)
+        };
+    }
+
+    function renderAll() {
+        updateUI();
+        const t = parseFloat(document.getElementById('global-thick').value);
+        const tabW = parseFloat(document.getElementById('global-tab').value);
+        const steps = 72;
+        
+        while(meshGroup.children.length > 0) meshGroup.remove(meshGroup.children[0]); 
+
+        let currentMatrix = new THREE.Matrix4(); 
+        
+        let silPath = "";
+        let silMinX = 0, silMinY = 0, silMaxX = 0, silMaxY = 0;
+        let cx = 0, cy = 0; 
+        let globalAngle = 0; 
+
+        segments.forEach((seg, index) => {
+            const isActive = seg.id === activeSegmentId;
+            const r1 = (seg.d1 - t) / 2;
+            const r2 = (seg.d2 - t) / 2;
+            const a1 = seg.a1 * Math.PI/180;
+            const a2 = seg.a2 * Math.PI/180;
+            
+            let a1_next = 0;
+            if (index < segments.length - 1) {
+                a1_next = segments[index + 1].a1 * Math.PI/180;
+            }
+            
+            let top3D = [], bot3D = [];
+            for(let i = 0; i <= steps; i++) {
+                let theta = (i / steps) * 2 * Math.PI + Math.PI; 
+                top3D.push(new THREE.Vector3(r1 * Math.cos(theta), r1 * Math.sin(theta), -r1 * Math.cos(theta) * Math.tan(a1)));
+                bot3D.push(new THREE.Vector3(r2 * Math.cos(theta), r2 * Math.sin(theta), seg.len + r2 * Math.cos(theta) * Math.tan(a2)));
+            }
+            const geom = new THREE.BufferGeometry();
+            const vertices = [];
+            for(let i=0; i<steps; i++) {
+                vertices.push(top3D[i].x, top3D[i].y, top3D[i].z, bot3D[i].x, bot3D[i].y, bot3D[i].z, bot3D[i+1].x, bot3D[i+1].y, bot3D[i+1].z);
+                vertices.push(top3D[i].x, top3D[i].y, top3D[i].z, bot3D[i+1].x, bot3D[i+1].y, bot3D[i+1].z, top3D[i+1].x, top3D[i+1].y, top3D[i+1].z);
+            }
+            geom.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geom.computeVertexNormals();
+            
+            const mat = new THREE.MeshPhongMaterial({ color: isActive ? 0x1976d2 : 0x88ccff, side: THREE.DoubleSide });
+            const mesh = new THREE.Mesh(geom, mat);
+            mesh.applyMatrix4(currentMatrix);
+            meshGroup.add(mesh);
+            
+            const seamGeom = new THREE.BufferGeometry().setFromPoints(bot3D);
+            const seamMat = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 2 });
+            const seamLine = new THREE.LineLoop(seamGeom, seamMat);
+            seamLine.applyMatrix4(currentMatrix);
+            meshGroup.add(seamLine);
+            
+            const label = createLabelSprite((index + 1).toString());
+            label.position.set(0, 0, seg.len / 2);
+            label.applyMatrix4(currentMatrix);
+            meshGroup.add(label);
+
+            if(isActive) calc2D(top3D, bot3D, steps, tabW, index);
+            // Reine Messanzeige; keine Änderung an Geometrie oder Abwicklung.
+            if (isActive) {
+                const edges = getEdgeMeasurements(seg);
+                [[edges.twelve, '12 Uhr', 0xffb74d], [edges.six, '6 Uhr', 0x4dd0e1]].forEach(([edge, name, color]) => {
+                    if (!Number.isFinite(edge.length)) return;
+                    const start = new THREE.Vector3(edge.start.x, edge.start.y, edge.start.z);
+                    const end = new THREE.Vector3(edge.end.x, edge.end.y, edge.end.z);
+                    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([start, end]), new THREE.LineBasicMaterial({ color, depthTest: false }));
+                    line.renderOrder = 10;
+                    line.applyMatrix4(currentMatrix);
+                    meshGroup.add(line);
+                    const edgeLabel = createLabelSprite(name.split(' ')[0]);
+                    edgeLabel.position.copy(start).add(end).multiplyScalar(0.5);
+                    edgeLabel.position.x += Math.sign(edge.start.x) * 22;
+                    edgeLabel.scale.set(26, 26, 1);
+                    edgeLabel.material.color.setHex(color);
+                    edgeLabel.material.depthTest = false;
+                    edgeLabel.renderOrder = 11;
+                    edgeLabel.applyMatrix4(currentMatrix);
+                    meshGroup.add(edgeLabel);
+                });
+            }
+
+
+            let pTopLeft  = toGlobal(seg.d1/2, -(seg.d1/2) * Math.tan(a1), cx, cy, globalAngle);
+            let pTopRight = toGlobal(-seg.d1/2, (seg.d1/2) * Math.tan(a1), cx, cy, globalAngle);
+            
+            let pBotLeft  = toGlobal(seg.d2/2, seg.len + (seg.d2/2) * Math.tan(a2), cx, cy, globalAngle);
+            let pBotRight = toGlobal(-seg.d2/2, seg.len - (seg.d2/2) * Math.tan(a2), cx, cy, globalAngle);
+
+            let endX = cx + Math.cos(globalAngle) * seg.len;
+            let endY = cy + Math.sin(globalAngle) * seg.len;
+
+            silPath += `M ${pTopLeft.x},${pTopLeft.y} L ${pBotLeft.x},${pBotLeft.y} L ${pBotRight.x},${pBotRight.y} L ${pTopRight.x},${pTopRight.y} Z `;
+            silPath += `M ${cx},${cy} L ${endX},${endY} `;
+
+            [pTopLeft, pTopRight, pBotLeft, pBotRight].forEach(p => {
+                silMinX = Math.min(silMinX, p.x); silMaxX = Math.max(silMaxX, p.x);
+                silMinY = Math.min(silMinY, p.y); silMaxY = Math.max(silMaxY, p.y);
+            });
+
+            cx = endX; 
+            cy = endY; 
+            globalAngle = globalAngle - (a2 + a1_next); 
+
+            let transMatrix = new THREE.Matrix4().makeTranslation(0, 0, seg.len);
+            let rotMatrix = new THREE.Matrix4().makeRotationY( -(a2 + a1_next) ); 
+            currentMatrix.multiply(transMatrix);
+            currentMatrix.multiply(rotMatrix);
+        });
+        
+        silhouetteData = { path: silPath, width: silMaxX - silMinX, height: silMaxY - silMinY, minX: silMinX, minY: silMinY };
+        
+        // Jede Änderung sichert sofort den aktuellen Stand im Hintergrund!
+        saveToLocal(); 
+    }
+
+    function calc2D(top3D, bot3D, steps, tabW, index) {
+        let top2D = [{x: 0, y: 0}], bot2D = [{x: 0, y: distance3D(top3D[0], bot3D[0])}];
+        for(let i = 0; i < steps; i++) {
+            bot2D.push(getThirdPoint(top2D[i], bot2D[i], distance3D(top3D[i], bot3D[i+1]), distance3D(bot3D[i], bot3D[i+1]), 1));
+            top2D.push(getThirdPoint(bot2D[i+1], top2D[i], distance3D(bot3D[i+1], top3D[i+1]), distance3D(top3D[i], top3D[i+1]), -1));
+        }
+
+        let dx = bot2D[steps].x - top2D[steps].x, dy = bot2D[steps].y - top2D[steps].y;
+        let lenEdge = Math.hypot(dx, dy);
+        let tabTop = { x: top2D[steps].x - dy/lenEdge * tabW + dx/lenEdge * 2, y: top2D[steps].y + dx/lenEdge * tabW + dy/lenEdge * 2 };
+        let tabBot = { x: bot2D[steps].x - dy/lenEdge * tabW - dx/lenEdge * 2, y: bot2D[steps].y + dx/lenEdge * tabW - dy/lenEdge * 2 };
+
+        let cutPath = `M ${top2D[0].x},${top2D[0].y} `;
+        for(let i=1; i<=steps; i++) cutPath += `L ${top2D[i].x.toFixed(2)},${top2D[i].y.toFixed(2)} `;
+        if(tabW > 0) cutPath += `L ${tabTop.x.toFixed(2)},${tabTop.y.toFixed(2)} L ${tabBot.x.toFixed(2)},${tabBot.y.toFixed(2)} L ${bot2D[steps].x.toFixed(2)},${bot2D[steps].y.toFixed(2)} `;
+        for(let i=steps; i>=0; i--) cutPath += `L ${bot2D[i].x.toFixed(2)},${bot2D[i].y.toFixed(2)} `;
+        
+        let minX = 0, minY = 0, maxX = 0, maxY = 0;
+        [...top2D, ...bot2D, tabTop, tabBot].forEach(p => { minX=Math.min(minX,p.x); maxX=Math.max(maxX,p.x); minY=Math.min(minY,p.y); maxY=Math.max(maxY,p.y); });
+        
+        let mid = Math.floor(steps / 2);
+        
+        const seg = segments[index];
+        const fmtAngle = value => {
+            const n = Number(value);
+            if (!Number.isFinite(n)) return '?°';
+            const rounded = Math.round(n * 10) / 10;
+            return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)}°`;
+        };
+
+        // Beschriftungen liegen bewusst INNERHALB des Zuschnitts.
+        // top2D = Zylinder-/Anfangsseite (Winkel Oben / a1)
+        // bot2D = Stinger-/Endseite (Winkel Unten / a2)
+        const pStart = top2D[mid], pEnd = bot2D[mid];
+        const center = { x: (pStart.x + pEnd.x) / 2, y: (pStart.y + pEnd.y) / 2 };
+        const startLabel = { x: pStart.x * 0.72 + pEnd.x * 0.28, y: pStart.y * 0.72 + pEnd.y * 0.28 };
+        const endLabel = { x: pStart.x * 0.28 + pEnd.x * 0.72, y: pStart.y * 0.28 + pEnd.y * 0.72 };
+        const labelFont = Math.max(2.4, Math.min(4.0, Math.min(maxX-minX, maxY-minY) / 18));
+
+        const labels = `
+            <g class="segment-labels" fill="#000000" font-family="Arial, sans-serif" text-anchor="middle">
+                <text x="${center.x.toFixed(2)}" y="${center.y.toFixed(2)}" font-size="${(labelFont+0.6).toFixed(2)}" font-weight="700">Blech ${index + 1}</text>
+                <text x="${startLabel.x.toFixed(2)}" y="${startLabel.y.toFixed(2)}" font-size="${labelFont.toFixed(2)}">Zylinder · ${fmtAngle(seg.a1)}</text>
+                <text x="${endLabel.x.toFixed(2)}" y="${endLabel.y.toFixed(2)}" font-size="${labelFont.toFixed(2)}">${fmtAngle(seg.a2)} · Stinger</text>
+            </g>`;
+
+        currentSVGData = {
+            path: cutPath + "Z", width: maxX - minX, height: maxY - minY, minX: minX, minY: minY,
+            tabLine: tabW > 0 ? `<line x1="${top2D[steps].x}" y1="${top2D[steps].y}" x2="${bot2D[steps].x}" y2="${bot2D[steps].y}" stroke="#ff0000" stroke-width="0.5" stroke-dasharray="2,2"/>` : '',
+            marks: `<line x1="${top2D[mid].x}" y1="${top2D[mid].y-5}" x2="${top2D[mid].x}" y2="${top2D[mid].y+5}" stroke="#00cc00" stroke-width="1"/><line x1="${bot2D[mid].x}" y1="${bot2D[mid].y-5}" x2="${bot2D[mid].x}" y2="${bot2D[mid].y+5}" stroke="#00cc00" stroke-width="1"/>`,
+            labels,
+            segmentNo: index + 1,
+            angleStart: seg.a1,
+            angleEnd: seg.a2
+        };
+
+        const w = currentSVGData.width + 40, h = currentSVGData.height + 40;
+        document.getElementById('container2D').innerHTML = `<div class="view-title" id="title2D">2D Abwicklung (Segment ${index + 1}) - ${w.toFixed(0)}x${h.toFixed(0)} mm</div>
+        <svg viewBox="${minX-20} ${minY-20} ${w} ${h}">
+            ${currentSVGData.tabLine}
+            <path d="${currentSVGData.path}" fill="none" stroke="#0000ff" stroke-width="1"/>
+            ${currentSVGData.marks}
+            ${currentSVGData.labels || ''}
+        </svg>`;
+    }
+
+    // Sammeldruck nutzt unverändert dieselbe Abwicklung wie der Einzeldruck.
+    function collectPrintTemplates() {
+        const previous = currentSVGData;
+        const previousHTML = document.getElementById('container2D').innerHTML;
+        const t = Number(document.getElementById('global-thick').value);
+        const tab = Number(document.getElementById('global-tab').value);
+        const items = [];
+        try {
+            segments.forEach((seg, index) => {
+                const top = [], bottom = [], steps = 72;
+                const r1 = (seg.d1 - t) / 2, r2 = (seg.d2 - t) / 2;
+                const a1 = seg.a1 * Math.PI / 180, a2 = seg.a2 * Math.PI / 180;
+                if (!(r1 > 0 && r2 > 0 && seg.len > 0) || !Number.isFinite(tab) || tab < 0) throw new Error('Ungültige Maße bei Segment ' + (index + 1));
+                for (let i = 0; i <= steps; i++) {
+                    const angle = i / steps * 2 * Math.PI + Math.PI;
+                    top.push(new THREE.Vector3(r1 * Math.cos(angle), r1 * Math.sin(angle), -r1 * Math.cos(angle) * Math.tan(a1)));
+                    bottom.push(new THREE.Vector3(r2 * Math.cos(angle), r2 * Math.sin(angle), seg.len + r2 * Math.cos(angle) * Math.tan(a2)));
+                    if (bottom[i].z <= top[i].z) throw new Error('Schnittkanten überkreuzen sich bei Segment ' + (index + 1));
+                }
+                calc2D(top, bottom, steps, tab, index);
+                const data = { ...currentSVGData };
+                if (![data.width, data.height, data.minX, data.minY].every(Number.isFinite) || /NaN|Infinity/.test(data.path)) throw new Error('Abwicklung ungültig bei Segment ' + (index + 1));
+                items.push({ id: index + 1, data, w: data.width + 10, h: data.height + 20 });
+            });
+        } finally {
+            currentSVGData = previous;
+            document.getElementById('container2D').innerHTML = previousHTML;
+        }
+        return items;
+    }
+
+
+    // --- Druckoptimierung A4/A3 mit freier Drehung ---
+    // Form und Größe bleiben immer 1:1. Nur die Lage/Drehung auf dem Blatt wird optimiert.
+    function templatePolygonPoints(data) {
+        const pts = [];
+        const re = /(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g;
+        let m;
+        while ((m = re.exec(data.path)) !== null) {
+            pts.push({ x: Number(m[1]), y: Number(m[2]) });
+        }
+        return pts;
+    }
+
+    function rotatedBounds(points, angleDeg) {
+        const a = angleDeg * Math.PI / 180;
+        const c = Math.cos(a), s = Math.sin(a);
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const p of points) {
+            const x = c * p.x - s * p.y;
+            const y = s * p.x + c * p.y;
+            if (x < minX) minX = x; if (x > maxX) maxX = x;
+            if (y < minY) minY = y; if (y > maxY) maxY = y;
+        }
+        return { minX, minY, maxX, maxY, w: maxX - minX, h: maxY - minY };
+    }
+
+    function bestFreeRotation(data, pageW, pageH, padding = 2) {
+        const points = templatePolygonPoints(data);
+        if (!points.length) return null;
+        let best = null;
+
+        // 0,25° Schritte: praktisch frei drehbar, ohne Maßstabsänderung.
+        for (let angle = 0; angle < 180; angle += 0.25) {
+            const b = rotatedBounds(points, angle);
+            if (b.w + 2 * padding <= pageW && b.h + 2 * padding <= pageH) {
+                // Bevorzugt eine kompakte Bounding-Box und etwas Reserve zum Blattrand.
+                const fill = Math.max((b.w + 2 * padding) / pageW, (b.h + 2 * padding) / pageH);
+                const area = b.w * b.h;
+                const score = fill * 1000000 + area;
+                if (!best || score < best.score) best = { angle, bounds: b, score };
+            }
+        }
+        return best;
+    }
+
+    function compactestRotation(data) {
+        const points = templatePolygonPoints(data);
+        let best = null;
+        for (let angle = 0; angle < 180; angle += 0.25) {
+            const b = rotatedBounds(points, angle);
+            const area = b.w * b.h;
+            if (!best || area < best.area) best = { angle, bounds: b, area };
+        }
+        return best;
+    }
+
+    function svgMatrixForPlacement(angleDeg, bounds, targetX, targetY) {
+        const a = angleDeg * Math.PI / 180;
+        const c = Math.cos(a), s = Math.sin(a);
+        const e = targetX - bounds.minX;
+        const f = targetY - bounds.minY;
+        return `matrix(${c.toFixed(8)} ${s.toFixed(8)} ${(-s).toFixed(8)} ${c.toFixed(8)} ${e.toFixed(4)} ${f.toFixed(4)})`;
+    }
+
+    function shapeMarkup(item, placement, x = 0, y = 0, label = true) {
+        const b = placement.bounds;
+        const matrix = svgMatrixForPlacement(placement.angle, b, x, y);
+        return `${label ? `<text x="${x}" y="${Math.max(3, y - 1)}" font-family="sans-serif" font-size="3">Segment ${item.id} · ${placement.angle.toFixed(1)}°</text>` : ''}
+            <g transform="${matrix}">
+                ${item.data.tabLine}
+                <path d="${item.data.path}" fill="none" stroke="black" stroke-width="0.2"/>
+                ${item.data.marks}
+                ${item.data.labels || ''}
+            </g>`;
+    }
+
+    function pageSpecForItems(items) {
+        // Nutzflächen bei 10 mm Druckrand
+        const A4 = { name: 'A4', css: 'A4 portrait', w: 190, h: 277 };
+        const A3 = { name: 'A3', css: 'A3 portrait', w: 277, h: 400 };
+
+        const allFitA4 = items.every(item => !!bestFreeRotation(item.data, A4.w, A4.h, 2));
+        if (allFitA4) return A4;
+
+        const allFitA3 = items.every(item => !!bestFreeRotation(item.data, A3.w, A3.h, 2));
+        if (allFitA3) return A3;
+
+        // Falls wirklich ein Teil größer als A3 ist, bleibt A3 die Basis für Mehrseitendruck.
+        return A3;
+    }
+
+    function rotationCandidates(data, pageW, pageH, padding = 2) {
+        const points = templatePolygonPoints(data);
+        if (!points.length) return [];
+        const candidates = [];
+        for (let angle = 0; angle < 180; angle += 0.5) {
+            const b = rotatedBounds(points, angle);
+            const w = b.w + 2 * padding, h = b.h + 2 * padding;
+            if (w <= pageW && h <= pageH) candidates.push({ angle, bounds: b, w, h });
+        }
+        // Pareto-artig ausdünnen: viele Winkel bleiben möglich, Duplikate ähnlicher Boxen fliegen raus.
+        const kept = [];
+        candidates
+            .sort((a,b) => (a.w*a.h) - (b.w*b.h) || Math.max(a.w,a.h)-Math.max(b.w,b.h))
+            .forEach(c => {
+                if (!kept.some(k => Math.abs(k.w-c.w) < 1.2 && Math.abs(k.h-c.h) < 1.2)) kept.push(c);
+            });
+        return kept.slice(0, 80);
+    }
+
+    function rectsIntersect(a, b) {
+        return !(b.x >= a.x+a.w || b.x+b.w <= a.x || b.y >= a.y+a.h || b.y+b.h <= a.y);
+    }
+
+    function splitFreeRect(fr, used) {
+        if (!rectsIntersect(fr, used)) return [fr];
+        const out = [];
+        if (used.x > fr.x) out.push({x:fr.x, y:fr.y, w:used.x-fr.x, h:fr.h});
+        if (used.x+used.w < fr.x+fr.w) out.push({x:used.x+used.w, y:fr.y, w:(fr.x+fr.w)-(used.x+used.w), h:fr.h});
+        if (used.y > fr.y) out.push({x:fr.x, y:fr.y, w:fr.w, h:used.y-fr.y});
+        if (used.y+used.h < fr.y+fr.h) out.push({x:fr.x, y:used.y+used.h, w:fr.w, h:(fr.y+fr.h)-(used.y+used.h)});
+        return out.filter(r => r.w > 1 && r.h > 1);
+    }
+
+    function pruneFreeRects(rects) {
+        return rects.filter((r, i) => !rects.some((q, j) =>
+            i !== j &&
+            r.x >= q.x - 0.001 && r.y >= q.y - 0.001 &&
+            r.x+r.w <= q.x+q.w + 0.001 &&
+            r.y+r.h <= q.y+q.h + 0.001
+        ));
+    }
+
+    function placeOnMaxRectsPage(page, prepared, packW, packH, pad, gap) {
+        let best = null;
+        for (let fi=0; fi<page.free.length; fi++) {
+            const fr = page.free[fi];
+            for (const fit of prepared.candidates) {
+                const iw = fit.w + gap, ih = fit.h + gap;
+                if (iw <= fr.w && ih <= fr.h) {
+                    const leftoverH = fr.h - ih, leftoverW = fr.w - iw;
+                    const shortSide = Math.min(leftoverW, leftoverH);
+                    const longSide = Math.max(leftoverW, leftoverH);
+                    const score = shortSide * 100000 + longSide * 100 + (fr.w*fr.h - iw*ih);
+                    if (!best || score < best.score) best = {fi, fr, fit, iw, ih, score};
+                }
+            }
+        }
+        if (!best) return false;
+
+        const used = {x:best.fr.x, y:best.fr.y, w:best.iw, h:best.ih};
+        page.items.push({
+            item: prepared.item,
+            fit: best.fit,
+            x: used.x + pad,
+            y: page.header + used.y + pad
+        });
+
+        let newFree = [];
+        for (const fr of page.free) newFree.push(...splitFreeRect(fr, used));
+        page.free = pruneFreeRects(newFree);
+        return true;
+    }
+
+    function arrangePackedTemplates(items, spec) {
+        const header = 12, footer = 15, gap = 2.5, pad = 1.5;
+        const W = spec.w, H = spec.h - header - footer;
+        const pages = [];
+        const oversized = [];
+
+        const prepared = items.map(item => ({
+            item,
+            candidates: rotationCandidates(item.data, W, H, pad)
+        })).sort((a,b) => {
+            const aa = a.candidates.length ? Math.max(...a.candidates.map(c => c.w*c.h)) : Infinity;
+            const bb = b.candidates.length ? Math.max(...b.candidates.map(c => c.w*c.h)) : Infinity;
+            return bb-aa;
+        });
+
+        for (const p of prepared) {
+            if (!p.candidates.length) { oversized.push(p.item); continue; }
+
+            let placed = false;
+            for (const page of pages) {
+                if (placeOnMaxRectsPage(page, p, W, H, pad, gap)) { placed = true; break; }
+            }
+            if (!placed) {
+                const page = {
+                    tile:false, header,
+                    items:[],
+                    free:[{x:0,y:0,w:W,h:H}]
+                };
+                if (!placeOnMaxRectsPage(page, p, W, H, pad, gap)) {
+                    oversized.push(p.item);
+                } else {
+                    pages.push(page);
+                }
+            }
+        }
+
+        // Nur wenn ein Segment selbst auf A3 nicht als Ganzes passt: mehrseitiges A3 mit 10 mm Überlappung.
+        const overlap = 10;
+        for (const item of oversized) {
+            const compact = compactestRotation(item.data);
+            const b = compact.bounds;
+            const tileW = W, tileH = H;
+            const nx = Math.max(1, 1 + Math.ceil((b.w - tileW) / (tileW - overlap)));
+            const ny = Math.max(1, 1 + Math.ceil((b.h - tileH) / (tileH - overlap)));
+            for (let ty = 0; ty < ny; ty++) {
+                for (let tx = 0; tx < nx; tx++) {
+                    pages.push({
+                        tile:true, item, fit:compact,                        tileX:tx*(tileW-overlap), tileY:ty*(tileH-overlap),
+                        col:tx+1, row:ty+1, nx, ny, header, footer, W, H
+                    });
+                }
+            }
+        }
+        return pages;
+    }
+
+    function printAllPackedA4() {
+        let items;
+        try { items = collectPrintTemplates(); } catch (e) { alert(e.message); return; }
+
+        const spec = pageSpecForItems(items);
+        const pages = arrangePackedTemplates(items, spec);
+        if (spec.name === 'A3') {
+            const ok = confirm('A3 ERFORDERLICH.\n\nDer Browser kann deinen Drucker nicht automatisch von A4 auf A3 umstellen.\nBitte im Druckdialog PAPIERFORMAT A3 und 100 % / Tatsächliche Größe wählen.\n\nWenn A4 ausgewählt bleibt, kann der Druckertreiber die Schablone verkleinern.\n\nJetzt A3-Druck öffnen?');
+            if (!ok) return;
+        }
+        const header = 12, footer = 15;
+        const contentH = spec.h - header - footer;
+
+        const html = pages.map((page, index) => {
+            let content = '';
+            let heading = '';
+
+            if (page.tile) {
+                heading = `Segment ${page.item.id} · Teilblatt ${page.col}/${page.nx}, ${page.row}/${page.ny} · 10 mm Überlappung`;
+                const p = page.fit;
+                const baseMatrix = svgMatrixForPlacement(p.angle, p.bounds, -page.tileX + 2, header - page.tileY + 2);
+                content = `
+                    <defs><clipPath id="clip${index}"><rect x="0" y="${header}" width="${spec.w}" height="${contentH}"/></clipPath></defs>
+                    <g clip-path="url(#clip${index})">
+                        <g transform="${baseMatrix}">
+                            ${page.item.data.tabLine}
+                            <path d="${page.item.data.path}" fill="none" stroke="black" stroke-width="0.2"/>
+                            ${page.item.data.marks}
+                            ${page.item.data.labels || ''}
+                        </g>
+                    </g>`;
+            } else {
+                heading = 'Segmente ' + page.items.map(p => p.item.id).join(', ');
+                content = page.items.map(p => shapeMarkup(p.item, p.fit, p.x, p.y, true)).join('');
+            }
+
+            return `<div class="auto-print-page">
+                <svg xmlns="http://www.w3.org/2000/svg" width="${spec.w}mm" height="${spec.h}mm" viewBox="0 0 ${spec.w} ${spec.h}">
+                    <text x="0" y="4" font-family="sans-serif" font-size="3">${spec.name} · 1:1 · Seite ${index+1}/${pages.length}</text>
+                    <text x="0" y="9" font-family="sans-serif" font-size="2.5">${heading}</text>
+                    ${content}
+                    <path d="M 2 ${spec.h-7} h 100 M 2 ${spec.h-9} v 4 M 102 ${spec.h-9} v 4" stroke="black" stroke-width="0.2"/>
+                    <text x="35" y="${spec.h-2}" font-family="sans-serif" font-size="2.5">Kontrollmaß 100 mm</text>
+                </svg>
+            </div>`;
+        }).join('');
+
+        const old = document.getElementById('auto-print-style'); if (old) old.remove();
+        const style = document.createElement('style'); style.id = 'auto-print-style';
+        style.textContent = `@page { size:${spec.css}; margin:10mm; }
+            @media print {
+                body { display:block !important; }
+                #printArea { width:${spec.w}mm !important; }
+                .auto-print-page { width:${spec.w}mm; height:${spec.h}mm; margin:0; padding:0; break-inside:avoid; break-after:page; overflow:hidden; }
+                .auto-print-page:last-child { break-after:auto; }
+                .auto-print-page svg { display:block; width:${spec.w}mm; height:${spec.h}mm; max-width:none; max-height:none; }
+            }`;
+        document.head.appendChild(style);
+        document.getElementById('printArea').innerHTML = html;
+        const cleanup = () => style.remove();
+        window.addEventListener('afterprint', cleanup, { once:true });
+
+        alert(`${pages.length} ${spec.name}-Seite(n) vorbereitet · 1:1. Schablonen werden frei gedreht. Im Druckdialog 100 % / tatsächliche Größe, keine Anpassung und keine Kopf-/Fußzeilen wählen.`);
+        setTimeout(() => window.print(), 200);
+    }
+
+    function printActiveSegment() {
+        if (!currentSVGData) return;
+
+        const printArea = document.getElementById('printArea');
+        printArea.innerHTML = '';
+
+        const A4 = { name: 'A4', css: 'A4 portrait', w: 190, h: 277 };
+        const A3 = { name: 'A3', css: 'A3 portrait', w: 277, h: 400 };
+        const pad = 3;
+
+        let spec = A4;
+        let fit = bestFreeRotation(currentSVGData, A4.w, A4.h, pad);
+
+        if (!fit) {
+            spec = A3;
+            fit = bestFreeRotation(currentSVGData, A3.w, A3.h, pad);
+        }
+
+        const old = document.getElementById('auto-print-style'); if (old) old.remove();
+        const style = document.createElement('style'); style.id = 'auto-print-style';
+
+        if (fit) {
+            if (spec.name === 'A3') {
+                const ok = confirm('Dieses Blech benötigt A3.\n\nIm Druckdialog unbedingt PAPIERFORMAT A3 und 100 % / Tatsächliche Größe wählen.\nMit A4 kann der Druckertreiber die Schablone verkleinern.\n\nA3-Druck jetzt öffnen?');
+                if (!ok) return;
+            }
+            const matrix = svgMatrixForPlacement(fit.angle, fit.bounds, pad, pad);
+            printArea.innerHTML = `
+                <div class="auto-print-page">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="${spec.w}mm" height="${spec.h}mm" viewBox="0 0 ${spec.w} ${spec.h}">
+                        <g transform="${matrix}">
+                            ${currentSVGData.tabLine}
+                            <path d="${currentSVGData.path}" fill="none" stroke="#000000" stroke-width="0.5"/>
+                            ${currentSVGData.marks}
+                            ${currentSVGData.labels || ''}
+                        </g>
+                        <text x="3" y="${spec.h-7}" font-family="sans-serif" font-size="3">Blech ${activeSegmentId} · ${spec.name} · 1:1 · Drehung ${fit.angle.toFixed(1)}°</text>
+                        <path d="M ${spec.w-105} ${spec.h-6} h 100 M ${spec.w-105} ${spec.h-8} v 4 M ${spec.w-5} ${spec.h-8} v 4" stroke="black" stroke-width="0.2"/>
+                    </svg>
+                </div>`;
+
+            style.textContent = `@page { size:${spec.css}; margin:10mm; }
+                @media print {
+                    body { display:block !important; }
+                    #printArea { width:${spec.w}mm !important; }
+                    .auto-print-page { width:${spec.w}mm; height:${spec.h}mm; margin:0; padding:0; overflow:hidden; }
+                    .auto-print-page svg { width:${spec.w}mm; height:${spec.h}mm; max-width:none; max-height:none; display:block; }
+                }`;
+        } else {
+            // Größer als A3: erst jetzt mehrseitig auf A3.
+            spec = A3;
+            const compact = compactestRotation(currentSVGData);
+            const b = compact.bounds;
+            const overlap = 10;
+            const tileW = A3.w, tileH = A3.h;
+            const nx = Math.max(1, 1 + Math.ceil((b.w - tileW) / (tileW - overlap)));
+            const ny = Math.max(1, 1 + Math.ceil((b.h - tileH) / (tileH - overlap)));
+
+            let html = '';
+            let pageNo = 0;
+            for (let y = 0; y < ny; y++) {
+                for (let x = 0; x < nx; x++) {
+                    pageNo++;
+                    const offX = x * (tileW - overlap);
+                    const offY = y * (tileH - overlap);
+                    const matrix = svgMatrixForPlacement(compact.angle, compact.bounds, -offX, -offY);
+                    html += `
+                        <div class="auto-print-page">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="${A3.w}mm" height="${A3.h}mm" viewBox="0 0 ${A3.w} ${A3.h}">
+                                <g transform="${matrix}">
+                                    ${currentSVGData.tabLine}
+                                    <path d="${currentSVGData.path}" fill="none" stroke="#000000" stroke-width="0.5"/>
+                                    ${currentSVGData.marks}
+                                    ${currentSVGData.labels || ''}
+                                </g>
+                                <text x="3" y="${A3.h-5}" font-family="sans-serif" font-size="3">Blech ${activeSegmentId} · A3 · Teil ${pageNo}/${nx*ny} · 10 mm Überlappung</text>
+                            </svg>
+                        </div>`;
+                }
+            }
+            printArea.innerHTML = html;
+            style.textContent = `@page { size:A3 portrait; margin:10mm; }
+                @media print {
+                    body { display:block !important; }
+                    #printArea { width:${A3.w}mm !important; }
+                    .auto-print-page { width:${A3.w}mm; height:${A3.h}mm; margin:0; padding:0; overflow:hidden; break-after:page; }
+                    .auto-print-page:last-child { break-after:auto; }
+                    .auto-print-page svg { width:${A3.w}mm; height:${A3.h}mm; max-width:none; max-height:none; display:block; }
+                }`;
+        }
+
+        document.head.appendChild(style);
+        const cleanup = () => style.remove();
+        window.addEventListener('afterprint', cleanup, { once:true });
+
+        alert(`${fit ? spec.name : 'A3 mehrseitig'} vorbereitet · 1:1. Freie Drehung ist aktiv. Im Druckdialog 100 % / tatsächliche Größe und keine Anpassung wählen.`);
+        setTimeout(() => window.print(), 200);
+    }
+
+
+    function printSilhouette() {
+        if(!silhouetteData) return;
+        const printArea = document.getElementById('printArea');
+        printArea.innerHTML = '';
+        
+        const a4W = 190, a4H = 277, overlap = 15; 
+        const pagesX = Math.ceil((silhouetteData.width + 20) / a4W);
+        const pagesY = Math.ceil((silhouetteData.height + 20) / a4H);
+        
+        for(let y=0; y<pagesY; y++) {
+            for(let x=0; x<pagesX; x++) {
+                const vX = silhouetteData.minX - 10 + (x * (a4W - overlap));
+                const vY = silhouetteData.minY - 10 + (y * (a4H - overlap));
+                
+                printArea.innerHTML += `
+                <div class="a4-page">
+                    <svg viewBox="${vX} ${vY} ${a4W} ${a4H}">
+                        <rect x="${vX}" y="${vY}" width="${a4W}" height="${a4H}" fill="none" stroke="#ccc" stroke-dasharray="4,4" stroke-width="0.5"/>
+                        <text x="${vX+5}" y="${vY+15}" fill="#ccc" font-size="5" font-family="sans-serif">GESAMTPLAN (Silhouette) | S. ${x+1}-${y+1}</text>
+                        <path d="${silhouetteData.path}" fill="none" stroke="#000000" stroke-width="1.5" stroke-linejoin="round"/>
+                        ${x > 0 ? `<circle cx="${vX+10}" cy="${vY+a4H/2}" r="2" fill="none" stroke="#000" stroke-width="0.5"/><line x1="${vX+8}" y1="${vY+a4H/2}" x2="${vX+12}" y2="${vY+a4H/2}" stroke="#000" stroke-width="0.5"/><line x1="${vX+10}" y1="${vY+a4H/2-2}" x2="${vX+10}" y2="${vY+a4H/2+2}" stroke="#000" stroke-width="0.5"/>` : ''}
+                    </svg>
+                </div>`;
+            }
+        }
+        setTimeout(() => window.print(), 200);
+    }
+
+    function downloadSVG() {
+        if(!currentSVGData) return;
+        const w = currentSVGData.width + 40, h = currentSVGData.height + 40;
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${currentSVGData.minX-20} ${currentSVGData.minY-20} ${w} ${h}" width="${w}mm" height="${h}mm">
+            ${currentSVGData.tabLine}
+            <path d="${currentSVGData.path}" fill="none" stroke="#0000ff" stroke-width="0.2"/>
+            ${currentSVGData.marks}
+            ${currentSVGData.labels || ''}
+        </svg>`;
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([svg], {type: 'image/svg+xml'}));
+        a.download = `segment_${activeSegmentId}.svg`;
+        a.click();
+    }
+
+
+    function makeStandaloneSVG(item) {
+        const d = item.data;
+        const margin = 10;
+        const w = d.width + margin * 2;
+        const h = d.height + margin * 2;
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}mm" height="${h}mm" viewBox="${d.minX-margin} ${d.minY-margin} ${w} ${h}">
+            ${d.tabLine}
+            <path d="${d.path}" fill="none" stroke="#000000" stroke-width="0.2"/>
+            ${d.marks}
+            ${d.labels || ''}
+        </svg>`;
+    }
+
+    function crc32(bytes) {
+        let table = crc32.table;
+        if (!table) {
+            table = crc32.table = new Uint32Array(256);
+            for (let n=0; n<256; n++) {
+                let c=n;
+                for (let k=0; k<8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+                table[n]=c>>>0;
+            }
+        }
+        let crc = 0xFFFFFFFF;
+        for (const b of bytes) crc = table[(crc ^ b) & 0xFF] ^ (crc >>> 8);
+        return (crc ^ 0xFFFFFFFF) >>> 0;
+    }
+
+    function u16(n) { return [n & 255, (n >>> 8) & 255]; }
+    function u32(n) { return [n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255]; }
+
+    function buildStoreZip(files) {
+        const enc = new TextEncoder();
+        const locals = [], centrals = [];
+        let offset = 0;
+        const now = new Date();
+        const dosTime = ((now.getHours() & 31) << 11) | ((now.getMinutes() & 63) << 5) | ((now.getSeconds()/2) & 31);
+        const dosDate = (((now.getFullYear()-1980) & 127) << 9) | (((now.getMonth()+1) & 15) << 5) | (now.getDate() & 31);
+
+        for (const f of files) {
+            const name = enc.encode(f.name);
+            const data = enc.encode(f.text);
+            const crc = crc32(data);
+            const local = new Uint8Array([
+                ...u32(0x04034b50), ...u16(20), ...u16(0x0800), ...u16(0),
+                ...u16(dosTime), ...u16(dosDate), ...u32(crc), ...u32(data.length), ...u32(data.length),
+                ...u16(name.length), ...u16(0), ...name, ...data
+            ]);
+            locals.push(local);
+
+            const central = new Uint8Array([
+                ...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0),
+                ...u16(dosTime), ...u16(dosDate), ...u32(crc), ...u32(data.length), ...u32(data.length),
+                ...u16(name.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(offset),
+                ...name
+            ]);
+            centrals.push(central);
+            offset += local.length;
+        }
+
+        const centralSize = centrals.reduce((s,a)=>s+a.length,0);
+        const end = new Uint8Array([
+            ...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length),
+            ...u32(centralSize), ...u32(offset), ...u16(0)
+        ]);
+        return new Blob([...locals, ...centrals, end], {type:'application/zip'});
+    }
+
+    function triggerDownload(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
+    }
+
+    function downloadAllSVGZip() {
+        let items;
+        try { items = collectPrintTemplates(); } catch (e) { alert(e.message); return; }
+        const files = items.map(item => ({
+            name: `Blech_${String(item.id).padStart(2,'0')}.svg`,
+            text: makeStandaloneSVG(item)
+        }));
+        const readme = [
+            'Auspuff Studio – Einzel-SVGs',
+            'Jedes Blech ist 1:1 in Millimeter angelegt.',
+            'Die Winkel stehen direkt an der zugehörigen Kante:',
+            'Zylinderseite = Winkel Oben / a1',
+            'Stingerseite = Winkel Unten / a2',
+            '',
+            'Beim Einfügen in Word/LibreOffice/Illustrator niemals automatisch skalieren.',
+            'Vor dem Fertigen ein 100-mm-Kontrollmaß prüfen.'
+        ].join('\\n');
+        files.push({name:'README.txt', text:readme});
+        triggerDownload(buildStoreZip(files), 'AuspuffStudio_Alle_Bleche_SVG.zip');
+    }
+
+    function downloadAllOnLargeSVG() {
+        let items;
+        try { items = collectPrintTemplates(); } catch (e) { alert(e.message); return; }
+
+        const gap = 20, margin = 15, maxRowW = 1000;
+        let x = margin, y = margin, rowH = 0, maxX = 0;
+        const placed = [];
+
+        for (const item of items) {
+            const d = item.data;
+            const w = d.width + 20, h = d.height + 25;
+            if (x + w > maxRowW && x > margin) {
+                x = margin;
+                y += rowH + gap;
+                rowH = 0;
+            }
+            placed.push({item, x, y});
+            x += w + gap;
+            rowH = Math.max(rowH, h);
+            maxX = Math.max(maxX, x);
+        }
+        const totalH = y + rowH + margin;
+        const totalW = Math.max(maxX, 300);
+
+        const groups = placed.map(p => {
+            const d = p.item.data;
+            const tx = p.x - d.minX + 10;
+            const ty = p.y - d.minY + 10;
+            return `<g id="Blech_${p.item.id}" transform="translate(${tx.toFixed(2)} ${ty.toFixed(2)})">
+                ${d.tabLine}
+                <path d="${d.path}" fill="none" stroke="#000000" stroke-width="0.2"/>
+                ${d.marks}
+                ${d.labels || ''}
+            </g>`;
+        }).join('\\n');
+
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}mm" height="${totalH}mm" viewBox="0 0 ${totalW} ${totalH}">
+            ${groups}
+        </svg>`;
+        triggerDownload(new Blob([svg], {type:'image/svg+xml'}), 'AuspuffStudio_Alle_Bleche_grosse_Zeichenflaeche.svg');
+    }
+
+    // Beim Starten prüfen, ob alte Daten da sind
+    loadFromLocal();
+    init3D();
+    renderAll();
+</script>
+</body>
+</html>
