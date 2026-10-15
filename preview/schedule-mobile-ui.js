@@ -46,15 +46,63 @@
 
     let userExpanded=false;
     let lastScheduleSignature='';
+    let startupSelectionPending=true;
+    const WEEKDAYS=['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
 
     function isoToday(){const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0')}
     function selectedDate(){const raw=w.localStorage.getItem('upper_preview_schedule_date')||isoToday();const m=raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);return m?new Date(+m[1],+m[2]-1,+m[3]):new Date()}
+    function dayStart(date){const n=date instanceof Date?date:new Date(date);return new Date(n.getFullYear(),n.getMonth(),n.getDate())}
     function getDays(){try{return JSON.parse(w.localStorage.getItem('upper_schedule_days')||'{}')||{}}catch(_){return{}}}
-    function hasSchedule(){return Object.values(getDays()).some(v=>Array.isArray(v)&&v.length>0)}
-    function dayCount(){return Object.values(getDays()).filter(v=>Array.isArray(v)&&v.length>0).length}
+    function scheduleKeys(days){return Object.keys(days||{}).filter(k=>Array.isArray(days[k])&&days[k].length>0)}
+    function hasSchedule(){return scheduleKeys(getDays()).length>0}
+    function dayCount(){return scheduleKeys(getDays()).length}
     function scheduleSignature(){const days=getDays();return Object.keys(days).map(k=>k+':'+(Array.isArray(days[k])?days[k].length:0)).join('|')}
-    function currentWeekday(date){return ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'][(date||selectedDate()).getDay()]}
-    function autoSelectCurrentDayOnce(startup=false){const sig=scheduleSignature();if(!sig||sig===lastScheduleSignature)return;lastScheduleSignature=sig;if(!hasSchedule())return;const days=getDays(),wanted=currentWeekday(startup?new Date():null);if(days[wanted]&&w.localStorage.getItem('upper_schedule_activeday')!==wanted&&typeof w.switchScheduleDay==='function'){if(startup)w.switchScheduleDay(wanted);else setTimeout(()=>w.switchScheduleDay(wanted),60)}}
+    function weekdayIndex(dayName){const name=String(dayName||'').trim();for(let i=0;i<WEEKDAYS.length;i++){if(name===WEEKDAYS[i]||name.startsWith(WEEKDAYS[i]+' ')||name.startsWith(WEEKDAYS[i]+' ('))return i}return-1}
+    function currentWeekday(date){return WEEKDAYS[(date||selectedDate()).getDay()]}
+    function eventCalendar(days){
+      const keys=scheduleKeys(days);
+      if(!keys.length)return null;
+      const weekdayIndexes=keys.map(weekdayIndex);
+      if(weekdayIndexes.some(i=>i<0)||new Set(weekdayIndexes).size!==weekdayIndexes.length)return null;
+      const anchor=dayStart(selectedDate()),anchorPos=weekdayIndexes.indexOf(anchor.getDay());
+      if(anchorPos<0)return null;
+      const dates=new Array(keys.length);dates[anchorPos]=anchor;
+      for(let i=anchorPos-1;i>=0;i--){
+        const next=dates[i+1],delta=(next.getDay()-weekdayIndexes[i]+7)%7||7;
+        const dt=new Date(next);dt.setDate(dt.getDate()-delta);dates[i]=dt;
+      }
+      for(let i=anchorPos+1;i<keys.length;i++){
+        const prev=dates[i-1],delta=(weekdayIndexes[i]-prev.getDay()+7)%7||7;
+        const dt=new Date(prev);dt.setDate(dt.getDate()+delta);dates[i]=dt;
+      }
+      return keys.map((key,i)=>({key,date:dates[i]}));
+    }
+    function dayForDate(days,targetDate){
+      const keys=scheduleKeys(days);if(!keys.length)return null;
+      const target=dayStart(targetDate),calendar=eventCalendar(days);
+      if(calendar){
+        const first=calendar[0],last=calendar[calendar.length-1];
+        if(target.getTime()<first.date.getTime())return first.key;
+        if(target.getTime()>last.date.getTime())return last.key;
+        const exact=calendar.find(entry=>entry.date.getTime()===target.getTime());
+        if(exact)return exact.key;
+        const next=calendar.find(entry=>entry.date.getTime()>target.getTime());
+        return next?next.key:last.key;
+      }
+      const wanted=currentWeekday(target);
+      return keys.find(k=>weekdayIndex(k)===WEEKDAYS.indexOf(wanted))||null;
+    }
+    function autoSelectCurrentDayOnce(startup=false){
+      const sig=scheduleSignature();if(!sig||sig===lastScheduleSignature)return;
+      if(!hasSchedule())return;
+      const useToday=startup||startupSelectionPending;
+      const days=getDays(),wanted=dayForDate(days,useToday?new Date():selectedDate());
+      lastScheduleSignature=sig;
+      if(useToday)startupSelectionPending=false;
+      if(wanted&&w.localStorage.getItem('upper_schedule_activeday')!==wanted&&typeof w.switchScheduleDay==='function'){
+        if(useToday)w.switchScheduleDay(wanted);else setTimeout(()=>w.switchScheduleDay(wanted),60);
+      }
+    }
     function rerunFinder(){if(typeof w.__runStardesignFinder==='function'){setTimeout(()=>w.__runStardesignFinder(),80)}}
 
     function updateCollapsedState(){
