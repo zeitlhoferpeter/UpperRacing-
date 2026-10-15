@@ -56,7 +56,18 @@
     function scheduleKeys(days){return Object.keys(days||{}).filter(k=>Array.isArray(days[k])&&days[k].length>0)}
     function hasSchedule(){return scheduleKeys(getDays()).length>0}
     function dayCount(){return scheduleKeys(getDays()).length}
-    function scheduleSignature(){const days=getDays();return Object.keys(days).map(k=>k+':'+(Array.isArray(days[k])?days[k].length:0)).join('|')}
+    function eventRange(){
+      try{
+        const raw=w.localStorage.getItem('upper_schedule_event_range_v1');if(!raw)return null;
+        const meta=JSON.parse(raw),track=String(d.getElementById('trackSelect')?.value||'');
+        if(!meta||meta.track!==track)return null;
+        const sm=String(meta.start||'').match(/^(\d{4})-(\d{2})-(\d{2})$/),em=String(meta.end||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if(!sm||!em)return null;
+        return{start:new Date(+sm[1],+sm[2]-1,+sm[3]),end:new Date(+em[1],+em[2]-1,+em[3])};
+      }catch(_){return null}
+    }
+    function dayNumber(date){const n=dayStart(date);return Math.floor(Date.UTC(n.getFullYear(),n.getMonth(),n.getDate())/86400000)}
+    function scheduleSignature(){const days=getDays(),range=w.localStorage.getItem('upper_schedule_event_range_v1')||'';return Object.keys(days).map(k=>k+':'+(Array.isArray(days[k])?days[k].length:0)).join('|')+'|event:'+range}
     function weekdayIndex(dayName){const name=String(dayName||'').trim();for(let i=0;i<WEEKDAYS.length;i++){if(name===WEEKDAYS[i]||name.startsWith(WEEKDAYS[i]+' ')||name.startsWith(WEEKDAYS[i]+' ('))return i}return-1}
     function currentWeekday(date){return WEEKDAYS[(date||selectedDate()).getDay()]}
     function eventCalendar(days){
@@ -79,7 +90,14 @@
     }
     function dayForDate(days,targetDate){
       const keys=scheduleKeys(days);if(!keys.length)return null;
-      const target=dayStart(targetDate),calendar=eventCalendar(days);
+      const target=dayStart(targetDate),range=eventRange();
+      if(range){
+        if(target.getTime()<range.start.getTime())return keys[0];
+        if(target.getTime()>range.end.getTime())return keys[keys.length-1];
+        const offset=Math.max(0,dayNumber(target)-dayNumber(range.start));
+        return keys[Math.min(offset,keys.length-1)];
+      }
+      const calendar=eventCalendar(days);
       if(calendar){
         const first=calendar[0],last=calendar[calendar.length-1];
         if(target.getTime()<first.date.getTime())return first.key;
@@ -98,7 +116,7 @@
       const useToday=startup||startupSelectionPending;
       const days=getDays(),wanted=dayForDate(days,useToday?new Date():selectedDate());
       lastScheduleSignature=sig;
-      if(useToday)startupSelectionPending=false;
+      if(useToday&&wanted)startupSelectionPending=false;
       if(wanted&&w.localStorage.getItem('upper_schedule_activeday')!==wanted&&typeof w.switchScheduleDay==='function'){
         if(useToday)w.switchScheduleDay(wanted);else setTimeout(()=>w.switchScheduleDay(wanted),60);
       }
