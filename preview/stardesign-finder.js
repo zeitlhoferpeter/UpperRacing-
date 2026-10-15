@@ -13,6 +13,11 @@
     function targetDate(){const raw=w.localStorage.getItem('upper_preview_schedule_date');if(raw){const m=raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);if(m)return new Date(+m[1],+m[2]-1,+m[3])}const n=new Date();return new Date(n.getFullYear(),n.getMonth(),n.getDate())}
     function dateInside(range){if(!range)return false;const n=targetDate().getTime();return n>=range.start.getTime()&&n<=range.end.getTime()}
     function fmt(dt){return String(dt.getDate()).padStart(2,'0')+'.'+String(dt.getMonth()+1).padStart(2,'0')+'.'+dt.getFullYear()}
+    function isoDate(dt){return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0')}
+    function rememberEventRange(event,track){
+      if(!event||!event.range||!event.range.start||!event.range.end)return;
+      try{w.localStorage.setItem('upper_schedule_event_range_v1',JSON.stringify({track:String(track||''),start:isoDate(event.range.start),end:isoDate(event.range.end),title:event.title||'',pdf:event.pdf||''}))}catch(_){ }
+    }
 
     function ensureStyles(){
       if(d.getElementById('stardesignFinderStyles'))return;
@@ -48,7 +53,7 @@
     async function runFinder(force){
       const section=findImportSection();if(!section)return;const track=selectedTrackKey(),dateKey=fmt(targetDate());if(running)return;if(!force&&d.getElementById('stardesignLiveSchedule')&&track===lastTrack&&dateKey===lastDate)return;
       lastTrack=track;lastDate=dateKey;running=true;const box=ensureBox();if(!box){running=false;return}const status=box.querySelector('.stardesign-live-status'),trackName=d.getElementById('trackSelect')?.selectedOptions?.[0]?.textContent||track;status.textContent='Prüfe '+trackName+' für '+dateKey+' …';
-      try{const res=await fetch('https://www.stardesignracing.com/events',{cache:'no-store'});if(!res.ok)throw new Error('Eventseite HTTP '+res.status);const html=await res.text(),doc=new DOMParser().parseFromString(html,'text/html'),event=findMatchingEvent(doc);if(!event){status.textContent='Für '+dateKey+' wurde auf der Stardesign-Seite kein passendes Event für '+trackName+' gefunden.';running=false;return}status.innerHTML='<strong>'+event.title+'</strong><br>'+fmt(event.range.start)+' – '+fmt(event.range.end)+'<br>Zeitplan gefunden.';const btn=d.createElement('button');btn.className='stardesign-live-btn';btn.textContent='Zeitplan automatisch laden';btn.onclick=function(){loadPdfThroughExistingImport(event.pdf,btn)};box.appendChild(btn);const a=d.createElement('a');a.className='stardesign-live-link';a.href=event.pdf;a.target='_blank';a.rel='noopener';a.textContent='Zeitplan bei Stardesign öffnen';box.appendChild(a)}
+      try{const res=await fetch('https://www.stardesignracing.com/events',{cache:'no-store'});if(!res.ok)throw new Error('Eventseite HTTP '+res.status);const html=await res.text(),doc=new DOMParser().parseFromString(html,'text/html'),event=findMatchingEvent(doc);if(!event){status.textContent='Für '+dateKey+' wurde auf der Stardesign-Seite kein passendes Event für '+trackName+' gefunden.';running=false;return}rememberEventRange(event,track);status.innerHTML='<strong>'+event.title+'</strong><br>'+fmt(event.range.start)+' – '+fmt(event.range.end)+'<br>Zeitplan gefunden.';const btn=d.createElement('button');btn.className='stardesign-live-btn';btn.textContent='Zeitplan automatisch laden';btn.onclick=function(){loadPdfThroughExistingImport(event.pdf,btn)};box.appendChild(btn);const a=d.createElement('a');a.className='stardesign-live-link';a.href=event.pdf;a.target='_blank';a.rel='noopener';a.textContent='Zeitplan bei Stardesign öffnen';box.appendChild(a)}
       catch(err){console.warn('[Stardesign Finder] Eventprüfung:',err);status.textContent='Automatische Stardesign-Prüfung fehlgeschlagen: '+(err.message||err)}running=false;
     }
 
