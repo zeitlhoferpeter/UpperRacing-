@@ -48,6 +48,21 @@ const days = { Freitag: [turn('09:00')], Samstag: [turn('10:00')], Sonntag: [tur
     }
     const active = frame => frame.evaluate(() => localStorage.getItem('upper_schedule_activeday'));
     const scheduleText = frame => frame.locator('#pageSchedule').innerText();
+    await scenario('before event selects first day', { now: '2026-10-01T06:00:00Z', active: 'Sonntag', search: '2026-10-02' }, async (page, frame) => {
+      assert.equal(await active(frame), 'Freitag');
+      assert.match(await scheduleText(frame), /Tagesplan \(Freitag\)/);
+      assert.match(await frame.locator('.preview-race-side').innerText(), /09:00/);
+    });
+    await scenario('actual middle event day selects that day', { now: '2026-10-03T06:00:00Z', active: 'Freitag', search: '2026-10-02' }, async (page, frame) => {
+      assert.equal(await active(frame), 'Samstag');
+      assert.match(await scheduleText(frame), /Tagesplan \(Samstag\)/);
+      assert.match(await frame.locator('.preview-race-side').innerText(), /10:00/);
+    });
+    await scenario('after event keeps last event day', { now: '2026-10-05T06:00:00Z', active: 'Freitag', search: '2026-10-02' }, async (page, frame) => {
+      assert.equal(await active(frame), 'Sonntag');
+      assert.match(await scheduleText(frame), /Tagesplan \(Sonntag\)/);
+      assert.match(await frame.locator('.preview-race-side').innerText(), /11:00/);
+    });
     await scenario('Sunday startup, visible header, manual selection and restart', {}, async (page, frame, opened) => {
       assert.equal(await active(frame), 'Sonntag', 'today selected before app becomes visible');
       assert.match(await scheduleText(frame), /Tagesplan \(Sonntag\)/);
@@ -74,9 +89,10 @@ const days = { Freitag: [turn('09:00')], Samstag: [turn('10:00')], Sonntag: [tur
       await page.waitForTimeout(600);
       assert.equal(await active(frame), 'Tag 2');
     });
-    await scenario('invalid selection keeps existing first-day fallback', { days: { Freitag: days.Freitag, Samstag: days.Samstag }, active: 'missing' }, async (page, frame) => {
-      assert.match(await scheduleText(frame), /Tagesplan \(Freitag\)/);
-      assert.match(await frame.locator('.preview-race-side').innerText(), /09:00/);
+    await scenario('invalid selection after event resolves to last event day', { days: { Freitag: days.Freitag, Samstag: days.Samstag }, active: 'missing' }, async (page, frame) => {
+      assert.equal(await active(frame), 'Samstag');
+      assert.match(await scheduleText(frame), /Tagesplan \(Samstag\)/);
+      assert.match(await frame.locator('.preview-race-side').innerText(), /10:00/);
     });
     await scenario('empty schedule starts without errors', { days: {}, active: null }, async (page, frame) => {
       assert.match(await scheduleText(frame), /Tag 1/);
