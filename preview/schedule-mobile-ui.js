@@ -67,7 +67,13 @@
       }catch(_){return null}
     }
     function dayNumber(date){const n=dayStart(date);return Math.floor(Date.UTC(n.getFullYear(),n.getMonth(),n.getDate())/86400000)}
-    function scheduleSignature(){const days=getDays(),range=w.localStorage.getItem('upper_schedule_event_range_v1')||'';return Object.keys(days).map(k=>k+':'+(Array.isArray(days[k])?days[k].length:0)).join('|')+'|event:'+range}
+    function selectedTrackReady(){
+      const select=d.getElementById('trackSelect');if(!select)return true;
+      const saved=w.localStorage.getItem('upper_selected_track');if(!saved)return true;
+      const valid=[...select.options].some(o=>o.value===saved);
+      return !valid||select.value===saved;
+    }
+    function scheduleSignature(){const days=getDays(),range=w.localStorage.getItem('upper_schedule_event_range_v1')||'',track=String(d.getElementById('trackSelect')?.value||'');return Object.keys(days).map(k=>k+':'+(Array.isArray(days[k])?days[k].length:0)).join('|')+'|event:'+range+'|track:'+track}
     function weekdayIndex(dayName){const name=String(dayName||'').trim();for(let i=0;i<WEEKDAYS.length;i++){if(name===WEEKDAYS[i]||name.startsWith(WEEKDAYS[i]+' ')||name.startsWith(WEEKDAYS[i]+' ('))return i}return-1}
     function currentWeekday(date){return WEEKDAYS[(date||selectedDate()).getDay()]}
     function eventCalendar(days){
@@ -111,13 +117,15 @@
       return keys.find(k=>weekdayIndex(k)===WEEKDAYS.indexOf(wanted))||null;
     }
     function autoSelectCurrentDayOnce(startup=false){
+      if((startup||startupSelectionPending)&&!selectedTrackReady())return;
       const sig=scheduleSignature();if(!sig||sig===lastScheduleSignature)return;
       if(!hasSchedule())return;
       const useToday=startup||startupSelectionPending;
       const days=getDays(),wanted=dayForDate(days,useToday?new Date():selectedDate());
+      if(!wanted)return;
       lastScheduleSignature=sig;
-      if(useToday&&wanted)startupSelectionPending=false;
-      if(wanted&&w.localStorage.getItem('upper_schedule_activeday')!==wanted&&typeof w.switchScheduleDay==='function'){
+      if(useToday)startupSelectionPending=false;
+      if(w.localStorage.getItem('upper_schedule_activeday')!==wanted&&typeof w.switchScheduleDay==='function'){
         if(useToday)w.switchScheduleDay(wanted);else setTimeout(()=>w.switchScheduleDay(wanted),60);
       }
     }
