@@ -1078,88 +1078,227 @@
         const printArea = document.getElementById('printArea');
         printArea.innerHTML = '';
 
-        const A4 = { name: 'A4', css: 'A4 portrait', w: 190, h: 277 };
-        const A3 = { name: 'A3', css: 'A3 portrait', w: 277, h: 400 };
+        // Physische Blattgröße + interne Nutzfläche.
+        // Wichtig: @page hat KEINEN zusätzlichen Rand mehr. So entsteht beim
+        // Einzeldruck keine doppelte Rand-/Seitengrößenberechnung durch den Browser.
+        const A4 = {
+            name: 'A4', css: 'A4 portrait',
+            paperW: 210, paperH: 297,
+            usableW: 190, usableH: 277,
+            margin: 10
+        };
+        const A3 = {
+            name: 'A3', css: 'A3 portrait',
+            paperW: 297, paperH: 420,
+            usableW: 277, usableH: 400,
+            margin: 10
+        };
         const pad = 3;
 
         let spec = A4;
-        let fit = bestFreeRotation(currentSVGData, A4.w, A4.h, pad);
+        let fit = bestFreeRotation(currentSVGData, A4.usableW, A4.usableH, pad);
 
         if (!fit) {
             spec = A3;
-            fit = bestFreeRotation(currentSVGData, A3.w, A3.h, pad);
+            fit = bestFreeRotation(currentSVGData, A3.usableW, A3.usableH, pad);
         }
 
-        const old = document.getElementById('auto-print-style'); if (old) old.remove();
-        const style = document.createElement('style'); style.id = 'auto-print-style';
+        const old = document.getElementById('auto-print-style');
+        if (old) old.remove();
+        const style = document.createElement('style');
+        style.id = 'auto-print-style';
 
         if (fit) {
             if (spec.name === 'A3') {
-                const ok = confirm('Dieses Blech benötigt A3.\n\nIm Druckdialog unbedingt PAPIERFORMAT A3 und 100 % / Tatsächliche Größe wählen.\nMit A4 kann der Druckertreiber die Schablone verkleinern.\n\nA3-Druck jetzt öffnen?');
+                const ok = confirm(
+                    'Dieses Blech benötigt A3.\n\n' +
+                    'Im Druckdialog unbedingt PAPIERFORMAT A3 und 100 % / Tatsächliche Größe wählen.\n' +
+                    'Mit A4 kann der Druckertreiber die Schablone verkleinern.\n\n' +
+                    'A3-Druck jetzt öffnen?'
+                );
                 if (!ok) return;
             }
-            const matrix = svgMatrixForPlacement(fit.angle, fit.bounds, pad, pad);
+
+            // Schablone 1:1 in die Nutzfläche setzen. Keine Skalierung.
+            const targetX = spec.margin + pad;
+            const targetY = spec.margin + pad;
+            const matrix = svgMatrixForPlacement(fit.angle, fit.bounds, targetX, targetY);
+
             printArea.innerHTML = `
                 <div class="auto-print-page">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="${spec.w}mm" height="${spec.h}mm" viewBox="0 0 ${spec.w} ${spec.h}">
+                    <svg xmlns="http://www.w3.org/2000/svg"
+                         width="${spec.paperW}mm" height="${spec.paperH}mm"
+                         viewBox="0 0 ${spec.paperW} ${spec.paperH}">
                         <g transform="${matrix}">
                             ${currentSVGData.tabLine}
                             <path d="${currentSVGData.path}" fill="none" stroke="#000000" stroke-width="0.5"/>
                             ${currentSVGData.marks}
                             ${currentSVGData.labels || ''}
                         </g>
-                        <text x="3" y="${spec.h-7}" font-family="sans-serif" font-size="3">Blech ${activeSegmentId} · ${spec.name} · 1:1 · Drehung ${fit.angle.toFixed(1)}°</text>
-                        <path d="M ${spec.w-105} ${spec.h-6} h 100 M ${spec.w-105} ${spec.h-8} v 4 M ${spec.w-5} ${spec.h-8} v 4" stroke="black" stroke-width="0.2"/>
+
+                        <text x="${spec.margin}" y="${spec.paperH-6}"
+                              font-family="sans-serif" font-size="3">
+                            Blech ${activeSegmentId} · ${spec.name} · 1:1 · Drehung ${fit.angle.toFixed(1)}°
+                        </text>
+
+                        <path d="M ${spec.paperW-110} ${spec.paperH-7} h 100
+                                 M ${spec.paperW-110} ${spec.paperH-9} v 4
+                                 M ${spec.paperW-10} ${spec.paperH-9} v 4"
+                              stroke="black" stroke-width="0.2"/>
+                        <text x="${spec.paperW-78}" y="${spec.paperH-2}"
+                              font-family="sans-serif" font-size="2.5">
+                            Kontrollmaß 100 mm
+                        </text>
                     </svg>
                 </div>`;
 
-            style.textContent = `@page { size:${spec.css}; margin:10mm; }
+            style.textContent = `
+                @page { size: ${spec.css}; margin: 0; }
                 @media print {
+                    html, body {
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        width: ${spec.paperW}mm !important;
+                        min-width: ${spec.paperW}mm !important;
+                        max-width: ${spec.paperW}mm !important;
+                    }
                     body { display:block !important; }
-                    #printArea { width:${spec.w}mm !important; }
-                    .auto-print-page { width:${spec.w}mm; height:${spec.h}mm; margin:0; padding:0; overflow:hidden; }
-                    .auto-print-page svg { width:${spec.w}mm; height:${spec.h}mm; max-width:none; max-height:none; display:block; }
+                    #printArea {
+                        display:block !important;
+                        width:${spec.paperW}mm !important;
+                        height:${spec.paperH}mm !important;
+                        margin:0 !important;
+                        padding:0 !important;
+                    }
+                    .auto-print-page {
+                        width:${spec.paperW}mm !important;
+                        height:${spec.paperH}mm !important;
+                        min-width:${spec.paperW}mm !important;
+                        min-height:${spec.paperH}mm !important;
+                        max-width:${spec.paperW}mm !important;
+                        max-height:${spec.paperH}mm !important;
+                        margin:0 !important;
+                        padding:0 !important;
+                        overflow:hidden !important;
+                        break-after:auto;
+                    }
+                    .auto-print-page svg {
+                        display:block !important;
+                        width:${spec.paperW}mm !important;
+                        height:${spec.paperH}mm !important;
+                        min-width:${spec.paperW}mm !important;
+                        min-height:${spec.paperH}mm !important;
+                        max-width:none !important;
+                        max-height:none !important;
+                        margin:0 !important;
+                        padding:0 !important;
+                    }
                 }`;
         } else {
-            // Größer als A3: erst jetzt mehrseitig auf A3.
+            // Größer als A3: erst dann mehrseitig, weiterhin exakt 1:1.
             spec = A3;
+
+            const ok = confirm(
+                'Dieses Blech ist größer als ein einzelnes A3-Blatt.\n\n' +
+                'Es wird auf mehrere A3-Seiten mit 10 mm Überlappung verteilt.\n' +
+                'Im Druckdialog PAPIERFORMAT A3 und 100 % / Tatsächliche Größe wählen.\n\n' +
+                'Mehrseitigen A3-Druck jetzt öffnen?'
+            );
+            if (!ok) return;
+
             const compact = compactestRotation(currentSVGData);
             const b = compact.bounds;
             const overlap = 10;
-            const tileW = A3.w, tileH = A3.h;
+            const tileW = A3.usableW;
+            const tileH = A3.usableH;
             const nx = Math.max(1, 1 + Math.ceil((b.w - tileW) / (tileW - overlap)));
             const ny = Math.max(1, 1 + Math.ceil((b.h - tileH) / (tileH - overlap)));
 
             let html = '';
             let pageNo = 0;
+
             for (let y = 0; y < ny; y++) {
                 for (let x = 0; x < nx; x++) {
                     pageNo++;
                     const offX = x * (tileW - overlap);
                     const offY = y * (tileH - overlap);
-                    const matrix = svgMatrixForPlacement(compact.angle, compact.bounds, -offX, -offY);
+
+                    const matrix = svgMatrixForPlacement(
+                        compact.angle,
+                        compact.bounds,
+                        A3.margin - offX,
+                        A3.margin - offY
+                    );
+
                     html += `
                         <div class="auto-print-page">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="${A3.w}mm" height="${A3.h}mm" viewBox="0 0 ${A3.w} ${A3.h}">
-                                <g transform="${matrix}">
-                                    ${currentSVGData.tabLine}
-                                    <path d="${currentSVGData.path}" fill="none" stroke="#000000" stroke-width="0.5"/>
-                                    ${currentSVGData.marks}
-                                    ${currentSVGData.labels || ''}
+                            <svg xmlns="http://www.w3.org/2000/svg"
+                                 width="${A3.paperW}mm" height="${A3.paperH}mm"
+                                 viewBox="0 0 ${A3.paperW} ${A3.paperH}">
+                                <defs>
+                                    <clipPath id="singleClip_${pageNo}">
+                                        <rect x="${A3.margin}" y="${A3.margin}"
+                                              width="${A3.usableW}" height="${A3.usableH}"/>
+                                    </clipPath>
+                                </defs>
+
+                                <g clip-path="url(#singleClip_${pageNo})">
+                                    <g transform="${matrix}">
+                                        ${currentSVGData.tabLine}
+                                        <path d="${currentSVGData.path}" fill="none" stroke="#000000" stroke-width="0.5"/>
+                                        ${currentSVGData.marks}
+                                        ${currentSVGData.labels || ''}
+                                    </g>
                                 </g>
-                                <text x="3" y="${A3.h-5}" font-family="sans-serif" font-size="3">Blech ${activeSegmentId} · A3 · Teil ${pageNo}/${nx*ny} · 10 mm Überlappung</text>
+
+                                <text x="${A3.margin}" y="${A3.paperH-5}"
+                                      font-family="sans-serif" font-size="3">
+                                    Blech ${activeSegmentId} · A3 · Teil ${pageNo}/${nx*ny} · 1:1 · 10 mm Überlappung
+                                </text>
                             </svg>
                         </div>`;
                 }
             }
+
             printArea.innerHTML = html;
-            style.textContent = `@page { size:A3 portrait; margin:10mm; }
+
+            style.textContent = `
+                @page { size: A3 portrait; margin: 0; }
                 @media print {
+                    html, body {
+                        margin:0 !important;
+                        padding:0 !important;
+                        width:${A3.paperW}mm !important;
+                    }
                     body { display:block !important; }
-                    #printArea { width:${A3.w}mm !important; }
-                    .auto-print-page { width:${A3.w}mm; height:${A3.h}mm; margin:0; padding:0; overflow:hidden; break-after:page; }
+                    #printArea {
+                        display:block !important;
+                        width:${A3.paperW}mm !important;
+                        margin:0 !important;
+                        padding:0 !important;
+                    }
+                    .auto-print-page {
+                        width:${A3.paperW}mm !important;
+                        height:${A3.paperH}mm !important;
+                        min-width:${A3.paperW}mm !important;
+                        min-height:${A3.paperH}mm !important;
+                        max-width:${A3.paperW}mm !important;
+                        max-height:${A3.paperH}mm !important;
+                        margin:0 !important;
+                        padding:0 !important;
+                        overflow:hidden !important;
+                        break-after:page;
+                    }
                     .auto-print-page:last-child { break-after:auto; }
-                    .auto-print-page svg { width:${A3.w}mm; height:${A3.h}mm; max-width:none; max-height:none; display:block; }
+                    .auto-print-page svg {
+                        display:block !important;
+                        width:${A3.paperW}mm !important;
+                        height:${A3.paperH}mm !important;
+                        max-width:none !important;
+                        max-height:none !important;
+                        margin:0 !important;
+                        padding:0 !important;
+                    }
                 }`;
         }
 
@@ -1167,7 +1306,10 @@
         const cleanup = () => style.remove();
         window.addEventListener('afterprint', cleanup, { once:true });
 
-        alert(`${fit ? spec.name : 'A3 mehrseitig'} vorbereitet · 1:1. Freie Drehung ist aktiv. Im Druckdialog 100 % / tatsächliche Größe und keine Anpassung wählen.`);
+        alert(
+            `${fit ? spec.name : 'A3 mehrseitig'} vorbereitet · exakt 1:1.\n\n` +
+            'Im Druckdialog: 100 % / Tatsächliche Größe. Keine Option wie „An Seite anpassen“.'
+        );
         setTimeout(() => window.print(), 200);
     }
 
