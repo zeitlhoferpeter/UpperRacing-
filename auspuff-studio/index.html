@@ -1059,8 +1059,9 @@
             @media print {
                 body { display:block !important; }
                 #printArea { width:${spec.w}mm !important; }
-                .auto-print-page { width:${spec.w}mm; height:${spec.h}mm; margin:0; padding:0; break-inside:avoid; break-after:page; overflow:hidden; }
-                .auto-print-page:last-child { break-after:auto; }
+                .auto-print-page { width:${spec.w}mm; height:calc(${spec.h}mm - 0.2mm); margin:0; padding:0; break-inside:avoid; overflow:hidden; }
+                .auto-print-page:not(:last-child) { break-after:page; page-break-after:always; }
+                .auto-print-page:last-child { break-after:auto; page-break-after:auto; }
                 .auto-print-page svg { display:block; width:${spec.w}mm; height:${spec.h}mm; max-width:none; max-height:none; }
             }`;
         document.head.appendChild(style);
@@ -1172,11 +1173,11 @@
                     }
                     .auto-print-page {
                         width:${spec.paperW}mm !important;
-                        height:${spec.paperH}mm !important;
+                        height:calc(${spec.paperH}mm - 0.2mm) !important;
                         min-width:${spec.paperW}mm !important;
-                        min-height:${spec.paperH}mm !important;
+                        min-height:0 !important;
                         max-width:${spec.paperW}mm !important;
-                        max-height:${spec.paperH}mm !important;
+                        max-height:calc(${spec.paperH}mm - 0.2mm) !important;
                         margin:0 !important;
                         padding:0 !important;
                         overflow:hidden !important;
@@ -1279,17 +1280,17 @@
                     }
                     .auto-print-page {
                         width:${A3.paperW}mm !important;
-                        height:${A3.paperH}mm !important;
+                        height:calc(${A3.paperH}mm - 0.2mm) !important;
                         min-width:${A3.paperW}mm !important;
-                        min-height:${A3.paperH}mm !important;
+                        min-height:0 !important;
                         max-width:${A3.paperW}mm !important;
-                        max-height:${A3.paperH}mm !important;
+                        max-height:calc(${A3.paperH}mm - 0.2mm) !important;
                         margin:0 !important;
                         padding:0 !important;
                         overflow:hidden !important;
-                        break-after:page;
                     }
-                    .auto-print-page:last-child { break-after:auto; }
+                    .auto-print-page:not(:last-child) { break-after:page; page-break-after:always; }
+                    .auto-print-page:last-child { break-after:auto; page-break-after:auto; }
                     .auto-print-page svg {
                         display:block !important;
                         width:${A3.paperW}mm !important;
