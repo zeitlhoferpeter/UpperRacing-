@@ -7,7 +7,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <style>
-        body { font-family: system-ui, sans-serif; background: #121212; color: #fff; padding: 20px; display: flex; gap: 20px; margin: 0; height: 100vh; box-sizing: border-box; overflow: hidden; }
+        body { font-family: system-ui, sans-serif; background: #121212; color: #fff; padding: 14px 20px 20px; display: flex; flex-direction: column; gap: 10px; margin: 0; height: 100vh; box-sizing: border-box; overflow: hidden; }
         .panel { background: #1e1e1e; padding: 15px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); display: flex; flex-direction: column; }
         
         .sidebar { min-width: 380px; max-width: 380px; display: flex; flex-direction: column; gap: 10px; z-index: 100; }
@@ -31,7 +31,63 @@
         .project-btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 5px; }
         button.proj-btn { background: #555; font-size: 11px; padding: 8px; } button.proj-btn:hover { background: #777; }
 
-        .views { flex-grow: 1; display: flex; flex-direction: column; gap: 15px; }
+        .app-tabs { flex:0 0 auto; display:flex; gap:6px; align-items:center; background:#191919; border:1px solid #333; border-radius:8px; padding:5px; }
+        .app-tab { border:0; border-radius:6px; background:transparent; color:#aaa; padding:9px 16px; font-weight:700; cursor:pointer; font-size:13px; }
+        .app-tab:hover { background:#272727; color:#fff; }
+        .app-tab.active { background:#1976d2; color:#fff; }
+        .construction-shell { flex:1 1 auto; min-height:0; display:flex; gap:20px; }
+        .construction-shell.page-hidden { display:none; }
+
+        .calculator-page { flex:1 1 auto; min-height:0; overflow:auto; display:none; padding:4px 2px 20px; }
+        .calculator-page.active { display:block; }
+        .calc-head { display:flex; justify-content:space-between; gap:15px; align-items:flex-start; margin:4px 2px 12px; }
+        .calc-head h2 { margin:0; font-size:20px; }
+        .calc-sub { color:#999; font-size:12px; margin-top:4px; max-width:850px; }
+        .calc-badge { flex:0 0 auto; font-size:11px; color:#ffcc80; background:#2a2418; border:1px solid #59461f; border-radius:999px; padding:6px 10px; }
+        .calc-grid { display:grid; grid-template-columns:minmax(300px, 0.9fr) minmax(420px, 1.35fr); gap:12px; align-items:start; }
+        .calc-card { background:#1e1e1e; border:1px solid #383838; border-radius:8px; padding:14px; min-width:0; }
+        .calc-card h3 { margin:0 0 10px; font-size:14px; color:#eee; }
+        .calc-wide { grid-column:1 / -1; }
+        .calc-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+        .calc-field { display:flex; flex-direction:column; min-width:0; }
+        .calc-field label { font-size:11px; color:#aaa; margin-bottom:3px; }
+        .calc-field input, .calc-field select { width:100%; box-sizing:border-box; background:#303030; border:1px solid #555; color:#fff; border-radius:4px; padding:7px 8px; font-size:13px; }
+        .calc-field small { font-size:10px; color:#777; margin-top:3px; }
+        .calc-check { display:flex; gap:8px; align-items:center; font-size:12px; color:#ccc; margin:9px 0; }
+        .calc-actions { display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
+        .calc-mini-btn { border:1px solid #555; background:#333; color:#eee; border-radius:5px; padding:7px 10px; cursor:pointer; font-size:11px; }
+        .calc-mini-btn:hover { background:#444; }
+        .calc-result-main { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:7px; margin-bottom:10px; }
+        .calc-stat { background:#292929; border:1px solid #3e3e3e; border-radius:6px; padding:8px; min-width:0; }
+        .calc-stat span { display:block; color:#888; font-size:10px; margin-bottom:3px; }
+        .calc-stat strong { display:block; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .calc-warning { display:none; background:#3a251d; border:1px solid #7a4935; color:#ffccbc; border-radius:6px; padding:8px 10px; font-size:11px; margin:8px 0; }
+        .calc-warning.show { display:block; }
+        .calc-profile-wrap { background:#fff; border-radius:6px; overflow:hidden; margin:9px 0; }
+        #calcProfileSvg { display:block; width:100%; height:auto; max-height:280px; background:#fff; }
+        .calc-table-wrap { overflow-x:auto; }
+        .calc-table { width:100%; border-collapse:collapse; font-size:11px; }
+        .calc-table th, .calc-table td { border-bottom:1px solid #383838; padding:6px 7px; text-align:right; white-space:nowrap; }
+        .calc-table th:first-child, .calc-table td:first-child { text-align:left; }
+        .calc-table th { color:#999; font-weight:600; }
+        .ref-head { display:grid; grid-template-columns:1.5fr .75fr .9fr .75fr .75fr .75fr 34px; gap:6px; color:#888; font-size:10px; padding:0 0 4px; }
+        .ref-row { display:grid; grid-template-columns:1.5fr .75fr .9fr .75fr .75fr .75fr 34px; gap:6px; margin-bottom:6px; }
+        .ref-row input { min-width:0; background:#303030; color:#fff; border:1px solid #505050; border-radius:4px; padding:6px; font-size:11px; box-sizing:border-box; }
+        .ref-del { border:0; border-radius:4px; background:#8e2424; color:#fff; cursor:pointer; }
+        .calc-note { color:#888; font-size:10px; line-height:1.45; margin-top:7px; }
+        .calc-method { margin-top:10px; }
+        .calc-method summary { cursor:pointer; color:#bbb; font-size:11px; }
+        .calc-method div { color:#888; font-size:10px; line-height:1.55; padding-top:7px; }
+        @media (max-width: 900px) {
+            .calc-grid { grid-template-columns:1fr; }
+            .calc-wide { grid-column:auto; }
+            .calc-result-main { grid-template-columns:repeat(2,minmax(0,1fr)); }
+            .ref-head { display:none; }
+            .ref-row { grid-template-columns:repeat(2,minmax(0,1fr)); border-bottom:1px solid #3a3a3a; padding-bottom:8px; }
+            .ref-del { min-height:34px; }
+        }
+
+        .views { flex-grow: 1; display: flex; flex-direction: column; gap: 15px; min-width:0; }
         .view-box { flex: 1; background: #2a2a2a; border-radius: 8px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid #444; }
         .view-title { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 5px 10px; border-radius: 4px; font-size: 12px; z-index: 10; pointer-events: none; }
         svg { max-width: 100%; max-height: 100%; background: #ffffff; }
@@ -52,7 +108,7 @@
         #printArea { display: none; }
         @media print {
             body, html { height: auto !important; margin: 0; padding: 0; background: white; }
-            .panel, .views { display: none !important; }
+            .panel, .views, .app-tabs, .calculator-page { display: none !important; }
             #printArea { display: block !important; position: relative; width: 100%; }
             #printArea * { visibility: visible; }
             .a4-page { width: 210mm; height: 297mm; page-break-after: always; display: flex; align-items: center; justify-content: center; overflow: hidden; }
@@ -64,6 +120,12 @@
 </head>
 <body>
 
+<div class="app-tabs" role="tablist" aria-label="Auspuff Studio Bereiche">
+    <button id="tabConstruction" class="app-tab active" type="button" onclick="showAppPage('construction')">🛠 Konstruktion</button>
+    <button id="tabCalculator" class="app-tab" type="button" onclick="showAppPage('calculator')">🧮 Auspuff berechnen</button>
+</div>
+
+<div id="constructionPage" class="construction-shell">
 <div class="panel sidebar" id="ui-sidebar">
     
     <details class="tool-section">
@@ -117,6 +179,151 @@
     </div>
     <div class="view-box" id="container2D" style="flex: 0.8;">
         <div class="view-title" id="title2D">2D Abwicklung (Aktives Segment)</div>
+    </div>
+</div>
+</div>
+
+<div id="calculatorPage" class="calculator-page">
+    <div class="calc-head">
+        <div>
+            <h2>2-Takt Resonanzauspuff berechnen</h2>
+            <div class="calc-sub">Grundgeometrie aus Motor-, Steuerzeit- und Zieldrehzahldaten. Referenzanlagen können optional als Korrektur einbezogen werden.</div>
+        </div>
+        <div class="calc-badge">Berechneter Startpunkt · Prüfstand bleibt maßgeblich</div>
+    </div>
+
+    <div class="calc-grid">
+        <section class="calc-card">
+            <h3>Motor & Steuerzeiten</h3>
+            <div class="calc-form-grid">
+                <div class="calc-field" style="grid-column:1/-1">
+                    <label>Motor / Projekt</label>
+                    <input id="calcEngineName" value="Yamaha RD350 YPVS 31K" oninput="renderCalculator()">
+                </div>
+                <div class="calc-field">
+                    <label>Zylinder</label>
+                    <input id="calcCyl" type="number" value="2" min="1" step="1" oninput="renderCalculator()">
+                </div>
+                <div class="calc-field">
+                    <label>Bohrung (mm)</label>
+                    <input id="calcBore" type="number" value="64" min="1" step="0.1" oninput="renderCalculator()">
+                </div>
+                <div class="calc-field">
+                    <label>Hub (mm)</label>
+                    <input id="calcStroke" type="number" value="54" min="1" step="0.1" oninput="renderCalculator()">
+                </div>
+                <div class="calc-field">
+                    <label>Auslassdauer (° KW)</label>
+                    <input id="calcExDur" type="number" value="180" min="80" max="260" step="0.1" oninput="renderCalculator()">
+                </div>
+                <div class="calc-field">
+                    <label>Überströmerdauer (° KW)</label>
+                    <input id="calcTrDur" type="number" value="124" min="60" max="220" step="0.1" oninput="renderCalculator()">
+                </div>
+                <div class="calc-field">
+                    <label>Auslassbreite (mm, optional)</label>
+                    <input id="calcPortW" type="number" value="" min="0" step="0.1" placeholder="z.B. 38" oninput="renderCalculator()">
+                </div>
+                <div class="calc-field">
+                    <label>Auslasshöhe (mm, optional)</label>
+                    <input id="calcPortH" type="number" value="" min="0" step="0.1" placeholder="z.B. 24" oninput="renderCalculator()">
+                </div>
+            </div>
+            <div id="calcEngineDerived" class="calc-note"></div>
+        </section>
+
+        <section class="calc-card">
+            <h3>Ziel & Auslegung</h3>
+            <div class="calc-form-grid">
+                <div class="calc-field">
+                    <label>Zieldrehzahl (1/min)</label>
+                    <input id="calcRpm" type="number" value="8500" min="1000" step="100" oninput="renderCalculator()">
+                </div>
+                <div class="calc-field">
+                    <label>Charakter</label>
+                    <select id="calcMode" onchange="renderCalculator()">
+                        <option value="torque">Drehmoment / breit</option>
+                        <option value="street" selected>Street / Sport</option>
+                        <option value="race">Racing / Spitze</option>
+                    </select>
+                </div>
+                <div class="calc-field">
+                    <label>Krümmer-ID D1 (mm)</label>
+                    <input id="calcHeaderD" type="number" value="35" min="5" step="0.1" oninput="renderCalculator()">
+                </div>
+                <div class="calc-field">
+                    <label>Diffusor-Stufen</label>
+                    <select id="calcStages" onchange="renderCalculator()">
+                        <option value="1">1 Stufe</option>
+                        <option value="2" selected>2 Stufen</option>
+                        <option value="3">3 Stufen</option>
+                    </select>
+                </div>
+                <div class="calc-field">
+                    <label>Wellengeschwindigkeit (m/s)</label>
+                    <input id="calcWave" type="number" value="518" min="400" max="650" step="1" oninput="renderCalculator()">
+                    <small>Jennings-Startwert ≈ 1700 ft/s = 518 m/s</small>
+                </div>
+                <div class="calc-field">
+                    <label>Referenzgewicht (%)</label>
+                    <input id="calcRefWeight" type="number" value="25" min="0" max="50" step="5" oninput="renderCalculator()">
+                </div>
+            </div>
+            <label class="calc-check"><input id="calcUseRefs" type="checkbox" onchange="renderCalculator()"> Referenzanlagen bei Länge und Durchmesserverhältnissen berücksichtigen</label>
+            <div class="calc-note">Ohne Referenzen arbeitet die Berechnung rein nach den unten dokumentierten Grundformeln und Charakter-Presets.</div>
+        </section>
+
+        <section class="calc-card calc-wide">
+            <h3>Referenzanlagen für diesen Motor</h3>
+            <div class="ref-head">
+                <span>Name</span><span>Peak rpm</span><span>Tuned L mm</span><span>D1 mm</span><span>Bauch mm</span><span>Stinger mm</span><span></span>
+            </div>
+            <div id="calcReferenceRows"></div>
+            <div class="calc-actions">
+                <button class="calc-mini-btn" type="button" onclick="addCalcReference()">+ Referenzanlage</button>
+                <button class="calc-mini-btn" type="button" onclick="addCurrentConstructionReference()">Aktuelle Konstruktion als Referenz übernehmen</button>
+            </div>
+            <div class="calc-note">Nur vermessene oder bekannte Werte eintragen. Bei Referenzen wird die gemessene Tuned-Length auf die gewählte Zieldrehzahl umgerechnet; Bauch-/Stinger-Verhältnisse werden als optionale Korrektur verwendet.</div>
+        </section>
+
+        <section class="calc-card calc-wide">
+            <h3>Berechnungsergebnis</h3>
+            <div id="calcWarning" class="calc-warning"></div>
+            <div class="calc-result-main">
+                <div class="calc-stat"><span>Hubraum gesamt</span><strong id="calcStatCc">–</strong></div>
+                <div class="calc-stat"><span>Tuned Length</span><strong id="calcStatTuned">–</strong></div>
+                <div class="calc-stat"><span>Bauch Ø</span><strong id="calcStatBelly">–</strong></div>
+                <div class="calc-stat"><span>Stinger ID</span><strong id="calcStatStinger">–</strong></div>
+            </div>
+            <div class="calc-profile-wrap">
+                <svg id="calcProfileSvg" viewBox="0 0 1000 280" aria-label="Maßstäbliche Seitenansicht der berechneten Auspuff-Grundform"></svg>
+            </div>
+            <div class="calc-table-wrap">
+                <table class="calc-table">
+                    <thead><tr><th>Abschnitt</th><th>Länge</th><th>D1</th><th>D2</th><th>Winkel gesamt</th></tr></thead>
+                    <tbody id="calcSectionRows"></tbody>
+                </table>
+            </div>
+            <details class="calc-method">
+                <summary>Berechnungsgrundlage anzeigen</summary>
+                <div>
+                    Tuned Length: L = Auslassdauer × Wellengeschwindigkeit × 1000 / (Drehzahl × 12).<br>
+                    Klassische Jennings-Proportionen: Bauchdurchmesser ≈ 2,5 × D1; Stinger ≈ 0,58–0,62 × D1; Krümmerlänge im Bereich 6–11 × D1.<br>
+                    Kegellänge: L = ΔD / (2 × tan(Halbwinkel)). Bei mehrstufigem Diffusor werden die Durchmesserzunahmen auf gestufte Halbwinkel verteilt.<br>
+                    Referenzen verändern das Ergebnis nur bei aktivierter Option und mit dem eingestellten Gewicht.
+                </div>
+            </details>
+        </section>
+
+        <section class="calc-card calc-wide">
+            <h3>Charakter-Vergleich</h3>
+            <div class="calc-table-wrap">
+                <table class="calc-table">
+                    <thead><tr><th>Auslegung</th><th>Tuned L</th><th>Krümmer</th><th>Diffusor ges.</th><th>Bauch</th><th>Gegenkonus</th><th>Stinger ID</th></tr></thead>
+                    <tbody id="calcCompareRows"></tbody>
+                </table>
+            </div>
+        </section>
     </div>
 </div>
 
@@ -321,6 +528,347 @@
     let meshGroup = new THREE.Group();
     let currentSVGData = null;
     let silhouetteData = null;
+
+    // --- SEITENWECHSEL & 2-TAKT-BERECHNUNG ---
+    const CALC_REF_KEY = 'auspuff_calc_refs_v1';
+    let calcReferences = [];
+
+    const calcModePresets = {
+        torque: { name:'Drehmoment', headerFactor:10.0, diffuserHalf:3.5, baffleHalf:7.5, stingerRatio:0.62 },
+        street: { name:'Street / Sport', headerFactor:8.5, diffuserHalf:4.0, baffleHalf:9.0, stingerRatio:0.60 },
+        race: { name:'Racing', headerFactor:7.0, diffuserHalf:4.5, baffleHalf:10.0, stingerRatio:0.58 }
+    };
+
+    function showAppPage(page) {
+        const calc = page === 'calculator';
+        document.getElementById('constructionPage').classList.toggle('page-hidden', calc);
+        document.getElementById('calculatorPage').classList.toggle('active', calc);
+        document.getElementById('tabConstruction').classList.toggle('active', !calc);
+        document.getElementById('tabCalculator').classList.toggle('active', calc);
+        localStorage.setItem('auspuff_active_page_v1', calc ? 'calculator' : 'construction');
+        if (calc) renderCalculator();
+    }
+
+    function calcValue(id, fallback = 0) {
+        const el = document.getElementById(id);
+        if (!el) return fallback;
+        const n = Number(String(el.value).replace(',', '.'));
+        return Number.isFinite(n) ? n : fallback;
+    }
+
+    function readCalcInputs() {
+        return {
+            engineName: document.getElementById('calcEngineName')?.value || 'Motor',
+            cyl: Math.max(1, Math.round(calcValue('calcCyl', 1))),
+            bore: Math.max(1, calcValue('calcBore', 1)),
+            stroke: Math.max(1, calcValue('calcStroke', 1)),
+            exDur: Math.max(1, calcValue('calcExDur', 180)),
+            trDur: Math.max(0, calcValue('calcTrDur', 120)),
+            portW: Math.max(0, calcValue('calcPortW', 0)),
+            portH: Math.max(0, calcValue('calcPortH', 0)),
+            rpm: Math.max(500, calcValue('calcRpm', 8000)),
+            headerD: Math.max(5, calcValue('calcHeaderD', 30)),
+            wave: Math.max(300, calcValue('calcWave', 518)),
+            stages: Math.max(1, Math.min(3, Math.round(calcValue('calcStages', 1)))),
+            mode: document.getElementById('calcMode')?.value || 'street',
+            useRefs: !!document.getElementById('calcUseRefs')?.checked,
+            refWeight: Math.max(0, Math.min(50, calcValue('calcRefWeight', 25))) / 100
+        };
+    }
+
+    function loadCalcReferences() {
+        try {
+            const raw = JSON.parse(localStorage.getItem(CALC_REF_KEY) || '[]');
+            calcReferences = Array.isArray(raw) ? raw : [];
+        } catch (e) {
+            calcReferences = [];
+        }
+        renderCalcReferences();
+    }
+
+    function saveCalcReferences() {
+        localStorage.setItem(CALC_REF_KEY, JSON.stringify(calcReferences));
+    }
+
+    function renderCalcReferences() {
+        const host = document.getElementById('calcReferenceRows');
+        if (!host) return;
+        if (!calcReferences.length) {
+            host.innerHTML = '<div class="calc-note" style="margin:4px 0 8px">Noch keine Referenzanlage gespeichert.</div>';
+            return;
+        }
+        host.innerHTML = calcReferences.map((r, i) => `
+            <div class="ref-row">
+                <input aria-label="Referenzname" value="${String(r.name || '').replace(/"/g,'&quot;')}" onchange="updateCalcReference(${i},'name',this.value)">
+                <input aria-label="Peak Drehzahl" type="number" value="${r.rpm || ''}" placeholder="rpm" onchange="updateCalcReference(${i},'rpm',this.value)">
+                <input aria-label="Tuned Length" type="number" value="${r.tuned || ''}" placeholder="mm" onchange="updateCalcReference(${i},'tuned',this.value)">
+                <input aria-label="Header Durchmesser" type="number" value="${r.header || ''}" placeholder="D1" onchange="updateCalcReference(${i},'header',this.value)">
+                <input aria-label="Bauch Durchmesser" type="number" value="${r.belly || ''}" placeholder="Ø" onchange="updateCalcReference(${i},'belly',this.value)">
+                <input aria-label="Stinger Durchmesser" type="number" value="${r.stinger || ''}" placeholder="ID" onchange="updateCalcReference(${i},'stinger',this.value)">
+                <button class="ref-del" type="button" title="Referenz löschen" onclick="removeCalcReference(${i})">×</button>
+            </div>`).join('');
+    }
+
+    function addCalcReference(prefill = null) {
+        calcReferences.push(prefill || { name:'Neue Referenz', rpm:'', tuned:'', header:'', belly:'', stinger:'' });
+        saveCalcReferences();
+        renderCalcReferences();
+        renderCalculator();
+    }
+
+    function removeCalcReference(index) {
+        calcReferences.splice(index, 1);
+        saveCalcReferences();
+        renderCalcReferences();
+        renderCalculator();
+    }
+
+    function updateCalcReference(index, field, value) {
+        if (!calcReferences[index]) return;
+        calcReferences[index][field] = field === 'name' ? value : (Number(String(value).replace(',','.')) || '');
+        saveCalcReferences();
+        renderCalculator();
+    }
+
+    function analyzeCurrentConstructionForReference() {
+        if (!segments?.length) return null;
+        const maxD = Math.max(...segments.flatMap(s => [Number(s.d1), Number(s.d2)]).filter(Number.isFinite));
+        const header = Number(segments[0].d1);
+        const stinger = Number(segments[segments.length - 1].d2);
+
+        let pos = 0;
+        let baffleStart = null;
+        let baffleLen = 0;
+        let inBaffle = false;
+        for (let i = 0; i < segments.length; i++) {
+            const s = segments[i];
+            const d1 = Number(s.d1), d2 = Number(s.d2), len = Number(s.len) || 0;
+            const decreasing = d2 < d1 - 0.05;
+            const finalConstant = i === segments.length - 1 && Math.abs(d2 - d1) < 0.05;
+            if (!inBaffle && decreasing && d1 >= maxD * 0.90) {
+                inBaffle = true;
+                baffleStart = pos;
+            }
+            if (inBaffle && !finalConstant) baffleLen += len;
+            pos += len;
+        }
+        if (baffleStart === null) {
+            // Fallback: Reflexionspunkt ca. 75 % der vorhandenen Mittellänge.
+            baffleStart = pos * 0.65;
+            baffleLen = pos * 0.20;
+        }
+        const tuned = baffleStart + baffleLen / 2;
+        const inData = readCalcInputs();
+        const rpmEstimate = tuned > 0 ? (inData.exDur * inData.wave * 1000) / (tuned * 12) : inData.rpm;
+        return {
+            name:'Aktuelle Konstruktion',
+            rpm:Math.round(rpmEstimate),
+            tuned:Math.round(tuned * 10) / 10,
+            header:Math.round(header * 10) / 10,
+            belly:Math.round(maxD * 10) / 10,
+            stinger:Math.round(stinger * 10) / 10
+        };
+    }
+
+    function addCurrentConstructionReference() {
+        const ref = analyzeCurrentConstructionForReference();
+        if (!ref) return;
+        addCalcReference(ref);
+    }
+
+    function validReferenceData(input) {
+        return calcReferences.filter(r =>
+            Number(r.rpm) > 0 && Number(r.tuned) > 0
+        ).map(r => ({
+            name:r.name || 'Referenz',
+            rpm:Number(r.rpm),
+            tuned:Number(r.tuned),
+            header:Number(r.header) || 0,
+            belly:Number(r.belly) || 0,
+            stinger:Number(r.stinger) || 0
+        }));
+    }
+
+    function mean(values) {
+        const v = values.filter(Number.isFinite);
+        return v.length ? v.reduce((a,b)=>a+b,0) / v.length : null;
+    }
+
+    function makeDiffuserStages(d1, d2, baseHalf, count) {
+        const totalDelta = Math.max(0, d2 - d1);
+        let shares, mult;
+        if (count === 3) {
+            shares = [0.30, 0.40, 0.30];
+            mult = [0.65, 1.00, 1.55];
+        } else if (count === 2) {
+            shares = [0.55, 0.45];
+            mult = [0.75, 1.35];
+        } else {
+            shares = [1];
+            mult = [1];
+        }
+        let current = d1;
+        return shares.map((share, i) => {
+            const next = (i === shares.length - 1) ? d2 : current + totalDelta * share;
+            const half = Math.max(0.5, baseHalf * mult[i]);
+            const len = ((next - current) / 2) / Math.tan(half * Math.PI / 180);
+            const out = { name:'Diffusor ' + (i + 1), len, d1:current, d2:next, halfAngle:half, includedAngle:half * 2 };
+            current = next;
+            return out;
+        });
+    }
+
+    function calculatePipe(modeOverride = null) {
+        const input = readCalcInputs();
+        const modeKey = modeOverride || input.mode;
+        const preset = calcModePresets[modeKey] || calcModePresets.street;
+        const refs = input.useRefs ? validReferenceData(input) : [];
+        const w = refs.length ? input.refWeight : 0;
+
+        const ccTotal = Math.PI * Math.pow(input.bore / 2, 2) * input.stroke * input.cyl / 1000;
+        const ccCyl = ccTotal / input.cyl;
+        const blowdown = Math.max(0, (input.exDur - input.trDur) / 2);
+        const tunedClassic = input.exDur * input.wave * 1000 / (input.rpm * 12);
+
+        const scaledRefTuned = refs.map(r => r.tuned * r.rpm / input.rpm);
+        const refTuned = mean(scaledRefTuned);
+        const tuned = refTuned ? tunedClassic * (1 - w) + refTuned * w : tunedClassic;
+
+        const refBellyRatio = mean(refs.filter(r => r.header > 0 && r.belly > 0).map(r => r.belly / r.header));
+        const refStingerRatio = mean(refs.filter(r => r.header > 0 && r.stinger > 0).map(r => r.stinger / r.header));
+
+        const bellyRatio = refBellyRatio ? 2.5 * (1 - w) + refBellyRatio * w : 2.5;
+        const stingerRatio = refStingerRatio ? preset.stingerRatio * (1 - w) + refStingerRatio * w : preset.stingerRatio;
+
+        const d1 = input.headerD;
+        const d2 = d1 * bellyRatio;
+        const d3 = d1 * stingerRatio;
+
+        const headerLen = d1 * preset.headerFactor;
+        const diff = makeDiffuserStages(d1, d2, preset.diffuserHalf, input.stages);
+        const diffuserLen = diff.reduce((s,x)=>s+x.len,0);
+
+        const virtualBaffleLen = (d2 / 2) / Math.tan(preset.baffleHalf * Math.PI / 180);
+        const baffleStartTarget = tuned - virtualBaffleLen / 2;
+        const bellyLen = baffleStartTarget - headerLen - diffuserLen;
+        const baffleLen = ((d2 - d3) / 2) / Math.tan(preset.baffleHalf * Math.PI / 180);
+        const stingerLen = d3 * 12;
+
+        const sections = [
+            { name:'Krümmer', len:headerLen, d1, d2:d1, includedAngle:0 },
+            ...diff,
+            { name:'Bauch', len:Math.max(0, bellyLen), d1:d2, d2:d2, includedAngle:0 },
+            { name:'Gegenkonus', len:baffleLen, d1:d2, d2:d3, includedAngle:preset.baffleHalf * 2 },
+            { name:'Stinger', len:stingerLen, d1:d3, d2:d3, includedAngle:0 }
+        ];
+
+        const physicalLength = sections.reduce((s,x)=>s+x.len,0);
+        const portArea = input.portW > 0 && input.portH > 0 ? input.portW * input.portH * 0.85 : null;
+        const portEqD = portArea ? Math.sqrt(4 * portArea / Math.PI) : null;
+
+        const warnings = [];
+        if (bellyLen < 0) warnings.push('Mit dieser Zieldrehzahl, den gewählten Winkeln und der Krümmerlänge bleibt keine positive Bauchlänge. Zieldrehzahl senken oder Geometrie aggressiver/kompakter wählen.');
+        if (input.trDur >= input.exDur) warnings.push('Überströmerdauer muss kleiner als die Auslassdauer sein.');
+        if (portEqD && d1 < portEqD * 0.90) warnings.push('Der gewählte Krümmer-ID liegt deutlich unter dem äquivalenten Auslassquerschnitt.');
+        if (d3 < d1 * 0.56) warnings.push('Der Stinger ist im Verhältnis zum Krümmer sehr klein; thermische Belastung/Gegendruck besonders prüfen.');
+
+        return {
+            input, modeKey, preset, refs, ccTotal, ccCyl, blowdown, tunedClassic, tuned,
+            d1, d2, d3, headerLen, diffuserLen, bellyLen, baffleLen, stingerLen,
+            sections, physicalLength, portArea, portEqD, warnings,
+            refTuned, refWeight:w
+        };
+    }
+
+    function fmtMm(n, digits=1) {
+        return Number.isFinite(n) ? n.toLocaleString('de-DE', {minimumFractionDigits:digits, maximumFractionDigits:digits}) + ' mm' : '–';
+    }
+
+    function renderPipeProfile(result) {
+        const svg = document.getElementById('calcProfileSvg');
+        if (!svg || !result) return;
+        const sections = result.sections;
+        const total = Math.max(1, sections.reduce((s,x)=>s+x.len,0));
+        const maxD = Math.max(...sections.flatMap(s => [s.d1,s.d2]), 1);
+        const left=45, right=965, center=140, usableW=right-left, usableHalfH=105;
+        const sx=usableW/total, sy=usableHalfH/(maxD/2);
+
+        let x=left;
+        const top=[], bot=[], separators=[];
+        top.push([x, center-sections[0].d1/2*sy]);
+        bot.push([x, center+sections[0].d1/2*sy]);
+
+        sections.forEach((s,idx)=>{
+            const nx=x+s.len*sx;
+            top.push([nx, center-s.d2/2*sy]);
+            bot.push([nx, center+s.d2/2*sy]);
+            separators.push({x:nx, label:s.name, mid:(x+nx)/2});
+            x=nx;
+        });
+
+        const poly = top.concat(bot.slice().reverse()).map(p=>p.join(',')).join(' ');
+        const centerLine = `M ${left} ${center} L ${right} ${center}`;
+        const sepMarkup = separators.slice(0,-1).map(s=>`<line x1="${s.x.toFixed(1)}" y1="24" x2="${s.x.toFixed(1)}" y2="250" stroke="#d0d0d0" stroke-width="1"/>`).join('');
+        const labelMarkup = separators.map(s=>`<text x="${s.mid.toFixed(1)}" y="268" text-anchor="middle" font-size="10" fill="#444">${s.label.replace('Diffusor ','D')}</text>`).join('');
+
+        svg.innerHTML = `
+            <rect x="0" y="0" width="1000" height="280" fill="#fff"/>
+            <path d="${centerLine}" stroke="#aaa" stroke-width="1" stroke-dasharray="5,5"/>
+            ${sepMarkup}
+            <polygon points="${poly}" fill="#d9e9f7" stroke="#111" stroke-width="2"/>
+            ${labelMarkup}
+            <text x="45" y="18" font-size="11" fill="#555">${result.preset.name} · Länge physisch ${result.physicalLength.toFixed(0)} mm · Darstellung maßstäblich innerhalb der Grafik</text>
+        `;
+    }
+
+    function renderCalculator() {
+        if (!document.getElementById('calcStatCc')) return;
+        const r = calculatePipe();
+
+        document.getElementById('calcStatCc').textContent = r.ccTotal.toLocaleString('de-DE',{maximumFractionDigits:1}) + ' cm³';
+        document.getElementById('calcStatTuned').textContent = fmtMm(r.tuned,0);
+        document.getElementById('calcStatBelly').textContent = 'Ø ' + r.d2.toLocaleString('de-DE',{maximumFractionDigits:1}) + ' mm';
+        document.getElementById('calcStatStinger').textContent = 'Ø ' + r.d3.toLocaleString('de-DE',{maximumFractionDigits:1}) + ' mm';
+
+        const derived = document.getElementById('calcEngineDerived');
+        const portText = r.portEqD ? ` · Auslassfläche ≈ ${r.portArea.toFixed(0)} mm² → äquiv. Ø ${r.portEqD.toFixed(1)} mm` : '';
+        derived.textContent = `Hubraum je Zylinder ≈ ${r.ccCyl.toFixed(1)} cm³ · Blowdown ≈ ${r.blowdown.toFixed(1)}°${portText}`;
+
+        const warning = document.getElementById('calcWarning');
+        warning.classList.toggle('show', r.warnings.length > 0);
+        warning.textContent = r.warnings.join(' ');
+
+        document.getElementById('calcSectionRows').innerHTML = r.sections.map(s=>`
+            <tr>
+                <td>${s.name}</td>
+                <td>${fmtMm(s.len,1)}</td>
+                <td>${s.d1.toFixed(1)} mm</td>
+                <td>${s.d2.toFixed(1)} mm</td>
+                <td>${s.includedAngle ? s.includedAngle.toFixed(1)+'°' : '–'}</td>
+            </tr>`).join('');
+
+        renderPipeProfile(r);
+
+        document.getElementById('calcCompareRows').innerHTML = ['torque','street','race'].map(mode=>{
+            const x=calculatePipe(mode);
+            return `<tr>
+                <td>${x.preset.name}</td>
+                <td>${fmtMm(x.tuned,0)}</td>
+                <td>${fmtMm(x.headerLen,0)}</td>
+                <td>${fmtMm(x.diffuserLen,0)}</td>
+                <td>${x.bellyLen >= 0 ? fmtMm(x.bellyLen,0) : '<span style="color:#ef9a9a">nicht möglich</span>'}</td>
+                <td>${fmtMm(x.baffleLen,0)}</td>
+                <td>${x.d3.toFixed(1)} mm</td>
+            </tr>`;
+        }).join('');
+    }
+
+    function initCalculator() {
+        loadCalcReferences();
+        renderCalculator();
+        const savedPage = localStorage.getItem('auspuff_active_page_v1');
+        if (savedPage === 'calculator') showAppPage('calculator');
+    }
 
     // --- SPEICHER-FUNKTIONEN (NEU) ---
     function saveToLocal() {
@@ -1548,6 +2096,7 @@
     loadFromLocal();
     init3D();
     renderAll();
+    initCalculator();
 </script>
 </body>
 </html>
