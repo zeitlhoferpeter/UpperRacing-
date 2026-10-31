@@ -39,8 +39,8 @@
         .global-settings { background: #222; padding: 10px; border-radius: 4px; margin-bottom: 10px; border: 1px solid #333; }
         .global-settings h3 { margin: 0 0 10px 0; font-size: 13px; color: #ddd; display: flex; justify-content: space-between;}
 
-        .tool-section { background:#222; border:1px solid #3b3b3b; border-radius:6px; overflow:hidden; }
-        .tool-section summary { list-style:none; cursor:pointer; padding:10px 12px; font-size:13px; font-weight:700; color:#ddd; display:flex; align-items:center; justify-content:space-between; user-select:none; }
+        .tool-section { background:#222; border:1px solid #3b3b3b; border-radius:6px; overflow:hidden; flex:0 0 auto; min-height:40px; }
+        .tool-section summary { list-style:none; cursor:pointer; padding:10px 12px; min-height:40px; box-sizing:border-box; line-height:18px; font-size:13px; font-weight:700; color:#ddd; display:flex; align-items:center; justify-content:space-between; user-select:none; white-space:nowrap; overflow:hidden; }
         .tool-section summary::-webkit-details-marker { display:none; }
         .tool-section summary::after { content:'▾'; color:#888; transition:transform .15s ease; }
         .tool-section[open] summary::after { transform:rotate(180deg); }
