@@ -39,6 +39,16 @@
         .global-settings { background: #222; padding: 10px; border-radius: 4px; margin-bottom: 10px; border: 1px solid #333; }
         .global-settings h3 { margin: 0 0 10px 0; font-size: 13px; color: #ddd; display: flex; justify-content: space-between;}
 
+        .tool-section { background:#222; border:1px solid #3b3b3b; border-radius:6px; overflow:hidden; }
+        .tool-section summary { list-style:none; cursor:pointer; padding:10px 12px; font-size:13px; font-weight:700; color:#ddd; display:flex; align-items:center; justify-content:space-between; user-select:none; }
+        .tool-section summary::-webkit-details-marker { display:none; }
+        .tool-section summary::after { content:'▾'; color:#888; transition:transform .15s ease; }
+        .tool-section[open] summary::after { transform:rotate(180deg); }
+        .tool-content { padding:0 10px 10px 10px; border-top:1px solid #333; }
+        .seam-presets { grid-column:1 / -1; display:flex; gap:4px; margin-top:2px; }
+        .seam-presets button { flex:1; border:1px solid #555; background:#333; color:#ddd; border-radius:3px; padding:4px 2px; font-size:10px; cursor:pointer; }
+        .seam-presets button:hover { background:#444; }
+
         #printArea { display: none; }
         @media print {
             body, html { height: auto !important; margin: 0; padding: 0; background: white; }
@@ -56,16 +66,17 @@
 
 <div class="panel sidebar" id="ui-sidebar">
     
-    <!-- NEU: PROJEKT VERWALTUNG -->
-    <div class="global-settings" style="border-color: #555;">
-        <h3>Projekt-Verwaltung <span>💾</span></h3>
-        <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="loadFromFile(event)">
-        <div class="project-btn-group">
-            <button class="action-btn proj-btn" onclick="document.getElementById('fileInput').click()">📂 Datei Laden</button>
-            <button class="action-btn proj-btn" onclick="saveToFile()">💾 Als Datei Speichern</button>
+    <details class="tool-section">
+        <summary>💾 Projekt</summary>
+        <div class="tool-content">
+            <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="loadFromFile(event)">
+            <div class="project-btn-group">
+                <button class="action-btn proj-btn" onclick="document.getElementById('fileInput').click()">📂 Datei Laden</button>
+                <button class="action-btn proj-btn" onclick="saveToFile()">💾 Als Datei Speichern</button>
+            </div>
+            <button class="action-btn proj-btn" style="background:#b71c1c; width:100%;" onclick="resetProject()">🗑️ Neues Projekt</button>
         </div>
-        <button class="action-btn proj-btn" style="background:#b71c1c; width: 100%; grid-column: span 2;" onclick="resetProject()">🗑️ Neues Projekt (Alles löschen)</button>
-    </div>
+    </details>
 
     <div class="global-settings">
         <h3>Fertigungs-Parameter</h3>
@@ -79,26 +90,25 @@
                 <input type="number" id="global-tab" value="0" step="1" onchange="renderAll()">
             </div>
         </div>
-        <div style="margin-top: 10px;">
-            <label style="font-size: 12px; display: flex; align-items: center; gap: 5px; cursor: pointer;">
-                <input type="checkbox" id="splitPages" checked> 📐 Automatisch A4/A3 · 1:1 (A3 statt 2× A4)
-            </label>
-        </div>
     </div>
 
     <button class="action-btn" onclick="addSegment()">+ Neues Segment anfügen</button>
     <div class="segment-list" id="segmentList"></div>
 
-    <div style="background: #222; padding: 10px; border-radius: 4px; margin-top: 10px; border: 1px solid #333;">
-        <h3 style="margin: 0 0 5px 0; font-size: 12px; color: #aaa;">Export: Aktives Segment (Blechzuschnitt)</h3>
-        <button class="action-btn export-btn" onclick="printAllPackedA4()">Alle Segmente gemeinsam A4/A3 (1:1)</button>
-        <button class="action-btn export-btn" onclick="printActiveSegment()">🖨️ Aktives Blech drucken</button>
-        <button class="action-btn export-btn" style="background:#5e35b1;" onclick="downloadSVG()">📥 Aktives Blech als SVG (2D)</button>
-        <button class="action-btn export-btn" style="background:#6a1b9a;" onclick="downloadAllSVGZip()">📦 Alle Bleche einzeln als SVG-ZIP</button>
-        <button class="action-btn export-btn" style="background:#455a64;" onclick="downloadAllOnLargeSVG()">🧩 Alle Bleche auf großer SVG</button>
-    </div>
-
-    <button class="action-btn silhouette-btn" onclick="printSilhouette()">📏 Silhouetten-Plan (Ganze Anlage) auf A4 drucken</button>
+    <details class="tool-section">
+        <summary>🖨️ Druck & Export</summary>
+        <div class="tool-content">
+            <label style="font-size:11px; color:#aaa; display:flex; align-items:center; gap:6px; margin:8px 0 5px 0; cursor:pointer;">
+                <input type="checkbox" id="splitPages" checked> Automatisch A4/A3 · 1:1
+            </label>
+            <button class="action-btn export-btn" onclick="printAllPackedA4()">Alle Segmente gemeinsam A4/A3 (1:1)</button>
+            <button class="action-btn export-btn" onclick="printActiveSegment()">🖨️ Aktives Blech drucken</button>
+            <button class="action-btn export-btn" style="background:#5e35b1;" onclick="downloadSVG()">📥 Aktives Blech als SVG</button>
+            <button class="action-btn export-btn" style="background:#6a1b9a;" onclick="downloadAllSVGZip()">📦 Alle Bleche einzeln als SVG-ZIP</button>
+            <button class="action-btn export-btn" style="background:#455a64;" onclick="downloadAllOnLargeSVG()">🧩 Alle Bleche auf großer SVG</button>
+            <button class="action-btn silhouette-btn" onclick="printSilhouette()">📏 Silhouetten-Plan</button>
+        </div>
+    </details>
 </div>
 
 <div class="views">
@@ -292,6 +302,17 @@
                 "a2": 0
         }
 ];
+    const normalizeSeam = value => {
+        const n = Number(value);
+        return Number.isFinite(n) ? ((n % 360) + 360) % 360 : 180;
+    };
+    const seamClockText = value => {
+        const deg = normalizeSeam(value);
+        const hourIndex = Math.round(deg / 30) % 12;
+        const hour = hourIndex === 0 ? 12 : hourIndex;
+        return hour + ' Uhr';
+    };
+    defaultSegments = defaultSegments.map(s => ({ ...s, seam: normalizeSeam(s.seam) }));
     let segments = JSON.parse(JSON.stringify(defaultSegments));
     let activeSegmentId = 1;
     let nextId = 23;
@@ -319,7 +340,7 @@
             try {
                 const data = JSON.parse(saved);
                 if (data.segments && data.segments.length > 0) {
-                    segments = data.segments;
+                    segments = data.segments.map(s => ({ ...s, seam: normalizeSeam(s.seam) }));
                     nextId = data.nextId || (Math.max(...segments.map(s => s.id)) + 1);
                     activeSegmentId = segments[0].id;
                 }
@@ -357,7 +378,7 @@
             try {
                 const data = JSON.parse(e.target.result);
                 if (data.segments && data.segments.length > 0) {
-                    segments = data.segments;
+                    segments = data.segments.map(s => ({ ...s, seam: normalizeSeam(s.seam) }));
                     nextId = Math.max(...segments.map(s => s.id)) + 1;
                     activeSegmentId = segments[0].id;
                     if (data.thick) document.getElementById('global-thick').value = data.thick;
@@ -513,11 +534,17 @@
                     <div class="param-group"><label>D1 (mm)</label><input type="number" value="${seg.d1}" step="0.1" onclick="event.stopPropagation();" onchange="updateSeg(${seg.id}, 'd1', this.value)"></div>
                     <div class="param-group"><label>D2 (mm)</label><input type="number" value="${seg.d2}" step="0.1" onclick="event.stopPropagation();" onchange="updateSeg(${seg.id}, 'd2', this.value)"></div>
                     <div class="param-group"><label>Länge (mm)</label><input type="number" value="${seg.len}" step="0.1" onclick="event.stopPropagation();" onchange="updateSeg(${seg.id}, 'len', this.value)"></div>
-                    <div class="param-group"></div>
+                    <div class="param-group"><label style="color:#ef5350">Schweißnaht (°)</label><input type="number" value="${normalizeSeam(seg.seam).toFixed(0)}" min="0" max="359.9" step="1" style="color:#ef5350" title="0° = 12 Uhr, 90° = 3 Uhr, 180° = 6 Uhr, 270° = 9 Uhr" onclick="event.stopPropagation();" onchange="updateSeg(${seg.id}, 'seam', this.value)"></div>
                     <div class="param-group"><label>Winkel Oben</label><input type="number" value="${seg.a1}" step="0.1" onclick="event.stopPropagation();" onchange="updateSeg(${seg.id}, 'a1', this.value)"></div>
                     <div class="param-group"><label>Winkel Unten</label><input type="number" value="${seg.a2}" step="0.1" onclick="event.stopPropagation();" onchange="updateSeg(${seg.id}, 'a2', this.value)"></div>
                     <div class="param-group"><label style="color:#ffb74d">Kantenlänge 12 Uhr</label><input type="number" aria-label="Kantenlänge 12 Uhr in mm" title="Außenkantenlänge in mm; berechnet Winkel Unten. Mittellänge und Winkel Oben bleiben fest." value="${edgeMeasures.twelve.valid && Number.isFinite(edgeMeasures.twelve.length) ? edgeMeasures.twelve.length.toFixed(3) : ''}" min="0" step="0.1" style="color:#ffb74d" onclick="event.stopPropagation();" onchange="updateEdgeLength(${seg.id}, 1, this.value)"></div>
                     <div class="param-group"><label style="color:#4dd0e1">Kantenlänge 6 Uhr</label><input type="number" aria-label="Kantenlänge 6 Uhr in mm" title="Außenkantenlänge in mm; berechnet Winkel Unten. Mittellänge und Winkel Oben bleiben fest." value="${edgeMeasures.six.valid && Number.isFinite(edgeMeasures.six.length) ? edgeMeasures.six.length.toFixed(3) : ''}" min="0" step="0.1" style="color:#4dd0e1" onclick="event.stopPropagation();" onchange="updateEdgeLength(${seg.id}, -1, this.value)"></div>
+                    ${isActive ? `<div class="seam-presets" onclick="event.stopPropagation();">
+                        <button type="button" onclick="updateSeg(${seg.id}, 'seam', 0)">12 Uhr</button>
+                        <button type="button" onclick="updateSeg(${seg.id}, 'seam', 90)">3 Uhr</button>
+                        <button type="button" onclick="updateSeg(${seg.id}, 'seam', 180)">6 Uhr</button>
+                        <button type="button" onclick="updateSeg(${seg.id}, 'seam', 270)">9 Uhr</button>
+                    </div>` : ''}
                 </div>
             </div>`;
             list.innerHTML += html;
@@ -533,7 +560,8 @@
             newD1 = segments[segments.length-1].d2;
             prevA2 = segments[segments.length-1].a2;
         }
-        segments.push({ id: nextId++, d1: newD1, d2: newD1, len: 100, a1: prevA2, a2: 0 });
+        const prevSeam = segments.length > 0 ? normalizeSeam(segments[segments.length-1].seam) : 180;
+        segments.push({ id: nextId++, d1: newD1, d2: newD1, len: 100, a1: prevA2, a2: 0, seam: prevSeam });
         activeSegmentId = nextId - 1;
         renderAll();
         
@@ -558,7 +586,7 @@
     function updateSeg(id, field, value) {
         const seg = segments.find(s => s.id === id);
         if(seg) {
-            seg[field] = parseFloat(value) || 0;
+            seg[field] = field === 'seam' ? normalizeSeam(value) : (parseFloat(value) || 0);
             const idx = segments.indexOf(seg);
             if(field === 'd2' && idx < segments.length - 1) segments[idx+1].d1 = seg.d2;
             if(field === 'a2' && idx < segments.length - 1) segments[idx+1].a1 = seg.a2;
@@ -594,6 +622,7 @@
             const r2 = (seg.d2 - t) / 2;
             const a1 = seg.a1 * Math.PI/180;
             const a2 = seg.a2 * Math.PI/180;
+            const seamRad = normalizeSeam(seg.seam) * Math.PI / 180;
             
             let a1_next = 0;
             if (index < segments.length - 1) {
@@ -602,7 +631,7 @@
             
             let top3D = [], bot3D = [];
             for(let i = 0; i <= steps; i++) {
-                let theta = (i / steps) * 2 * Math.PI + Math.PI; 
+                let theta = (i / steps) * 2 * Math.PI + seamRad; 
                 top3D.push(new THREE.Vector3(r1 * Math.cos(theta), r1 * Math.sin(theta), -r1 * Math.cos(theta) * Math.tan(a1)));
                 bot3D.push(new THREE.Vector3(r2 * Math.cos(theta), r2 * Math.sin(theta), seg.len + r2 * Math.cos(theta) * Math.tan(a2)));
             }
@@ -620,11 +649,23 @@
             mesh.applyMatrix4(currentMatrix);
             meshGroup.add(mesh);
             
-            const seamGeom = new THREE.BufferGeometry().setFromPoints(bot3D);
-            const seamMat = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 2 });
-            const seamLine = new THREE.LineLoop(seamGeom, seamMat);
+            const seamGeom = new THREE.BufferGeometry().setFromPoints([top3D[0], bot3D[0]]);
+            const seamMat = new THREE.LineBasicMaterial({ color: 0xff3030, depthTest: false });
+            const seamLine = new THREE.Line(seamGeom, seamMat);
+            seamLine.renderOrder = 12;
             seamLine.applyMatrix4(currentMatrix);
             meshGroup.add(seamLine);
+
+            if (isActive) {
+                const seamLabel = createLabelSprite('N');
+                seamLabel.position.copy(top3D[0]).add(bot3D[0]).multiplyScalar(0.5);
+                seamLabel.scale.set(22, 22, 1);
+                seamLabel.material.color.setHex(0xff3030);
+                seamLabel.material.depthTest = false;
+                seamLabel.renderOrder = 13;
+                seamLabel.applyMatrix4(currentMatrix);
+                meshGroup.add(seamLabel);
+            }
             
             const label = createLabelSprite((index + 1).toString());
             label.position.set(0, 0, seg.len / 2);
@@ -731,6 +772,7 @@
         const labels = `
             <g class="segment-labels" fill="#000000" font-family="Arial, sans-serif" text-anchor="middle">
                 <text x="${center.x.toFixed(2)}" y="${center.y.toFixed(2)}" font-size="${(labelFont+0.6).toFixed(2)}" font-weight="700">Blech ${index + 1}</text>
+                <text x="${center.x.toFixed(2)}" y="${(center.y + labelFont * 1.35).toFixed(2)}" font-size="${Math.max(2.1, labelFont-0.4).toFixed(2)}" fill="#c62828">Naht ${normalizeSeam(seg.seam).toFixed(0)}° · ${seamClockText(seg.seam)}</text>
                 <text x="${startLabel.x.toFixed(2)}" y="${startLabel.y.toFixed(2)}" font-size="${labelFont.toFixed(2)}">Zylinder · ${fmtAngle(seg.a1)}</text>
                 <text x="${endLabel.x.toFixed(2)}" y="${endLabel.y.toFixed(2)}" font-size="${labelFont.toFixed(2)}">${fmtAngle(seg.a2)} · Stinger</text>
             </g>`;
@@ -746,7 +788,7 @@
         };
 
         const w = currentSVGData.width + 40, h = currentSVGData.height + 40;
-        document.getElementById('container2D').innerHTML = `<div class="view-title" id="title2D">2D Abwicklung (Segment ${index + 1}) - ${w.toFixed(0)}x${h.toFixed(0)} mm</div>
+        document.getElementById('container2D').innerHTML = `<div class="view-title" id="title2D">2D Abwicklung · Segment ${index + 1} · Naht ${normalizeSeam(seg.seam).toFixed(0)}° (${seamClockText(seg.seam)}) · ${w.toFixed(0)}×${h.toFixed(0)} mm</div>
         <svg viewBox="${minX-20} ${minY-20} ${w} ${h}">
             ${currentSVGData.tabLine}
             <path d="${currentSVGData.path}" fill="none" stroke="#0000ff" stroke-width="1"/>
@@ -767,9 +809,10 @@
                 const top = [], bottom = [], steps = 72;
                 const r1 = (seg.d1 - t) / 2, r2 = (seg.d2 - t) / 2;
                 const a1 = seg.a1 * Math.PI / 180, a2 = seg.a2 * Math.PI / 180;
+                const seamRad = normalizeSeam(seg.seam) * Math.PI / 180;
                 if (!(r1 > 0 && r2 > 0 && seg.len > 0) || !Number.isFinite(tab) || tab < 0) throw new Error('Ungültige Maße bei Segment ' + (index + 1));
                 for (let i = 0; i <= steps; i++) {
-                    const angle = i / steps * 2 * Math.PI + Math.PI;
+                    const angle = i / steps * 2 * Math.PI + seamRad;
                     top.push(new THREE.Vector3(r1 * Math.cos(angle), r1 * Math.sin(angle), -r1 * Math.cos(angle) * Math.tan(a1)));
                     bottom.push(new THREE.Vector3(r2 * Math.cos(angle), r2 * Math.sin(angle), seg.len + r2 * Math.cos(angle) * Math.tan(a2)));
                     if (bottom[i].z <= top[i].z) throw new Error('Schnittkanten überkreuzen sich bei Segment ' + (index + 1));
